@@ -1,0 +1,9 @@
+top level:
+  discretization:
+    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.dmg'
+    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.smb'
+    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.txt'
+  global residual:
+    type: mechanics
+  local residual:
+    type: J2

@@ -1,0 +1,64 @@
+#include <gtest.h>
+#include <Teuchos_YamlParameterListHelpers.hpp>
+#include <disc.hpp>
+#include <nested.hpp>
+
+using namespace calibr8;
+
+RCP<ParameterList> get_params() {
+  RCP<ParameterList> params = rcp(new ParameterList);
+  std::string const in = "@CMAKE_BINARY_DIR@/test/unit/unit.yaml";
+  Teuchos::updateParametersFromYamlFile(in, params.ptr());
+  return params;
+}
+
+TEST(disc, construct) {
+  RCP<ParameterList> const params = get_params();
+  ParameterList const& disc_params = params->sublist("discretization");
+  Disc disc(disc_params);
+  EXPECT_EQ(disc.num_dims(), 3);
+  EXPECT_EQ(disc.num_elem_sets(), 1);
+  EXPECT_EQ(disc.num_side_sets(), 1);
+  EXPECT_EQ(disc.num_node_sets(), 4);
+  EXPECT_EQ(disc.num_gv_nodes_per_elem(), 4);
+  EXPECT_EQ(disc.num_lv_nodes_per_elem(), 1);
+  EXPECT_EQ(disc.node_set_name(0), "xmin");
+  EXPECT_EQ(disc.side_set_name(0), "ymax");
+  EXPECT_TRUE(disc.gv_shape() != nullptr);
+  EXPECT_TRUE(disc.lv_shape() != nullptr);
+}
+
+TEST(disc, build_data) {
+  RCP<ParameterList> const params = get_params();
+  ParameterList const& disc_params = params->sublist("discretization");
+  Disc disc(disc_params);
+  int const num_residuals = 2;
+  std::vector<int> num_eqs = {3, 1};
+  disc.build_data(num_residuals, num_eqs);
+}
+
+TEST(disc, nested) {
+  RCP<ParameterList> const params = get_params();
+  ParameterList const& disc_params = params->sublist("discretization");
+  RCP<Disc> disc = rcp(new Disc(disc_params));
+  int const num_residuals = 2;
+  std::vector<int> num_eqs = {3, 1};
+  disc->build_data(num_residuals, num_eqs);
+  apf::Field* global = apf::createField(disc->apf_mesh(), "global", apf::SCALAR, disc->gv_shape());
+  apf::Field* local = apf::createField(disc->apf_mesh(), "local", apf::SCALAR, disc->lv_shape());
+  apf::zeroField(global);
+  apf::zeroField(local);
+  RCP<NestedDisc> nested = rcp(new NestedDisc(disc));
+  nested = Teuchos::null;
+  disc = Teuchos::null;
+}
+
+TEST(disc, verification) {
+  RCP<ParameterList> const params = get_params();
+  ParameterList const& disc_params = params->sublist("discretization");
+  RCP<Disc> disc = rcp(new Disc(disc_params));
+  RCP<Disc> nested = rcp(new NestedDisc(disc, VERIFICATION));
+  EXPECT_EQ(nested->type(), VERIFICATION);
+  RCP<NestedDisc> try_to_cast = Teuchos::rcp_static_cast<NestedDisc>(disc);
+  EXPECT_TRUE(try_to_cast != Teuchos::null);
+}

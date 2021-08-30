@@ -1,0 +1,9 @@
+configure_file(cube_hyperelasticity.yaml.in cube_hyperelasticity.yaml @ONLY)
+configure_file(cube_hyperelasticity_traction.yaml.in cube_hyperelasticity_traction.yaml @ONLY)
+configure_file(cube_hyperJ2.yaml.in cube_hyperJ2.yaml @ONLY)
+configure_file(notch_hyperJ2.yaml.in notch_hyperJ2.yaml @ONLY)
+
+add_test(NAME cube_hyperelasticity COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/cube_hyperelasticity.yaml")
+add_test(NAME cube_hyperelasticity_traction COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/cube_hyperelasticity_traction.yaml")
+add_test(NAME cube_hyperJ2 COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/cube_hyperJ2.yaml")
+add_test(NAME notch_hyperJ2 COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/notch_hyperJ2.yaml")

@@ -1,0 +1,65 @@
+#include <gtest.h>
+#include <gmi_mesh.h>
+#include <control.hpp>
+#include <disc.hpp>
+
+using namespace calibr8;
+
+apf::Mesh* load_mesh() {
+  std::string const geom = "@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.dmg";
+  std::string const mesh = "@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.smb";
+  apf::Mesh* m = apf::loadMdsMesh(geom.c_str(), mesh.c_str());
+  return m;
+}
+
+template <int p>
+double f(apf::Vector3 const& x) {
+  return std::pow(x.x(), p) + std::pow(x.y(), p) + std::pow(x.z(), p);
+}
+
+template <int q>
+double integrate() {
+  gmi_register_mesh();
+  apf::Mesh* m = load_mesh();
+  apf::MeshEntity* elem;
+  apf::MeshIterator* elems = m->begin(3);
+  double integral = 0.;
+  while ((elem = m->iterate(elems))) {
+    apf::MeshElement* me = apf::createMeshElement(m, elem);
+    int const npts = apf::countIntPoints(me, q);
+    for (int pt = 0; pt < npts; ++pt) {
+      apf::Vector3 iota;
+      apf::Vector3 x;
+      apf::getIntPoint(me, q, pt, iota);
+      apf::mapLocalToGlobal(me, iota, x);
+      double const w = apf::getIntWeight(me, q, pt);
+      double const dv = apf::getDV(me, iota);
+      double const f_val = f<q>(x);
+      integral += f_val * w * dv;
+    }
+    apf::destroyMeshElement(me);
+  }
+  m->end(elems);
+  apf::destroyMesh(m);
+  return integral;
+}
+
+TEST(quadrature, order1) {
+  double const val = integrate<1>();
+  EXPECT_NEAR(val, 1.5, 1.e-14);
+}
+
+TEST(quadrature, order2) {
+  double const val = integrate<2>();
+  EXPECT_NEAR(val, 1., 1.e-14);
+}
+
+TEST(quadrature, order3) {
+  double const val = integrate<3>();
+  EXPECT_NEAR(val, 0.75, 1.e-14);
+}
+
+TEST(quadrature, order4) {
+  double const val = integrate<4>();
+  EXPECT_NEAR(val, 0.6, 1.e-14);
+}

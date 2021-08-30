@@ -1,0 +1,161 @@
+#include <apf.h>
+#include <apfMesh.h>
+#include "control.hpp"
+#include "defines.hpp"
+#include "local_residual.hpp"
+#include "material_params.hpp"
+#include "mechanics.hpp"
+
+namespace calibr8 {
+
+using minitensor::det;
+using minitensor::inverse;
+using minitensor::transpose;
+
+template <typename T>
+Mechanics<T>::Mechanics(ParameterList const&, int ndims) {
+
+  int const num_residuals = 2;
+
+  this->m_num_residuals = num_residuals;
+  this->m_num_eqs.resize(num_residuals);
+  this->m_var_types.resize(num_residuals);
+  this->m_resid_names.resize(num_residuals);
+
+  this->m_resid_names[0] = "u";
+  this->m_var_types[0] = VECTOR;
+  this->m_num_eqs[0] = get_num_eqs(VECTOR, ndims);
+
+  this->m_resid_names[1] = "p";
+  this->m_var_types[1] = SCALAR;
+  this->m_num_eqs[1] = get_num_eqs(SCALAR, ndims);
+
+}
+
+template <typename T>
+Mechanics<T>::~Mechanics() {
+}
+
+static double get_size(apf::Mesh* mesh, apf::MeshElement* me) {
+  double h = 0.;
+  apf::Downward edges;
+  apf::MeshEntity* ent = apf::getMeshEntity(me);
+  int const nedges = mesh->getDownward(ent, 1, edges);
+  for (int e = 0; e < nedges; ++e) {
+    double const l = apf::measure(mesh, edges[e]);
+    h += l * l;
+  }
+  return std::sqrt(h / nedges);
+}
+
+template <typename T>
+void Mechanics<T>::evaluate(
+    RCP<LocalResidual<T>> local,
+    apf::Vector3 const&,
+    double w,
+    double dv) {
+
+  // gather information from this class
+  int const ndims = this->m_num_dims;
+  int const nnodes = this->m_num_nodes;
+  int const momentum_idx = 0;
+  int const pressure_idx = 1;
+
+  // gather material properties
+  T const E = local->params(0);
+  T const nu = local->params(1);
+  T const mu = compute_mu(E, nu);
+
+  // gather variables from this residual quantities
+  T const p = this->scalar_x(pressure_idx);
+  Vector<T> const grad_p = this->grad_scalar_x(pressure_idx);
+  Tensor<T> const grad_u = this->grad_vector_x(momentum_idx);
+
+  // compute kinematic quantities
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const F = grad_u + I;
+  Tensor<T> const F_inv = inverse(F);
+  Tensor<T> const F_invT = transpose(F_inv);
+  T const J = det(F);
+
+  // compute stress measures
+  RCP<GlobalResidual<T>> global = rcp(this, false);
+  Tensor<T> const dev_sigma = local->dev_cauchy(global);
+  Tensor<T> stress = dev_sigma - p * I;
+  if (local->is_finite_deformation()) stress = J * stress * F_invT;
+
+  // compute the balance of linear momentum residual
+  for (int n = 0; n < nnodes; ++n) {
+    for (int i = 0; i < ndims; ++i) {
+      for (int j = 0; j < ndims; ++j) {
+        double const dbasis_dx = this->dbasis(n, j);
+        this->R_nodal(momentum_idx, n, i) +=
+          stress(i, j) * dbasis_dx * w * dv;
+      }
+    }
+  }
+
+  // compute the linear part of the pressure residual
+  T const dU_dJ = 0.5 * (J - 1./J);
+  for (int n = 0; n < nnodes; ++n) {
+    double const basis = this->basis(n);
+    this->R_nodal(pressure_idx, n, 0) -=
+      dU_dJ * basis * w * dv;
+  }
+
+  // compute the stabilization to the pressure residual
+  double const h = get_size(this->m_mesh, this->m_mesh_elem);
+  T const tau = 0.5 * h * h / mu;
+  Tensor<T> const C_inv = inverse(transpose(F) * F);
+  for (int n = 0; n < nnodes; ++n) {
+    for (int i = 0; i < ndims; ++i) {
+      for (int j = 0; j < ndims; ++j) {
+        double const dbasis_dx = this->dbasis(n, j);
+        this->R_nodal(pressure_idx, n, 0) -=
+          tau * J * C_inv(i, j) * grad_p(i) * dbasis_dx * w * dv;
+      }
+    }
+  }
+
+  if (!local->is_finite_deformation()) {
+    fail("unimplemented small strain\n");
+  }
+
+}
+
+template <typename T>
+void Mechanics<T>::evaluate_extra(
+    RCP<LocalResidual<T>> local,
+    apf::Vector3 const&,
+    double w,
+    double dv) {
+
+  // gather information from this class
+  int const nnodes = this->m_num_nodes;
+  int const pressure_idx = 1;
+
+  // gather material properties
+  T const E = local->params(0);
+  T const nu = local->params(1);
+  T const kappa = compute_kappa(E, nu);
+
+  // gather variables from this residual quantities
+  T const p = this->scalar_x(pressure_idx);
+
+  // compute the linear part of the pressure residual
+  for (int n = 0; n < nnodes; ++n) {
+    double const basis = this->basis(n);
+    this->R_nodal(pressure_idx, n, 0) -=
+      p / kappa * basis * w * dv;
+  }
+
+  if (!local->is_finite_deformation()) {
+    fail("unimplemented small strain\n");
+  }
+
+}
+
+template class Mechanics<double>;
+template class Mechanics<FADT>;
+
+}
