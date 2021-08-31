@@ -24,7 +24,7 @@ template <typename T> class Residuals;
 enum { OWNED, GHOST, NUM_DISTRIB };
 
 //! \brief Discretization type
-enum { COARSE, NESTED, VERIFICATION };
+enum { COARSE, NESTED, VERIFICATION, TRUTH };
 
 //! \brief Element set definition
 using ElemSet = Array1D<apf::MeshEntity*>;

@@ -24,6 +24,11 @@ class NestedDisc : public Disc {
     //! \details create the fine primal fields and the branch flags
     void create_verification_data();
 
+    //! \brief Set the nested error contribs to the base mesh
+    //! \param E_global The global residual error contribs
+    //! \param E_local The local residual error contribs
+    void set_error(apf::Field* E_global, apf::Field* E_local);
+
     //! \brief Get the fine primal fields
     //! \details For VERIFICATION discretizations
     Array1D<Fields>& primal_fine() { return m_primal_fine; }

@@ -126,4 +126,27 @@ void NestedDisc::create_verification_data() {
 
 }
 
+void NestedDisc::set_error(
+    apf::Field* nested_global_error,
+    apf::Field* nested_local_error) {
+  apf::Field* elem_nmbr = m_mesh->findField("elems");
+  apf::Field* base_err = apf::createStepField(m_base_mesh, "error", apf::SCALAR);
+  apf::zeroField(base_err);
+  apf::MeshEntity* nested_elem;
+  apf::MeshIterator* it = m_mesh->begin(m_num_dims);
+  while ((nested_elem = m_mesh->iterate(it))) {
+    int const id = int(apf::getScalar(elem_nmbr, nested_elem, 0));
+    apf::MeshEntity* base_elem = m_base_elems[id];
+    double base_val = apf::getScalar(base_err, base_elem, 0);
+    double const nested_global_contrib =
+      apf::getScalar(nested_global_error, nested_elem, 0);
+    double const nested_local_contrib =
+      apf::getScalar(nested_local_error, nested_elem, 0);
+    base_val += nested_global_contrib;
+    base_val += nested_local_contrib;
+    apf::setScalar(base_err, base_elem, 0, base_val);
+  }
+  m_mesh->end(it);
+}
+
 }

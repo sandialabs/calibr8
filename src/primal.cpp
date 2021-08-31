@@ -44,7 +44,7 @@ void Primal::solve_at_step(int step, double t, double) {
   if (do_print) print("ON PRIMAL STEP (%d)", step);
 
   // create or grab the the primal fields at this step
-  if (m_disc->type() == COARSE) {
+  if (m_disc->type() == COARSE || m_disc->type() == TRUTH) {
     m_disc->create_primal(m_state->residuals, step);
   }
   Array1D<apf::Field*> x = m_disc->primal(step).global;

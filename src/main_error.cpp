@@ -1,3 +1,6 @@
+#include <PCU.h>
+#include <ma.h>
+#include <lionPrint.h>
 #include <Teuchos_YamlParameterListHelpers.hpp>
 #include "adjoint.hpp"
 #include "control.hpp"
@@ -6,6 +9,7 @@
 #include "fields.hpp"
 #include "global_residual.hpp"
 #include "macros.hpp"
+#include "mesh_size.hpp"
 #include "nested.hpp"
 #include "primal.hpp"
 #include "state.hpp"
@@ -17,19 +21,30 @@ class Driver {
     Driver(std::string const& input_file);
     void drive();
   private:
-    void solve_primal();
-    void prepare_fine_space();
+    double solve_primal();
+    void prepare_fine_space(bool truth);
     void solve_adjoint();
     void estimate_error();
-    void print_error_estimate();
+    double sum_error_estimate();
+    void set_error();
     void clean_up_fine_space();
+    void adapt_mesh(int cycle);
+    void rebuild_coarse_space();
+    double solve_primal_fine();
+    void print_final_summary();
   private:
-    double m_J;
+    int m_ncycles = 1;
     RCP<ParameterList> m_params;
     RCP<State> m_state;
     RCP<NestedDisc> m_nested;
     RCP<Primal> m_primal;
     RCP<Adjoint> m_adjoint;
+  private:
+    bool m_solve_exact;
+    Array1D<double> m_eta;
+    Array1D<double> m_J_H;
+    Array1D<double> m_nnodes;
+    double m_J_exact;
 };
 
 Driver::Driver(std::string const& input_file) {
@@ -39,27 +54,35 @@ Driver::Driver(std::string const& input_file) {
   m_state = rcp(new State(*m_params));
   m_primal = rcp(new Primal(m_params, m_state, m_state->disc));
   ALWAYS_ASSERT(m_state->qoi != Teuchos::null);
+  if (m_params->isSublist("adaptivity")) {
+    auto adapt_params = m_params->sublist("adaptivity", true);
+    m_ncycles = adapt_params.get<int>("solve cycles");
+    m_solve_exact = adapt_params.get<bool>("solve exact", false);
+  }
 }
 
-void Driver::solve_primal() {
+double Driver::solve_primal() {
   ParameterList problem_params = m_params->sublist("problem", true);
   int const nsteps = problem_params.get<int>("num steps");
   double const dt = problem_params.get<double>("step size");
   double t = 0;
-  m_J = 0;
+  double J = 0;
   for (int step = 1; step <= nsteps; ++step) {
     t += dt;
     m_primal->solve_at_step(step, t, dt);
-    m_J += eval_qoi(m_state, m_state->disc, step);
+    J += eval_qoi(m_state, m_state->disc, step);
   }
-  print("J^H: %.16e\n", m_J);
+  J = PCU_Add_Double(J);
+  print("J^H: %.16e\n", J);
+  return J;
 }
 
-void Driver::prepare_fine_space() {
+void Driver::prepare_fine_space(bool truth = false) {
   print("PREPARING FINE SPACE");
   RCP<Disc> disc = m_state->disc;
   disc->destroy_data();
-  m_nested = rcp(new NestedDisc(disc));
+  if (!truth) m_nested = rcp(new NestedDisc(disc));
+  else m_nested = rcp(new NestedDisc(disc, TRUTH));
   auto global = m_state->residuals->global;
   int const nr = global->num_residuals();
   Array1D<int> const neq = global->num_eqs();
@@ -92,7 +115,7 @@ void Driver::estimate_error() {
   }
 }
 
-void Driver::print_error_estimate() {
+double Driver::sum_error_estimate() {
   apf::Mesh* m = m_nested->apf_mesh();
   apf::Field* R_error = m->findField("R_error");
   apf::Field* C_error = m->findField("C_error");
@@ -107,42 +130,150 @@ void Driver::print_error_estimate() {
     eta += val;
     eta_bound += std::abs(val);
   }
+  eta = PCU_Add_Double(eta);
+  eta_bound = PCU_Add_Double(eta_bound);
   m->end(elems);
   print("eta ~ %.16e", eta);
   print("|eta| < %.16e", eta_bound);
-  ParameterList qoi_params = m_params->sublist("quantity of interest", true);
-  if (qoi_params.isParameter("exact")) {
-    double const J_exact = qoi_params.get<double>("exact");
-    double const E = J_exact - m_J;
-    double const I = eta / E;
-    print("E_exact: %.16e", E);
-    print("I: %.16e", I);
-  }
+  return eta;
+}
+
+void Driver::set_error() {
+  apf::Mesh* m = m_nested->apf_mesh();
+  apf::Field* R_error = m->findField("R_error");
+  apf::Field* C_error = m->findField("C_error");
+  m_nested->set_error(R_error, C_error);
+  apf::destroyField(R_error);
+  apf::destroyField(C_error);
+}
+
+static apf::Field* get_size_field(apf::Field* error, int cycle, ParameterList& p) {
+  double const scale = p.get<double>("target growth", 1.0);
+  int target = p.get<int>("target elems");
+  target = int(target * std::pow(scale, cycle));
+  return get_iso_target_size(error, target);
+}
+
+static void configure_ma(ma::Input* in, ParameterList& p) {
+  in->maximumIterations = p.get<int>("adapt iters", 1);
+  in->shouldCoarsen = p.get<bool>("should coarsen", true);
+  in->shouldFixShape = p.get<bool>("fix shape", true);
+  in->goodQuality = p.get<double>("good quality", 0.2);
+  in->shouldRunPreParma = true;
+  in->shouldRunMidParma = true;
+  in->shouldRunPostParma = true;
+}
+
+void Driver::adapt_mesh(int cycle) {
+  print("ADAPTING MESH");
+  ParameterList adapt_params = m_params->sublist("adaptivity", true);
+  apf::Mesh2* m = m_state->disc()->apf_mesh();
+  apf::Field* error = m->findField("error");
+  apf::Field* size = get_size_field(error, cycle, adapt_params);
+  auto in = ma::configure(m, size);
+  configure_ma(in, adapt_params);
+  ma::adapt(in);
+  apf::destroyField(size);
 }
 
 void Driver::clean_up_fine_space() {
-  apf::writeVtkFiles("debug", m_nested->apf_mesh());
   m_state->disc->destroy_primal();
   m_state->disc->destroy_adjoint();
+  m_state->la->destroy_data();
   m_nested = Teuchos::null;
-  // TODO: maybe rebuild coarse disc data
-  // and la containers here in anticipation of an
-  // adaptive loop
+}
+
+void Driver::rebuild_coarse_space() {
+  RCP<Disc> disc = m_state->disc;
+  int const ngr = m_state->residuals->global->num_residuals();
+  std::vector<int> const neqs = m_state->residuals->global->num_eqs();
+  disc->build_data(ngr, neqs);
+  m_state->la->build_data(disc);
+}
+
+static void write_primal_files(RCP<State> state, int cycle, RCP<ParameterList> p) {
+  auto problem_params = p->sublist("problem", true);
+  std::string name = problem_params.get<std::string>("name");
+  name += "_primal_cycle_" + std::to_string(cycle);
+  apf::writeVtkFiles(name.c_str(), state->disc->apf_mesh());
+}
+
+static void write_nested_files(RCP<NestedDisc> disc, int cycle, RCP<ParameterList> p) {
+  auto problem_params = p->sublist("problem", true);
+  std::string name = problem_params.get<std::string>("name");
+  name += "_nested_cycle_" + std::to_string(cycle);
+  apf::writeVtkFiles(name.c_str(), disc->apf_mesh());
+}
+
+double Driver::solve_primal_fine() {
+  RCP<Primal> primal = rcp(new Primal(m_params, m_state, m_nested));
+  ParameterList problem_params = m_params->sublist("problem", true);
+  int const nsteps = problem_params.get<int>("num steps");
+  double const dt = problem_params.get<double>("step size");
+  double t = 0;
+  double J = 0.;
+  for (int step = 1; step <= nsteps; ++step) {
+    t += dt;
+    primal->solve_at_step(step, t, dt);
+    J += eval_qoi(m_state, m_nested, step);
+  }
+  J = PCU_Add_Double(J);
+  print("J^h: %.16e\n", J);
+  return J;
+}
+
+void Driver::print_final_summary() {
+  if (!m_solve_exact) return;
+  ALWAYS_ASSERT(m_J_H.size() == m_eta.size());
+  print("*******************************************");
+  print(" FINAL SUMMARY\n");
+  print("*******************************************");
+  print("step | nodes | J_ex  | J_H  | eta  | I");
+  print("--------------------------------");
+  for (size_t step = 0; step < m_J_H.size(); ++step) {
+    int const nnodes = m_nnodes[step];
+    double const JH = m_J_H[step];
+    double const J_ex = m_J_exact;
+    double const eta = m_eta[step];
+    double const I = eta / (J_ex - JH);
+    print("%d | %d | %.15e | %.15e | %.15e | %.15e", step, nnodes, J_ex, JH, eta, I);
+  }
 }
 
 void Driver::drive() {
-  solve_primal();
-  prepare_fine_space();
-  solve_adjoint();
-  estimate_error();
-  print_error_estimate();
-  clean_up_fine_space();
+  for (int cycle = 0; cycle < m_ncycles; ++cycle) {
+    print("****** solve-adapt cycle: %d", cycle);
+    double const J = solve_primal();
+    double nnodes = m_state->disc->apf_mesh()->count(0);
+    nnodes = PCU_Add_Double(nnodes);
+    m_J_H.push_back(J);
+    m_nnodes.push_back(nnodes);
+    write_primal_files(m_state, cycle, m_params);
+    prepare_fine_space();
+    solve_adjoint();
+    estimate_error();
+    double const eta = sum_error_estimate();
+    m_eta.push_back(eta);
+    write_nested_files(m_nested, cycle, m_params);
+    set_error();
+    clean_up_fine_space();
+    if (cycle < (m_ncycles - 1)) {
+      adapt_mesh(cycle);
+      rebuild_coarse_space();
+    }
+  }
+  if (m_solve_exact) {
+    prepare_fine_space(true);
+    m_J_exact = solve_primal_fine();
+  }
+  print_final_summary();
 }
 
 int main(int argc, char** argv) {
   initialize();
   ALWAYS_ASSERT(argc == 2);
   {
+    lion_set_verbosity(1);
     std::string const yaml_input = argv[1];
     Driver driver(yaml_input);
     driver.drive();

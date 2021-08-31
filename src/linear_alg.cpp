@@ -22,6 +22,7 @@ void LinearAlg::build_data(RCP<Disc> disc) {
 }
 
 void LinearAlg::destroy_data() {
+  m_disc = Teuchos::null;
   for (int d = 0; d < NUM_DISTRIB; ++d) {
     resize(A[d], 0, 0);
     resize(x[d], 0);

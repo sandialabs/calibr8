@@ -14,6 +14,7 @@ set(CALIBR8_SOURCES
   linear_solve.cpp
   local_residual.cpp
   mechanics.cpp
+  mesh_size.cpp
   nested.cpp
   primal.cpp
   qoi.cpp
