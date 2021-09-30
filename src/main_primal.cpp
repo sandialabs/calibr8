@@ -11,6 +11,7 @@
 #include "macros.hpp"
 #include "primal.hpp"
 #include "state.hpp"
+#include "synthetic.hpp"
 
 using namespace calibr8;
 
@@ -43,7 +44,13 @@ class Solver {
     RCP<Primal> m_primal;
     bool m_eval_qoi = false;
     bool m_eval_regression = false;
+    bool m_write_synthetic = true;
 };
+
+static bool should_write_synthetic(RCP<ParameterList> params) {
+  ParameterList problem_params = params->sublist("problem", true);
+  return problem_params.get<bool>("write synthetic", false);
+}
 
 Solver::Solver(std::string const& input_file) {
   print("reading input: %s", input_file.c_str());
@@ -54,6 +61,7 @@ Solver::Solver(std::string const& input_file) {
   m_primal = rcp(new Primal(m_params, m_state, m_state->disc));
   if (m_state->qoi != Teuchos::null) m_eval_qoi = true;
   if (m_params->isSublist("regression")) m_eval_regression = true;
+  m_write_synthetic = should_write_synthetic(m_params);
 }
 
 std::string Solver::base_name() {
@@ -194,6 +202,9 @@ void Solver::solve() {
   }
   if (m_eval_regression) {
     eval_regression(J, m_params);
+  }
+  if (m_write_synthetic) {
+    write_synthetic(name, m_state->disc, nsteps);
   }
 }
 

@@ -19,6 +19,7 @@ set(CALIBR8_SOURCES
   primal.cpp
   qoi.cpp
   state.cpp
+  synthetic.cpp
   tbcs.cpp
 )
 
