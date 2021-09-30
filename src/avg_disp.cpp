@@ -14,6 +14,8 @@ AvgDisp<T>::~AvgDisp() {
 
 template <typename T>
 void AvgDisp<T>::evaluate(
+    int,
+    int,
     RCP<GlobalResidual<T>> global,
     RCP<LocalResidual<T>> local,
     apf::Vector3 const&,

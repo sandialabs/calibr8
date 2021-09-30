@@ -20,11 +20,15 @@ class AvgDisp : public QoI<T> {
     ~AvgDisp();
 
     //! \brief Evaluate the qoi at an integration point
+    //! \param elem_set The index of the current element set
+    //! \param elem_idx The index of the current element in the element set
     //! \param global The global residual object
     //! \param local The local residual object
     //! \param w The integration point weight
     //! \param dv The differential volume (Jacobian) of the element at the point
     void evaluate(
+        int elem_set,
+        int elem,
         RCP<GlobalResidual<T>> global,
         RCP<LocalResidual<T>> local,
         apf::Vector3 const& iota,

@@ -134,6 +134,7 @@ INPUT                  = \
   @CMAKE_SOURCE_DIR@/src/material_params.hpp \
   @CMAKE_SOURCE_DIR@/src/mechanics.hpp \
   @CMAKE_SOURCE_DIR@/src/state.hpp \
+  @CMAKE_SOURCE_DIR@/src/surface_mismatch.hpp \
   @CMAKE_SOURCE_DIR@/src/synthetic.hpp \
   @CMAKE_SOURCE_DIR@/src/tbcs.hpp
 INPUT_ENCODING         = UTF-8

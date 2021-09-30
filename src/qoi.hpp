@@ -27,18 +27,22 @@ class QoI {
 
     //! \brief Perform initializations before the loop over elements
     //! \param disc The discretization object
-    void before_elems(RCP<Disc> disc);
+    virtual void before_elems(RCP<Disc> disc);
 
     //! \brief Set element data on element input
     //! \param mesh_elem The current mesh element to operate on
     void set_elem(apf::MeshElement* mesh_elem);
 
     //! \brief Evaluate the qoi at an integration point
+    //! \param elem_set The index of the current element set
+    //! \param elem_idx The index of the current element in the element set
     //! \param global The global residual object
     //! \param local The local residual object
     //! \param w The integration point weight
     //! \param dv The differential volume (Jacobian) of the element at the point
     virtual void evaluate(
+        int elem_set,
+        int elem,
         RCP<GlobalResidual<T>> global,
         RCP<LocalResidual<T>> local,
         apf::Vector3 const& iota,

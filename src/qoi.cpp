@@ -2,6 +2,7 @@
 #include "disc.hpp"
 #include "fad.hpp"
 #include "qoi.hpp"
+#include "surface_mismatch.hpp"
 
 namespace calibr8 {
 
@@ -66,6 +67,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
   if (type == "average displacement") {
     return rcp(new AvgDisp<T>());
+  } else if (type == "surface mismatch") {
+    return rcp(new SurfaceMismatch<T>(params));
   } else {
     return Teuchos::null;
   }

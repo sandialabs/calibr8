@@ -20,6 +20,7 @@ set(CALIBR8_SOURCES
   qoi.cpp
   state.cpp
   synthetic.cpp
+  surface_mismatch.cpp
   tbcs.cpp
 )
 

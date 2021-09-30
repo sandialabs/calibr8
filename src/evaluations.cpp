@@ -243,14 +243,14 @@ void eval_adjoint_jacobian(
         local->unseed_wrt_xi();
 
         // evaluate the QoI derivatives to obtain dJ_dx
-        qoi->evaluate(global, local, iota, w, dv);
+        qoi->evaluate(es, elem, global, local, iota, w, dv);
         EVector const dJ_dx = qoi->eigen_dvector();
         global->unseed_wrt_x();
 
         // evaluate the QoI derivatives to obtain dJ_dxi
         local->seed_wrt_xi();
         global->interpolate(iota);
-        qoi->evaluate(global, local, iota, w, dv);
+        qoi->evaluate(es, elem, global, local, iota, w, dv);
         EVector const dJ_dxi = qoi->eigen_dvector();
         local->unseed_wrt_xi();
 
@@ -496,7 +496,7 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
         // and store the resultant local residual and it's derivatives (dC_dxi)
         global->interpolate(iota);
         local->gather(pt, xi, xi_prev);
-        qoi->evaluate(global, local, iota, w, dv);
+        qoi->evaluate(es, elem, global, local, iota, w, dv);
         qoi->scatter(J);
 
       }
