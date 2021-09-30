@@ -197,6 +197,7 @@ void eval_adjoint_jacobian(
       // peform operations on element input
       global->set_elem(me);
       local->set_elem(me);
+      qoi->set_elem(me);
       global->gather(x, x_prev);
 
       // grab the forced path if required
@@ -339,7 +340,6 @@ void solve_adjoint_local(
   // perform initializations of the residual objects
   local->before_elems(disc);
   global->before_elems(disc);
-  qoi->before_elems(disc);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
@@ -417,7 +417,6 @@ void solve_adjoint_local(
       apf::destroyMeshElement(me);
       global->unset_elem();
       local->unset_elem();
-      qoi->unset_elem();
 
     }
 
@@ -480,6 +479,7 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
       // peform operations on element input
       global->set_elem(me);
       local->set_elem(me);
+      qoi->set_elem(me);
       global->gather(x, x_prev);
 
       // loop over all integration points in the current element
