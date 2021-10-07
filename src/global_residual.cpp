@@ -462,6 +462,11 @@ RCP<GlobalResidual<T>> create_global_residual(
   }
 }
 
+template <typename T>
+Array1D<int> GlobalResidual<T>::ip_sets() const {
+  return m_ip_sets;
+}
+
 template class GlobalResidual<double>;
 template class GlobalResidual<FADT>;
 

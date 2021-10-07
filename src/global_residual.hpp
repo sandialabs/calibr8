@@ -102,22 +102,13 @@ class GlobalResidual {
     //! \param iota The integration point in the reference element space
     //! \param w The integration point weight
     //! \param dv The differential volume (Jacobian) of the element at the point
+    //! \param ip_set The integration point set index
     virtual void evaluate(
         RCP<LocalResidual<T>> local,
         apf::Vector3 const& iota,
         double w,
-        double dv) = 0;
-
-    //! \brief Evaluate the residual at an integration point
-    //! \param local The local residual (need for params)
-    //! \param iota The integration point in the reference element space
-    //! \param w The integration point weight
-    //! \param dv The differential volume (Jacobian) of the element at the point
-    virtual void evaluate_extra(
-        RCP<LocalResidual<T>> local,
-        apf::Vector3 const& iota,
-        double w,
-        double dv) = 0;
+        double dv,
+        int ip_set) = 0;
 
     //! \brief Scatter the residual into the global residual vector
     //! \param disc The discretization object
@@ -231,6 +222,8 @@ class GlobalResidual {
         Array1D<apf::Field*> const& x_fine,
         Array1D<apf::Field*> const& x) const;
 
+    Array1D<int> ip_sets() const;
+
   private:
 
     int dx_idx(int i, int node, int eq) const;
@@ -265,6 +258,8 @@ class GlobalResidual {
 
     apf::NewArray<double> m_basis;
     apf::NewArray<apf::Vector3> m_grad_basis;
+
+    Array1D<int> m_ip_sets;
 
     //! \endcond
 

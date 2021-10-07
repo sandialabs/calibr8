@@ -14,7 +14,6 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
-  int const q_order = disc->lv_shape()->getOrder();
 
   // gather information from the state object
   RCP<LocalResidual<FADT>> local = state->d_residuals->local;
@@ -61,71 +60,72 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
       local->set_elem(me);
       global->gather(x, x_prev);
 
-      // loop over all integration points in the current element
-      int const npts = apf::countIntPoints(me, q_order);
-      for (int pt = 0; pt < npts; ++pt) {
+      // loop over domain ip sets
+      // ip_set = 0 -> coupled
+      // ip_set > 0 -> global only
+      Array1D<int> ip_sets = global->ip_sets();
+      int const num_ip_sets = ip_sets.size();
 
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order, pt, iota);
-        double const w = apf::getIntWeight(me, q_order, pt);
-        double const dv = apf::getDV(me, iota);
+      for (int ip_set = 0; ip_set < num_ip_sets; ++ip_set) {
 
-        // solve the local constitutive equations at the integration point
-        // and store the resultant local residual and it's derivatives (dC_dxi)
-        global->interpolate(iota);
-        local->gather(pt, xi, xi_prev);
-        local->seed_wrt_xi();
-        int path = local->solve_nonlinear(global);
-        if (is_verification) {
-          nested->branch_paths()[step][es][elem] = path;
+        // get the quadrature order for the ip set
+        int const q_order = ip_sets[ip_set];
+        // loop over all integration points in the current element
+        int const npts = apf::countIntPoints(me, q_order);
+
+        for (int pt = 0; pt < npts; ++pt) {
+
+          // get integration point specific information
+          apf::Vector3 iota;
+          apf::getIntPoint(me, q_order, pt, iota);
+          double const w = apf::getIntWeight(me, q_order, pt);
+          double const dv = apf::getDV(me, iota);
+
+          if (ip_set == 0) {
+
+            // solve the local constitutive equations at the integration point
+            // and store the resultant local residual and it's derivatives (dC_dxi)
+            global->interpolate(iota);
+            local->gather(pt, xi, xi_prev);
+            local->seed_wrt_xi();
+            int path = local->solve_nonlinear(global);
+            if (is_verification) {
+              nested->branch_paths()[step][es][elem] = path;
+            }
+            local->scatter(pt, xi);
+            EMatrix const dC_dxi = local->eigen_jacobian();
+
+            // re-evaluate the constitutive equations to obtain dC_dx
+            local->unseed_wrt_xi();
+            global->seed_wrt_x();
+            global->interpolate(iota);
+            local->evaluate(global);
+            EMatrix const dC_dx = local->eigen_jacobian();
+
+            // solve the forward sensitivty system to obtain dxi_dx
+            EMatrix const dxi_dx = dC_dxi.fullPivLu().solve(-dC_dx);
+
+            // evaluate and scatter point contributions to the global residual
+            local->seed_wrt_x(dxi_dx);
+
+          }
+
+          else {
+
+            global->seed_wrt_x();
+            global->interpolate(iota);
+
+          }
+
+          global->zero_residual();
+          global->evaluate(local, iota, w, dv, ip_set);
+          EMatrix const dtotal = global->eigen_jacobian();
+          EMatrix const elem_resid = global->eigen_residual();
+          global->scatter_lhs(disc, dtotal, LHS);
+          global->scatter_rhs(disc, elem_resid, RHS);
+          global->unseed_wrt_x();
+
         }
-        local->scatter(pt, xi);
-        EMatrix const dC_dxi = local->eigen_jacobian();
-
-        // re-evaluate the constitutive equations to obtain dC_dx
-        local->unseed_wrt_xi();
-        global->seed_wrt_x();
-        global->interpolate(iota);
-        local->evaluate(global);
-        EMatrix const dC_dx = local->eigen_jacobian();
-
-        // solve the forward sensitivty system to obtain dxi_dx
-        EMatrix const dxi_dx = dC_dxi.fullPivLu().solve(-dC_dx);
-
-        // evaluate and scatter point contributions to the global residual
-        local->seed_wrt_x(dxi_dx);
-        global->zero_residual();
-        global->evaluate(local, iota, w, dv);
-        EMatrix const dtotal = global->eigen_jacobian();
-        EMatrix const elem_resid = global->eigen_residual();
-        global->scatter_lhs(disc, dtotal, LHS);
-        global->scatter_rhs(disc, elem_resid, RHS);
-        global->unseed_wrt_x();
-
-      }
-
-      // loop over all extra integration points in the current element
-      int const q_order_extra = q_order + 1;
-      int const npts_extra = apf::countIntPoints(me, q_order_extra);
-      for (int pt = 0; pt < npts_extra; ++pt) {
-
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order_extra, pt, iota);
-        double const w = apf::getIntWeight(me, q_order_extra, pt);
-        double const dv = apf::getDV(me, iota);
-
-        // evaluate and scatter point contributions to the global residual
-        global->seed_wrt_x();
-        global->interpolate(iota);
-        global->zero_residual();
-        global->evaluate_extra(local, iota, w, dv);
-        EMatrix const dtotal = global->eigen_jacobian();
-        EMatrix const elem_resid = global->eigen_residual();
-        global->scatter_lhs(disc, dtotal, LHS);
-        global->scatter_rhs(disc, elem_resid, RHS);
-        global->unseed_wrt_x();
 
       }
 
@@ -135,6 +135,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
       local->unset_elem();
 
     }
+
   }
 
   // perform clean-ups of the residual objects
@@ -152,7 +153,6 @@ void eval_adjoint_jacobian(
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
-  int const q_order = disc->lv_shape()->getOrder();
 
   // gather information from the state object
   RCP<LocalResidual<FADT>> local = state->d_residuals->local;
@@ -205,86 +205,94 @@ void eval_adjoint_jacobian(
         path = nested->branch_paths()[step][es][elem];
       }
 
-      // loop over all integration points in the current element
-      int const npts = apf::countIntPoints(me, q_order);
-      for (int pt = 0; pt < npts; ++pt) {
+      // loop over domain ip sets
+      // ip_set = 0 -> coupled
+      // ip_set > 0 -> global only
+      Array1D<int> ip_sets = global->ip_sets();
+      int const num_ip_sets = ip_sets.size();
 
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order, pt, iota);
-        double const w = apf::getIntWeight(me, q_order, pt);
-        double const dv = apf::getDV(me, iota);
+      for (int ip_set = 0; ip_set < num_ip_sets; ++ip_set) {
 
-        // solve the local constitutive equations at the integration point
-        // and store the resultant local residual and it's derivatives (dC_dxi)
-        global->interpolate(iota);
-        local->gather(pt, xi, xi_prev);
-        local->seed_wrt_xi();
-        local->evaluate(global, force_path, path);
-        EMatrix const dC_dxi = local->eigen_jacobian();
+        // get the quadrature order for the ip set
+        int const q_order = ip_sets[ip_set];
+        // loop over all integration points in the current element
+        int const npts = apf::countIntPoints(me, q_order);
 
-        // re-evaluate the constitutive equations to obtain dC_dx
-        local->unseed_wrt_xi();
-        global->seed_wrt_x();
-        global->interpolate(iota);
-        local->evaluate(global, force_path, path);
-        EMatrix const dC_dx = local->eigen_jacobian();
+        for (int pt = 0; pt < npts; ++pt) {
 
-        // solve the forward sensitivty system to obtain dxi_dx
-        EMatrix const dxi_dx = dC_dxi.fullPivLu().solve(-dC_dx);
+          // get integration point specific information
+          apf::Vector3 iota;
+          apf::getIntPoint(me, q_order, pt, iota);
+          double const w = apf::getIntWeight(me, q_order, pt);
+          double const dv = apf::getDV(me, iota);
 
-        // evaluate and scatter point contributions to the global LHS
-        local->seed_wrt_x(dxi_dx);
-        global->zero_residual();
-        global->evaluate(local, iota, w, dv);
-        EMatrix const dtotal = global->eigen_jacobian();
-        EMatrix const dtotalT = dtotal.transpose();
-        global->scatter_lhs(disc, dtotalT, LHS);
-        local->unseed_wrt_xi();
+          if (ip_set == 0) {
 
-        // evaluate the QoI derivatives to obtain dJ_dx
-        qoi->evaluate(es, elem, global, local, iota, w, dv);
-        EVector const dJ_dx = qoi->eigen_dvector();
-        global->unseed_wrt_x();
+            // solve the local constitutive equations at the integration point
+            // and store the resultant local residual and it's derivatives (dC_dxi)
+            global->interpolate(iota);
+            local->gather(pt, xi, xi_prev);
+            local->seed_wrt_xi();
+            local->evaluate(global, force_path, path);
+            EMatrix const dC_dxi = local->eigen_jacobian();
 
-        // evaluate the QoI derivatives to obtain dJ_dxi
-        local->seed_wrt_xi();
-        global->interpolate(iota);
-        qoi->evaluate(es, elem, global, local, iota, w, dv);
-        EVector const dJ_dxi = qoi->eigen_dvector();
-        local->unseed_wrt_xi();
+            // re-evaluate the constitutive equations to obtain dC_dx
+            local->unseed_wrt_xi();
+            global->seed_wrt_x();
+            global->interpolate(iota);
+            local->evaluate(global, force_path, path);
+            EMatrix const dC_dx = local->eigen_jacobian();
 
-        // update the local history variable
-        g[es][elem][pt] -= dJ_dxi;
-        EVector const g_pt = g[es][elem][pt];
-        EVector const f_pt = f[es][elem][pt];
+            // solve the forward sensitivty system to obtain dxi_dx
+            EMatrix const dxi_dx = dC_dxi.fullPivLu().solve(-dC_dx);
 
-        // evaluate and scatter point contributions to the global RHS
-        EMatrix const dxi_dxT = dxi_dx.transpose();
-        EVector const rhs = -dJ_dx + f_pt + dxi_dxT * g_pt;
-        global->scatter_rhs(disc, rhs, RHS);
+            // evaluate and scatter point contributions to the global LHS
+            local->seed_wrt_x(dxi_dx);
 
-      }
+            global->zero_residual();
+            global->evaluate(local, iota, w, dv, ip_set);
+            EMatrix const dtotal = global->eigen_jacobian();
+            EMatrix const dtotalT = dtotal.transpose();
+            global->scatter_lhs(disc, dtotalT, LHS);
+            local->unseed_wrt_xi();
 
-      // loop over all extra integration points in the current element
-      int const q_order_extra = q_order + 1;
-      int const npts_extra = apf::countIntPoints(me, q_order_extra);
-      for (int pt = 0; pt < npts_extra; ++pt) {
+            // evaluate the QoI derivatives to obtain dJ_dx
+            qoi->evaluate(es, elem, global, local, iota, w, dv);
+            EVector const dJ_dx = qoi->eigen_dvector();
+            global->unseed_wrt_x();
 
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order_extra, pt, iota);
-        double const w = apf::getIntWeight(me, q_order_extra, pt);
-        double const dv = apf::getDV(me, iota);
+            // evaluate the QoI derivatives to obtain dJ_dxi
+            local->seed_wrt_xi();
+            global->interpolate(iota);
+            qoi->evaluate(es, elem, global, local, iota, w, dv);
+            EVector const dJ_dxi = qoi->eigen_dvector();
+            local->unseed_wrt_xi();
 
-        // evaluate and scatter point contributions to the global residual
-        global->seed_wrt_x();
-        global->interpolate(iota);
-        global->zero_residual();
-        global->evaluate_extra(local, iota, w, dv);
-        EMatrix const dtotalT = global->eigen_jacobian().transpose();
-        global->scatter_lhs(disc, dtotalT, LHS);
-        global->unseed_wrt_x();
+            // update the local history variable
+            g[es][elem][pt] -= dJ_dxi;
+            EVector const g_pt = g[es][elem][pt];
+            EVector const f_pt = f[es][elem][pt];
+
+            // evaluate and scatter point contributions to the global RHS
+            EMatrix const dxi_dxT = dxi_dx.transpose();
+            EVector const rhs = -dJ_dx + f_pt + dxi_dxT * g_pt;
+            global->scatter_rhs(disc, rhs, RHS);
+
+          }
+
+          else {
+
+            global->seed_wrt_x();
+            global->interpolate(iota);
+            global->zero_residual();
+            global->evaluate(local, iota, w, dv, ip_set);
+            EMatrix const dtotal = global->eigen_jacobian();
+            EMatrix const dtotalT = dtotal.transpose();
+            global->scatter_lhs(disc, dtotalT, LHS);
+
+          }
+
+        }
 
       }
 
@@ -370,6 +378,7 @@ void solve_adjoint_local(
 
       // loop over all integration points in the current element
       int const npts = apf::countIntPoints(me, q_order);
+
       for (int pt = 0; pt < npts; ++pt) {
 
         // get integration point specific information
@@ -384,7 +393,7 @@ void solve_adjoint_local(
         local->gather(pt, xi, xi_prev);
         local->seed_wrt_xi();
         global->zero_residual();
-        global->evaluate(local, iota, w, dv);
+        global->evaluate(local, iota, w, dv, 0);
         local->evaluate(global, force_path, path);
         EMatrix const dC_dxiT = local->eigen_jacobian().transpose();
         EMatrix const dR_dxiT = global->eigen_jacobian().transpose();
@@ -529,7 +538,6 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   // gather discretization information
   RCP<Disc> disc = state->disc;
   apf::Mesh* mesh = disc->apf_mesh();
-  int const q_order = disc->lv_shape()->getOrder();
 
   // gather information from the state object
   RCP<LocalResidual<FADT>> local = state->d_residuals->local;
@@ -567,52 +575,47 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
       // grab the adjoint nodal solution at the element
       EVector const z_nodes = global->gather_adjoint(z);
 
-      // loop over all integration points in the current element
-      int const npts = apf::countIntPoints(me, q_order);
-      for (int pt = 0; pt < npts; ++pt) {
+      // loop over domain ip sets
+      // ip_set = 0 -> coupled
+      // ip_set > 0 -> global only
+      Array1D<int> ip_sets = global->ip_sets();
+      int const num_ip_sets = ip_sets.size();
 
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order, pt, iota);
-        double const w = apf::getIntWeight(me, q_order, pt);
-        double const dv = apf::getDV(me, iota);
+      for (int ip_set = 0; ip_set < num_ip_sets; ++ip_set) {
 
-        // evaluate local/global residuals and their derivatives
-        // and dot with the corresponding adjoint solutions to
-        // compute gradient contributions
-        global->interpolate(iota);
-        local->gather(pt, xi, xi_prev);
-        local->seed_wrt_params();
-        global->zero_residual();
-        local->evaluate(global);
-        global->evaluate(local, iota, w, dv);
-        EMatrix const dR_dpT = global->eigen_jacobian().transpose();
-        EMatrix const dC_dpT = local->eigen_jacobian().transpose();
-        EVector const phi_pt = local->gather_adjoint(pt, phi);
-        Egrad += dR_dpT * z_nodes + dC_dpT * phi_pt;
-        local->unseed_wrt_params();
+        // get the quadrature order for the ip set
+        int const q_order = ip_sets[ip_set];
+        // loop over all integration points in the current element
+        int const npts = apf::countIntPoints(me, q_order);
 
-      }
+        for (int pt = 0; pt < npts; ++pt) {
+          // get integration point specific information
+          apf::Vector3 iota;
+          apf::getIntPoint(me, q_order, pt, iota);
+          double const w = apf::getIntWeight(me, q_order, pt);
+          double const dv = apf::getDV(me, iota);
 
-      // loop over all extra integration points in the current element
-      int const q_order_extra = q_order + 1;
-      int const npts_extra = apf::countIntPoints(me, q_order_extra);
-      for (int pt = 0; pt < npts_extra; ++pt) {
+          // evaluate local/global residuals and their derivatives
+          // and dot with the corresponding adjoint solutions to
+          // compute gradient contributions
+          global->interpolate(iota);
+          global->zero_residual();
+          local->seed_wrt_params();
 
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order_extra, pt, iota);
-        double const w = apf::getIntWeight(me, q_order_extra, pt);
-        double const dv = apf::getDV(me, iota);
+          if (ip_set == 0) {
+            local->gather(pt, xi, xi_prev);
+            local->evaluate(global);
+            EMatrix const dC_dpT = local->eigen_jacobian().transpose();
+            EVector const phi_pt = local->gather_adjoint(pt, phi);
+            Egrad += dC_dpT * phi_pt;
+          }
 
-        // evaluate and scatter point contributions to the global residual
-        global->interpolate(iota);
-        local->seed_wrt_params();
-        global->zero_residual();
-        global->evaluate_extra(local, iota, w, dv);
-        EMatrix const dR_dpT = global->eigen_jacobian().transpose();
-        Egrad += dR_dpT * z_nodes;
-        local->unseed_wrt_params();
+          global->evaluate(local, iota, w, dv, ip_set);
+          EMatrix const dR_dpT = global->eigen_jacobian().transpose();
+          Egrad += dR_dpT * z_nodes;
+          local->unseed_wrt_params();
+
+        }
 
       }
 
@@ -647,7 +650,6 @@ void eval_error_contributions(
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
-  int const q_order = disc->lv_shape()->getOrder();
 
   // gather the prolonged forward state variables
   Array1D<apf::Field*> x = disc->primal(step).global;
@@ -700,54 +702,50 @@ void eval_error_contributions(
         path = nested->branch_paths()[step][es][elem];
       }
 
-      // loop over all integration points in the current element
-      int const npts = apf::countIntPoints(me, q_order);
-      for (int pt = 0; pt < npts; ++pt) {
+      // loop over domain ip sets
+      // ip_set = 0 -> coupled
+      // ip_set > 0 -> global only
+      Array1D<int> ip_sets = global->ip_sets();
+      int const num_ip_sets = ip_sets.size();
 
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order, pt, iota);
-        double const w = apf::getIntWeight(me, q_order, pt);
-        double const dv = apf::getDV(me, iota);
+      for (int ip_set = 0; ip_set < num_ip_sets; ++ip_set) {
 
-        // evaluate the global residual error contributions
-        global->zero_residual();
-        global->interpolate(iota);
-        local->gather(pt, xi, xi_prev);
-        global->evaluate(local, iota, w, dv);
-        EVector const R = global->eigen_residual();
-        double const E_R_elem = z_nodes.dot(R);
-        double E_R = apf::getScalar(R_error_field, e, 0);
-        apf::setScalar(R_error_field, e, 0, E_R + E_R_elem);
+        // get the quadrature order for the ip set
+        int const q_order = ip_sets[ip_set];
+        // loop over all integration points in the current element
+        int const npts = apf::countIntPoints(me, q_order);
 
-        // evaluate the local residual error contributions
-        local->evaluate(global, force_path, path);
-        EVector const C = local->eigen_residual();
-        EVector const phi_pt = local->gather_adjoint(pt, phi);
-        double const E_C_elem = phi_pt.dot(C);
-        double E_C = apf::getScalar(C_error_field, e, 0);
-        apf::setScalar(C_error_field, e, 0, E_C + E_C_elem);
+        for (int pt = 0; pt < npts; ++pt) {
 
-      }
+          // get integration point specific information
+          apf::Vector3 iota;
+          apf::getIntPoint(me, q_order, pt, iota);
+          double const w = apf::getIntWeight(me, q_order, pt);
+          double const dv = apf::getDV(me, iota);
 
-      int const q_order_extra = q_order + 1;
-      int const npts_extra = apf::countIntPoints(me, q_order_extra);
-      for (int pt = 0; pt < npts_extra; ++pt) {
+          // evaluate the global residual error contributions
+          global->zero_residual();
+          global->interpolate(iota);
+          global->evaluate(local, iota, w, dv, ip_set);
+          EVector const R = global->eigen_residual();
+          double const E_R_elem = z_nodes.dot(R);
+          double E_R = apf::getScalar(R_error_field, e, 0);
+          apf::setScalar(R_error_field, e, 0, E_R + E_R_elem);
 
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order_extra, pt, iota);
-        double const w = apf::getIntWeight(me, q_order_extra, pt);
-        double const dv = apf::getDV(me, iota);
+          if (ip_set == 0) {
 
-        // evaluate the global residual error contributions
-        global->zero_residual();
-        global->interpolate(iota);
-        global->evaluate_extra(local, iota, w, dv);
-        EVector const R = global->eigen_residual();
-        double const E_R_elem = z_nodes.dot(R);
-        double E_R = apf::getScalar(R_error_field, e, 0);
-        apf::setScalar(R_error_field, e, 0, E_R + E_R_elem);
+            // evaluate the local residual error contributions
+            local->gather(pt, xi, xi_prev);
+            local->evaluate(global, force_path, path);
+            EVector const C = local->eigen_residual();
+            EVector const phi_pt = local->gather_adjoint(pt, phi);
+            double const E_C_elem = phi_pt.dot(C);
+            double E_C = apf::getScalar(C_error_field, e, 0);
+            apf::setScalar(C_error_field, e, 0, E_C + E_C_elem);
+
+          }
+
+        }
 
       }
 
@@ -784,7 +782,6 @@ void eval_linearization_errors(
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
-  int const q_order = disc->lv_shape()->getOrder();
 
   // gather the prolonged forward state variables
   Array1D<apf::Field*> x = disc->primal(step).global;
@@ -828,7 +825,8 @@ void eval_linearization_errors(
       // grab some nodal solution information at the element
       EVector const z_nodes = global->gather_adjoint(z);
       EVector const x_diff = global->gather_difference(x_fine, x);
-      EVector const x_prev_diff = global->gather_difference(x_prev_fine, x_prev);
+      EVector const x_prev_diff =
+          global->gather_difference(x_prev_fine, x_prev);
 
       // initialize the element level global linearization error
       EVector ELR_e = EVector::Zero(x_diff.size());
@@ -836,96 +834,106 @@ void eval_linearization_errors(
       // grab the forced path
       int const path = nested->branch_paths()[step][es][elem];
 
-      // loop over all integration points in the current element
-      int const npts = apf::countIntPoints(me, q_order);
-      for (int pt = 0; pt < npts; ++pt) {
+      // loop over domain ip sets
+      // ip_set = 0 -> coupled
+      // ip_set > 0 -> global only
+      Array1D<int> ip_sets = global->ip_sets();
+      int const num_ip_sets = ip_sets.size();
 
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order, pt, iota);
-        double const w = apf::getIntWeight(me, q_order, pt);
-        double const dv = apf::getDV(me, iota);
+      for (int ip_set = 0; ip_set < num_ip_sets; ++ip_set) {
 
-        // grab local state variable data at the point
-        EVector const phi_pt = local->gather_adjoint(pt, phi);
-        EVector const xi_diff = local->gather_difference(pt, xi_fine, xi);
-        EVector const xi_prev_diff = local->gather_difference(pt, xi_prev_fine, xi_prev);
+        // get the quadrature order for the ip set
+        int const q_order = ip_sets[ip_set];
+        // loop over all integration points in the current element
+        int const npts = apf::countIntPoints(me, q_order);
 
-        // evaluate derivatives wrt x
-        global->zero_residual();
-        global->seed_wrt_x();
-        global->interpolate(iota);
-        local->gather(pt, xi, xi_prev);
-        global->evaluate(local, iota, w, dv);
-        local->evaluate(global, force_path, path);
-        EVector const R = global->eigen_residual();
-        EVector const C = local->eigen_residual();
-        EMatrix const dR_dx = global->eigen_jacobian();
-        EMatrix const dC_dx = local->eigen_jacobian();
+        for (int pt = 0; pt < npts; ++pt) {
 
-        // evaluate derivatives wrt xi
-        global->unseed_wrt_x();
-        global->zero_residual();
-        local->seed_wrt_xi();
-        global->interpolate(iota);
-        global->evaluate(local, iota, w, dv);
-        local->evaluate(global, force_path, path);
-        EMatrix const dR_dxi = global->eigen_jacobian();
-        EMatrix const dC_dxi = local->eigen_jacobian();
+          // get integration point specific information
+          apf::Vector3 iota;
+          apf::getIntPoint(me, q_order, pt, iota);
+          double const w = apf::getIntWeight(me, q_order, pt);
+          double const dv = apf::getDV(me, iota);
 
-        // evaluate derivatives wrt x_prev
-        local->unseed_wrt_xi();
-        global->seed_wrt_x_prev();
-        global->interpolate(iota);
-        local->evaluate(global, force_path, path);
-        EMatrix const dC_dx_prev = local->eigen_jacobian();
+          if (ip_set == 0) {
 
-        // evaluate derivatives wrt xi_prev
-        global->unseed_wrt_x_prev();
-        global->interpolate(iota);
-        local->seed_wrt_xi_prev();
-        local->evaluate(global, force_path, path);
-        EMatrix const dC_dxi_prev = local->eigen_jacobian();
+            // grab local state variable data at the point
+            EVector const phi_pt = local->gather_adjoint(pt, phi);
+            EVector const xi_diff = local->gather_difference(pt, xi_fine, xi);
+            EVector const xi_prev_diff =
+                local->gather_difference(pt, xi_prev_fine, xi_prev);
 
-        // evaluate the point level local linearization error
-        EVector const ELC_e =
-          -C - (dC_dx * x_diff) - (dC_dxi * xi_diff) -
-          (dC_dx_prev * x_prev_diff) - (dC_dxi_prev * xi_prev_diff);
-        E_lin_C += phi_pt.dot(ELC_e);
+            // evaluate derivatives wrt x
+            global->zero_residual();
+            global->seed_wrt_x();
+            global->interpolate(iota);
+            local->gather(pt, xi, xi_prev);
+            global->evaluate(local, iota, w, dv, ip_set);
+            local->evaluate(global, force_path, path);
+            EVector const R = global->eigen_residual();
+            EVector const C = local->eigen_residual();
+            EMatrix const dR_dx = global->eigen_jacobian();
+            EMatrix const dC_dx = local->eigen_jacobian();
 
-        // evaluate point contribs to the global linearization error
-        EVector const ELR_e = -R - (dR_dx * x_diff) - (dR_dxi * xi_diff);
-        E_lin_R += z_nodes.dot(ELR_e);
+            // evaluate derivatives wrt xi
+            global->unseed_wrt_x();
+            global->zero_residual();
+            local->seed_wrt_xi();
+            global->interpolate(iota);
+            global->evaluate(local, iota, w, dv, ip_set);
+            local->evaluate(global, force_path, path);
+            EMatrix const dR_dxi = global->eigen_jacobian();
+            EMatrix const dC_dxi = local->eigen_jacobian();
 
-        // unseed on output
-        local->unseed_wrt_xi_prev();
+            // evaluate derivatives wrt x_prev
+            local->unseed_wrt_xi();
+            global->seed_wrt_x_prev();
+            global->interpolate(iota);
+            local->evaluate(global, force_path, path);
+            EMatrix const dC_dx_prev = local->eigen_jacobian();
 
-      }
+            // evaluate derivatives wrt xi_prev
+            global->unseed_wrt_x_prev();
+            global->interpolate(iota);
+            local->seed_wrt_xi_prev();
+            local->evaluate(global, force_path, path);
+            EMatrix const dC_dxi_prev = local->eigen_jacobian();
 
-      int const q_order_extra = q_order + 1;
-      int const npts_extra = apf::countIntPoints(me, q_order_extra);
-      for (int pt = 0; pt < npts_extra; ++pt) {
+            // evaluate the point level local linearization error
+            EVector const ELC_e =
+              -C - (dC_dx * x_diff) - (dC_dxi * xi_diff) -
+              (dC_dx_prev * x_prev_diff) - (dC_dxi_prev * xi_prev_diff);
+            E_lin_C += phi_pt.dot(ELC_e);
 
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order_extra, pt, iota);
-        double const w = apf::getIntWeight(me, q_order_extra, pt);
-        double const dv = apf::getDV(me, iota);
+            // evaluate point contribs to the global linearization error
+            EVector const ELR_e = -R - (dR_dx * x_diff) - (dR_dxi * xi_diff);
+            E_lin_R += z_nodes.dot(ELR_e);
 
-        // evaluate the global residual linearization error contributions
-        global->zero_residual();
-        global->seed_wrt_x();
-        global->interpolate(iota);
-        global->evaluate_extra(local, iota, w, dv);
-        EVector const R = global->eigen_residual();
-        EMatrix const dR_dx = global->eigen_jacobian();
+            // unseed on output
+            local->unseed_wrt_xi_prev();
 
-        // evaluate point contribs to the global linearization error
-        EVector const ELR_e = -R - (dR_dx * x_diff);
-        E_lin_R += z_nodes.dot(ELR_e);
+          }
 
-        // unseed on output
-        global->unseed_wrt_x();
+          else {
+
+            // evaluate the global residual linearization error contributions
+            global->zero_residual();
+            global->seed_wrt_x();
+            global->interpolate(iota);
+            global->evaluate(local, iota, w, dv, ip_set);
+            EVector const R = global->eigen_residual();
+            EMatrix const dR_dx = global->eigen_jacobian();
+
+            // evaluate point contribs to the global linearization error
+            EVector const ELR_e = -R - (dR_dx * x_diff);
+            E_lin_R += z_nodes.dot(ELR_e);
+
+            // unseed on output
+            global->unseed_wrt_x();
+
+          }
+
+        }
 
       }
 
@@ -944,6 +952,9 @@ void eval_linearization_errors(
 
 }
 
+// TODO: Cauchy stress can have contributions from fields
+// with different polynomials orders (e.g. constant + linear).
+// Generalize to handle such cases.
 apf::Field* eval_cauchy(RCP<State> state, int step) {
 
   // an assumption about the pressure index

@@ -30,11 +30,13 @@ class Mechanics : public GlobalResidual<T> {
     //! \param iota The integration point in the reference element space
     //! \param w The integration point weight
     //! \param dv The differential volume (Jacobian) of the element at the point
+    //! \param ip_set The integration point set index
     void evaluate(
         RCP<LocalResidual<T>> local,
         apf::Vector3 const& iota,
         double w,
-        double dv);
+        double dv,
+        int ip_set);
 
     //! \brief Evaluate the residual at an integration point
     //! \param local The local residual object
