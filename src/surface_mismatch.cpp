@@ -1,6 +1,7 @@
 #include "disc.hpp"
 #include "global_residual.hpp"
 #include "local_residual.hpp"
+#include "macros.hpp"
 #include "surface_mismatch.hpp"
 
 namespace calibr8 {
@@ -75,10 +76,15 @@ void SurfaceMismatch<T>::evaluate(
 
   // store some information contained in this class as local variables
   int const ndims = this->m_num_dims;
+  int const step = this->m_step;
   apf::Mesh* mesh = this->m_mesh;
   apf::MeshElement* mesh_elem = this->m_mesh_elem;
 
   // grab the field for the measured displacement data at the step
+  std::string name = "measured_" + std::to_string(step);
+  apf::Field* f_meas = mesh->findField(name.c_str());
+  ALWAYS_ASSERT(f_meas);
+  apf::Element* e_meas = createElement(f_meas, mesh_elem);
 
   // grab the face to integrate over
   apf::Downward elem_faces;
@@ -111,14 +117,24 @@ void SurfaceMismatch<T>::evaluate(
     global->interpolate(iota_elem);
     Vector<T> const u_fem = global->vector_x(disp_idx);
 
+    // interpolate the measured displacement data to the point
+    apf::Vector3 u_meas;
+    apf::getVector(e_meas, iota_elem, u_meas);
+
+    // compute the QoI contribution at the point
+    T const qoi =
+      (u_fem[0] - u_meas[0]) * (u_fem[0] - u_meas[0]) +
+      (u_fem[1] - u_meas[1]) * (u_fem[1] - u_meas[1]) +
+      (u_fem[2] - u_meas[2]) * (u_fem[2] - u_meas[2]);
+    
     // compute the difference between the FEM displacement and
     // the measured input displacement data
-    (void)w;
-    (void)dv;
+    this->value_pt += qoi * w * dv;
 
   }
 
   // clean up allocated memory
+  apf::destroyElement(e_meas);
   apf::destroyMeshElement(me);
 
   // reset the state in global residual to what it was on input

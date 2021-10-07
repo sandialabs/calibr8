@@ -1,13 +1,14 @@
-notch hyperJ2 FEMU:
+notch hyperJ2 synthetic:
 
   problem:
-    name: notch_hyperJ2_FEMU
+    name: notch_hyperJ2
     num steps: 4
     step size: 1.
+    write synthetic: true
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
-    mesh file: '@CMAKE_BINARY_DIR@/test/femu/notch_hyperJ2_synthetic/'
+    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.smb'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.txt'
 
   residuals:
@@ -16,7 +17,7 @@ notch hyperJ2 FEMU:
       nonlinear max iters: 15
       nonlinear absolute tol: 1.e-8
       nonlinear relative tol: 1.e-8
-      print convergence: false
+      print convergence: true
     local residual:
       type: 'J2'
       nonlinear max iters: 500
@@ -26,19 +27,6 @@ notch hyperJ2 FEMU:
       nu: 0.25
       K: 100.
       Y: 10.
-
-  quantity of interest:
-    type: 'surface mismatch'
-    side set: 'zmax'
-
-  inverse:
-    gradient type: "FEMU"
-    # gradient type: "adjoint"
-    # check gradient: true
-    E: [800., 1000.]
-    nu: [0.2, 0.3]
-    K: [90., 110.]
-    Y: [9., 11.]
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
