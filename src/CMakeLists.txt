@@ -16,6 +16,7 @@ set(CALIBR8_SOURCES
   mechanics.cpp
   mesh_size.cpp
   nested.cpp
+  objective.cpp
   primal.cpp
   qoi.cpp
   state.cpp

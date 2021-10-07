@@ -1,26 +1,15 @@
 #include "control.hpp"
-#include "evaluations.hpp"
 #include "femu_objective.hpp"
+#include "evaluations.hpp"
 #include "local_residual.hpp"
 #include "primal.hpp"
 #include "state.hpp"
 
 namespace calibr8 {
 
-FEMU_Objective::FEMU_Objective(RCP<ParameterList> params) {
-  m_params = params;
-  m_state = rcp(new State(*m_params));
-  m_primal = rcp(new Primal(m_params, m_state, m_state->disc));
-  m_num_opt_params = m_state->residuals->local->params().size();
-}
+FEMU_Objective::FEMU_Objective(RCP<ParameterList> params) : Objective(params) {}
 
-FEMU_Objective::~FEMU_Objective() {
-}
-
-Array1D<double> FEMU_Objective::opt_params() const {
-  return m_state->residuals->local->params();
-}
-
+FEMU_Objective::~FEMU_Objective() {}
 
 double FEMU_Objective::value(ROL::Vector<double> const& p, double&) {
   ROL::Ptr<Array1D<double> const> xp = getVector(p);
@@ -39,14 +28,6 @@ double FEMU_Objective::value(ROL::Vector<double> const& p, double&) {
   }
   m_state->disc->destroy_primal();
   return J;
-}
-
-ROL::Ptr<Array1D<double> const> FEMU_Objective::getVector(const V& vec) {
-  return dynamic_cast<const SV&>(vec).getVector();
-}
-
-ROL::Ptr<Array1D<double>> FEMU_Objective::getVector(V& vec) {
-  return dynamic_cast<SV&>(vec).getVector();
 }
 
 }

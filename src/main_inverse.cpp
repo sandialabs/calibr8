@@ -13,6 +13,7 @@
 
 using namespace calibr8;
 
+// TODO: determine which of these are defaults and clean up
 void set_default_rol_params(Teuchos::RCP<ParameterList> rol_params) {
   rol_params->sublist("General")
     .sublist("Secant")
@@ -95,7 +96,7 @@ static ParameterList get_valid_params() {
   return p;
 }
 
-RCP<FEMU_Objective> create_rol_objective(
+RCP<Objective> create_rol_objective(
   RCP<ParameterList> params,
   std::string const& grad_type) {
   if (grad_type == "FEMU") {
