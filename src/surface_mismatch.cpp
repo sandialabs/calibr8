@@ -15,12 +15,13 @@ SurfaceMismatch<T>::~SurfaceMismatch() {
 }
 
 template <typename T>
-void SurfaceMismatch<T>::before_elems(RCP<Disc> disc) {
+void SurfaceMismatch<T>::before_elems(RCP<Disc> disc, int step) {
 
   // set the discretization-based information
   this->m_mesh = disc->apf_mesh();
   this->m_num_dims = disc->num_dims();
   this->m_shape = disc->gv_shape();
+  this->m_step = step;
 
   // initialize the surface mesh information
   if (!is_initd) {
@@ -76,6 +77,8 @@ void SurfaceMismatch<T>::evaluate(
   int const ndims = this->m_num_dims;
   apf::Mesh* mesh = this->m_mesh;
   apf::MeshElement* mesh_elem = this->m_mesh_elem;
+
+  // grab the field for the measured displacement data at the step
 
   // grab the face to integrate over
   apf::Downward elem_faces;

@@ -23,7 +23,7 @@ class SurfaceMismatch : public QoI<T> {
 
     //! \brief Perform initializations before the loop over elements
     //! \param disc The discretization object
-    void before_elems(RCP<Disc> disc);
+    void before_elems(RCP<Disc> disc, int step);
 
     //! \brief Evaluate the qoi at an integration point
     //! \param global The global residual object

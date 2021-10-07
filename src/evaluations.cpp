@@ -178,7 +178,7 @@ void eval_adjoint_jacobian(
   // perform initializations of the residual objects
   local->before_elems(disc);
   global->before_elems(disc);
-  qoi->before_elems(disc);
+  qoi->before_elems(disc, step);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
@@ -466,7 +466,7 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
   // perform initializations of the residual objects
   local->before_elems(disc);
   global->before_elems(disc);
-  qoi->before_elems(disc);
+  qoi->before_elems(disc, step);
 
   // initialize the QoI value at the step
   double J = 0.;

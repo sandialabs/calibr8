@@ -27,7 +27,8 @@ class QoI {
 
     //! \brief Perform initializations before the loop over elements
     //! \param disc The discretization object
-    virtual void before_elems(RCP<Disc> disc);
+    //! \param step The current load/time step
+    virtual void before_elems(RCP<Disc> disc, int step);
 
     //! \brief Set element data on element input
     //! \param mesh_elem The current mesh element to operate on
@@ -66,6 +67,7 @@ class QoI {
     //! \cond
 
     int m_num_dims = -1;
+    int m_step = -1;
     apf::Mesh* m_mesh = nullptr;
     apf::FieldShape* m_shape = nullptr;
     apf::MeshElement* m_mesh_elem = nullptr;

@@ -15,12 +15,13 @@ QoI<T>::~QoI() {
 }
 
 template <typename T>
-void QoI<T>::before_elems(RCP<Disc> disc) {
+void QoI<T>::before_elems(RCP<Disc> disc, int step) {
 
   // set discretization-based information
   m_mesh = disc->apf_mesh();
   m_num_dims = disc->num_dims();
   m_shape = disc->gv_shape();
+  m_step = step;
 
 }
 
@@ -58,6 +59,7 @@ void QoI<T>::unset_elem() {
 template <typename T>
 void QoI<T>::after_elems() {
   m_num_dims = -1;
+  m_step = -1;
   m_mesh = nullptr;
   m_shape = nullptr;
 }
