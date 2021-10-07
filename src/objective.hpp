@@ -33,12 +33,17 @@ class Objective : public ROL::Objective<double> {
 
   protected:
 
+    void setup_opt_params(ParameterList const& inverse_params);
+
     void set_params(ROL::Vector<double> const& p);
 
     RCP<ParameterList> m_params;
     RCP<State> m_state;
     RCP<Primal> m_primal;
 
+    Array1D<int> m_active_indices;
+    Array1D<double> m_lower_bounds;
+    Array1D<double> m_upper_bounds;
     int m_num_opt_params;
 
     ROL::Ptr<Array1D<double> const> getVector(V const& vec);

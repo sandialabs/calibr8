@@ -1,6 +1,6 @@
 #include "control.hpp"
-#include "femu_objective.hpp"
 #include "evaluations.hpp"
+#include "femu_objective.hpp"
 #include "local_residual.hpp"
 #include "primal.hpp"
 #include "state.hpp"
