@@ -17,8 +17,9 @@ Adjoint_Objective::~Adjoint_Objective() {}
 
 double Adjoint_Objective::value(ROL::Vector<double> const& p, double&) {
   ROL::Ptr<Array1D<double> const> xp = getVector(p);
-  m_state->residuals->local->set_params(*xp);
-  m_state->d_residuals->local->set_params(*xp);
+  Array1D<double> const unscaled_params = transform_params(*xp, false);
+  m_state->residuals->local->set_params(unscaled_params, m_active_indices);
+  m_state->d_residuals->local->set_params(unscaled_params, m_active_indices);
 
   ParameterList problem_params = m_params->sublist("problem", true);
   int const nsteps = problem_params.get<int>("num steps");
@@ -38,10 +39,13 @@ void Adjoint_Objective::gradient(
     ROL::Vector<double>& g,
     ROL::Vector<double> const& p,
     double&) {
+
   ROL::Ptr<Array1D<double>> gp = getVector(g);
+
   ROL::Ptr<Array1D<double> const> xp = getVector(p);
-  m_state->residuals->local->set_params(*xp);
-  m_state->d_residuals->local->set_params(*xp);
+  Array1D<double> const unscaled_params = transform_params(*xp, false);
+  m_state->residuals->local->set_params(unscaled_params, m_active_indices);
+  m_state->d_residuals->local->set_params(unscaled_params, m_active_indices);
 
   ParameterList problem_params = m_params->sublist("problem", true);
   int const nsteps = problem_params.get<int>("num steps");
@@ -50,7 +54,6 @@ void Adjoint_Objective::gradient(
 
   Array1D<double> grad_at_step(m_num_opt_params);
   Array1D<double> grad(m_num_opt_params, 0.);
-  size_t const num_opt_params = static_cast<size_t>(m_num_opt_params);
 
   // solve the forward problem
   for (int step = 1; step <= nsteps; ++step) {
@@ -67,13 +70,15 @@ void Adjoint_Objective::gradient(
     //t += dt;
     m_adjoint->solve_at_step(step);
     grad_at_step = eval_qoi_gradient(m_state, step);
-    for (size_t i = 0; i < num_opt_params; ++i) {
+    for (size_t i = 0; i < m_num_opt_params; ++i) {
       grad[i] += grad_at_step[i];
     }
   }
 
-  for (size_t i = 0; i < num_opt_params; ++i) {
-    (*gp)[i] = grad[i];
+  Array1D<double> const canonical_grad = transform_gradient(grad);
+
+  for (size_t i = 0; i < m_num_opt_params; ++i) {
+    (*gp)[i] = canonical_grad[i];
   }
 
   m_state->disc->destroy_primal();

@@ -299,10 +299,10 @@ class LocalResidual {
     }
 
     //! \brief Set the material model parameters
-    void set_params(Array1D<double> const& params) {
-      // TODO: only set for active params
-      for (size_t i = 0; i < m_params.size(); ++i) {
-        m_params[i] = params[i];
+    void set_params(Array1D<double> const& params,
+        Array1D<size_t> const& active_indices) {
+      for (size_t i = 0; i < active_indices.size(); ++i) {
+        m_params[active_indices[i]] = params[i];
       }
     }
 

@@ -14,8 +14,8 @@ cube hyperJ2:
     global residual:
       type: 'mechanics'
       nonlinear max iters: 15
-      nonlinear absolute tol: 1.e-8
-      nonlinear relative tol: 1.e-8
+      nonlinear absolute tol: 1.e-12
+      nonlinear relative tol: 1.e-12
       print convergence: false
     local residual:
       type: 'J2'
@@ -35,6 +35,7 @@ cube hyperJ2:
 # TODO: somehow make ROL # iterations an input parameter
     gradient type: "adjoint"
     check gradient: true
+    iteration limit: 1
     E: [800., 1000.]
     nu: [0.2, 0.3]
     K: [90., 110.]

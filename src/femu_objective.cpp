@@ -13,8 +13,9 @@ FEMU_Objective::~FEMU_Objective() {}
 
 double FEMU_Objective::value(ROL::Vector<double> const& p, double&) {
   ROL::Ptr<Array1D<double> const> xp = getVector(p);
-  m_state->residuals->local->set_params(*xp);
-  m_state->d_residuals->local->set_params(*xp);
+  Array1D<double> const unscaled_params = transform_params(*xp, false);
+  m_state->residuals->local->set_params(unscaled_params, m_active_indices);
+  m_state->d_residuals->local->set_params(unscaled_params, m_active_indices);
 
   ParameterList problem_params = m_params->sublist("problem", true);
   int const nsteps = problem_params.get<int>("num steps");
