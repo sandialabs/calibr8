@@ -1,3 +1,4 @@
+#include <PCU.h>
 #include <ROL_Algorithm.hpp>
 #include <ROL_Bounds.hpp>
 #include <ROL_LineSearchStep.hpp>
@@ -20,12 +21,9 @@ void set_default_rol_params(Teuchos::RCP<ParameterList> rol_params) {
   rol_params->sublist("General")
     .sublist("Secant")
     .set("Maximum Storage", 20);
-  rol_params->sublist("General")
-      .sublist("Step")
+  rol_params->sublist("Step")
       .sublist("Line Search")
       .set("Function Evaluation Limit", 5);
-  rol_params->sublist("Status Test").set("Gradient Tolerance", 1.0e-12);
-  rol_params->sublist("Status Test").set("Step Tolerance", 1.0e-12);
 }
 
 static ParameterList get_valid_params() {
@@ -73,15 +71,21 @@ int main(int argc, char** argv) {
     std::string const grad_type = inverse_params.get<std::string>("gradient type");
     bool check_gradient  = inverse_params.get<bool>("check gradient", false);
     int const iteration_limit = inverse_params.get<int>("iteration limit", 20);
+    double const gradient_tol =
+        inverse_params.get<double>("gradient tolerance", 1e-12);
+    double const step_tol = inverse_params.get<double>("step tolerance", 1e-12);
+
     rol_params->sublist("Status Test").set("Iteration Limit", iteration_limit);
+    rol_params->sublist("Status Test").set("Gradient Tolerance", gradient_tol);
+    rol_params->sublist("Status Test").set("Step Tolerance", step_tol);
 
     auto rol_objective = create_rol_objective(params, grad_type);
 
     Array1D<double> const model_params = rol_objective->model_params();
     Array1D<double> const active_model_params =
-      rol_objective->extract_active_params(model_params);
+        rol_objective->extract_active_params(model_params);
     Array1D<double> const initial_guess =
-      rol_objective->transform_params(model_params, true);
+        rol_objective->transform_params(model_params, true);
     size_t const dim = initial_guess.size();
     ROL::Ptr<std::vector<double> > x_ptr = ROL::makePtr<std::vector<double>>(dim, 0.0);
     for (size_t i = 0; i < dim; ++i) {
@@ -97,21 +101,42 @@ int main(int argc, char** argv) {
     bound = ROL::makePtr<ROL::Bounds<double>>(lop, hip);
 
     ROL::Ptr<ROL::Step<double>> step =
-      ROL::makePtr<ROL::LineSearchStep<double>>(*rol_params);
+        ROL::makePtr<ROL::LineSearchStep<double>>(*rol_params);
     ROL::Ptr<ROL::StatusTest<double>>
-      status = ROL::makePtr<ROL::StatusTest<double>>(*rol_params);
+        status = ROL::makePtr<ROL::StatusTest<double>>(*rol_params);
     ROL::Algorithm<double> algo(step, status, false);
+
+    bool isProcZero = (PCU_Comm_Self() == 0);
 
     if (grad_type != "femu" && check_gradient) {
       ROL::Ptr<std::vector<double>> d_ptr = ROL::makePtr<std::vector<double> >(dim, 0.1);
       ROL::StdVector<double> d(d_ptr);
-      (*rol_objective).checkGradient(x, d, true, *outStream, 13, 2);
+      (*rol_objective).checkGradient(x, d, isProcZero, *outStream, 13, 2);
     }
 
     std::vector<std::string> output;
-    output = algo.run(x, *rol_objective, *bound, true, *outStream);
+    output = algo.run(x, *rol_objective, *bound, isProcZero, *outStream);
     for (size_t i = 0; i < output.size(); ++i) {
       *outStream << output[i];
+    }
+
+    if (isProcZero) {
+      std::string outname = "ROL_out.txt";
+      std::ofstream rolOut(outname);
+      rolOut.precision(16);
+      ROL::Ptr<Array1D<double> const> xp =
+          (dynamic_cast<ROL::StdVector<double> const&>(x)).getVector();
+      Array1D<double> const opt_params = rol_objective->transform_params(*xp, false);
+      for (size_t i = 0; i < output.size(); ++i) {
+        *outStream << output[i];
+        rolOut << output[i];
+      }
+      Array1D<std::string> const param_names = rol_objective->active_param_names();
+      for (size_t i = 0; i < param_names.size(); ++i) {
+          *outStream << param_names[i] << " = " << opt_params[i] << "\n";
+          rolOut << param_names[i] << " = " << opt_params[i] << "\n";
+      }
+      rolOut.close();
     }
 
   }

@@ -44,9 +44,11 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
   m_active_indices.resize(0);
   m_lower_bounds.resize(0);
   m_upper_bounds.resize(0);
+  m_active_param_names.resize(0);
   for (size_t i = 0; i < num_params_total; ++i) {
     std::string param_name = param_names[i];
     if (inverse_params.isParameter(param_name)) {
+      m_active_param_names.push_back(param_name);
       m_active_indices.push_back(i);
       Teuchos::Array<double> const bounds
           = inverse_params.get<Teuchos::Array<double>>(param_name);
@@ -80,7 +82,7 @@ Array1D<double> Objective::transform_params(Array1D<double> const& params,
 }
 
 Array1D<double> Objective::transform_gradient(Array1D<double> const& gradient) {
-  double upper, lower, span;
+    double upper, lower, span;
   Array1D<double> transformed_gradient(m_num_opt_params);
   for (size_t i = 0; i < m_num_opt_params; ++i) {
     lower = m_lower_bounds[i];

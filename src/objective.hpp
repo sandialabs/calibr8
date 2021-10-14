@@ -28,6 +28,10 @@ class Objective : public ROL::Objective<double> {
 
     double value(ROL::Vector<double> const& p, double&) = 0;
 
+    Array1D<std::string> active_param_names() const {
+      return m_active_param_names;
+    }
+
 #if 0
     Array1D<double> scale_params(Array1D<double> const& p);
     Array1D<double> unscale_params(Array1D<double> const& p);
@@ -48,6 +52,7 @@ class Objective : public ROL::Objective<double> {
     Array1D<size_t> m_active_indices;
     Array1D<double> m_lower_bounds;
     Array1D<double> m_upper_bounds;
+    Array1D<std::string> m_active_param_names;
     size_t m_num_opt_params;
 
     ROL::Ptr<Array1D<double> const> getVector(V const& vec);
