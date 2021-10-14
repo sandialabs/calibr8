@@ -82,7 +82,7 @@ Array1D<double> Objective::transform_params(Array1D<double> const& params,
 }
 
 Array1D<double> Objective::transform_gradient(Array1D<double> const& gradient) {
-    double upper, lower, span;
+  double upper, lower, span;
   Array1D<double> transformed_gradient(m_num_opt_params);
   for (size_t i = 0; i < m_num_opt_params; ++i) {
     lower = m_lower_bounds[i];

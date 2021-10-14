@@ -32,13 +32,6 @@ class Objective : public ROL::Objective<double> {
       return m_active_param_names;
     }
 
-#if 0
-    Array1D<double> scale_params(Array1D<double> const& p);
-    Array1D<double> unscale_params(Array1D<double> const& p);
-    Array1D<double> scale_gradient(Array1D<double> const& g);
-    Array1D<double> get_scaled_ig() { return scaled_ig; }
-#endif
-
   protected:
 
     void setup_opt_params(ParameterList const& inverse_params);
