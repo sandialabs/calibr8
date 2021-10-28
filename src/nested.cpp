@@ -52,7 +52,7 @@ void NestedDisc::copy_mesh() {
 
 void NestedDisc::refine() {
   ma::AutoSolutionTransfer transfers(m_mesh);
-  auto in = ma::configureUniformRefine(m_mesh, 1, &transfers);
+  auto in = ma::makeAdvanced(ma::configureUniformRefine(m_mesh, 1, &transfers));
   in->shouldFixShape = false;
   in->shouldSnap = false;
   ma::adapt(in);

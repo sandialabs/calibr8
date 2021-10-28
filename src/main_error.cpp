@@ -170,7 +170,7 @@ void Driver::adapt_mesh(int cycle) {
   apf::Mesh2* m = m_state->disc()->apf_mesh();
   apf::Field* error = m->findField("error");
   apf::Field* size = get_size_field(error, cycle, adapt_params);
-  auto in = ma::configure(m, size);
+  auto in = ma::makeAdvanced(ma::configure(m, size));
   configure_ma(in, adapt_params);
   ma::adapt(in);
   apf::destroyField(size);

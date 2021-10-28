@@ -37,7 +37,8 @@ target_link_libraries(calibr8 PUBLIC
   ${Trilinos_LIBRARIES}
   ${Trilinos_TPL_LIBRARIES}
   ${Trilinos_EXTRA_LD_FLAGS}
-  SCOREC::core)
+  SCOREC::core
+  MPI::MPI_CXX)
 
 set_code_standards(calibr8)
 

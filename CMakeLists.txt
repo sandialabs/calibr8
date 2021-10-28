@@ -14,6 +14,8 @@ endfunction()
 # deal with Kokkos' lack of CMake skills
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+find_package(MPI)
+
 include(cmake/dependencies.cmake)
 add_subdirectory(doc)
 add_subdirectory(src)
