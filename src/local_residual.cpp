@@ -2,6 +2,7 @@
 #include "disc.hpp"
 #include "fad.hpp"
 #include "J2.hpp"
+#include "J2_plane_strain.hpp"
 #include "J2_small_strain.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
@@ -680,6 +681,8 @@ RCP<LocalResidual<T>> create_local_residual(
   std::string const type = params.get<std::string>("type");
   if (type == "J2") {
     return rcp(new J2<T>(params, ndims));
+  } else if (type == "J2_plane_strain") {
+    return rcp(new J2_plane_strain<T>(params, ndims));
   } else if (type == "J2_small_strain") {
     return rcp(new J2_small_strain<T>(params, ndims));
   } else {

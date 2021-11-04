@@ -4,6 +4,7 @@ configure_file(cube_hyperJ2.yaml.in cube_hyperJ2.yaml @ONLY)
 configure_file(notch_hyperJ2.yaml.in notch_hyperJ2.yaml @ONLY)
 configure_file(notch_smallJ2.yaml.in notch_smallJ2.yaml @ONLY)
 configure_file(notch2D_smallJ2.yaml.in notch2D_smallJ2.yaml @ONLY)
+configure_file(notch2D_finiteJ2.yaml.in notch2D_finiteJ2.yaml @ONLY)
 
 add_test(NAME cube_hyperelasticity COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/cube_hyperelasticity.yaml")
 add_test(NAME cube_hyperelasticity_traction COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/cube_hyperelasticity_traction.yaml")
@@ -11,3 +12,4 @@ add_test(NAME cube_hyperJ2 COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BIN
 add_test(NAME notch_hyperJ2 COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/notch_hyperJ2.yaml")
 add_test(NAME notch_smallJ2 COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/notch_smallJ2.yaml")
 add_test(NAME notch2D_smallJ2 COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/notch2D_smallJ2.yaml")
+add_test(NAME notch2D_finiteJ2 COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/notch2D_finiteJ2.yaml")
