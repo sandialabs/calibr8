@@ -106,24 +106,53 @@ void Mechanics<T>::evaluate(
       }
     }
 
-    // compute the linear part of the pressure residual
-    T const dU_dJ = 0.5 * (J - 1./J);
-    for (int n = 0; n < nnodes; ++n) {
-      double const basis = this->basis(n);
-      this->R_nodal(pressure_idx, n, 0) -=
-        dU_dJ * basis * w * dv;
+    if(local->is_finite_deformation()) {
+
+      // compute the linear part of the pressure residual
+      T const dU_dJ = 0.5 * (J - 1./J);
+      for (int n = 0; n < nnodes; ++n) {
+        double const basis = this->basis(n);
+        this->R_nodal(pressure_idx, n, 0) -=
+          dU_dJ * basis * w * dv;
+      }
+
+      // compute the stabilization to the pressure residual
+      double const h = get_size(this->m_mesh, this->m_mesh_elem);
+      T const tau = 0.5 * h * h / mu;
+      Tensor<T> const C_inv = inverse(transpose(F) * F);
+      for (int n = 0; n < nnodes; ++n) {
+        for (int i = 0; i < ndims; ++i) {
+          for (int j = 0; j < ndims; ++j) {
+            double const dbasis_dx = this->dbasis(n, j);
+            this->R_nodal(pressure_idx, n, 0) -=
+              tau * J * C_inv(i, j) * grad_p(i) * dbasis_dx * w * dv;
+          }
+        }
+      }
     }
 
-    // compute the stabilization to the pressure residual
-    double const h = get_size(this->m_mesh, this->m_mesh_elem);
-    T const tau = 0.5 * h * h / mu;
-    Tensor<T> const C_inv = inverse(transpose(F) * F);
-    for (int n = 0; n < nnodes; ++n) {
-      for (int i = 0; i < ndims; ++i) {
-        for (int j = 0; j < ndims; ++j) {
-          double const dbasis_dx = this->dbasis(n, j);
-          this->R_nodal(pressure_idx, n, 0) -=
-            tau * J * C_inv(i, j) * grad_p(i) * dbasis_dx * w * dv;
+    else {
+
+      Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
+
+      // compute the linear part of the pressure residual
+      for (int n = 0; n < nnodes; ++n) {
+        double const basis = this->basis(n);
+        this->R_nodal(pressure_idx, n, 0) -=
+          minitensor::trace(eps) * basis * w * dv;
+      }
+
+      // compute the stabilization to the pressure residual
+      double const h = get_size(this->m_mesh, this->m_mesh_elem);
+      T const tau = 0.5 * h * h / mu;
+      Tensor<T> const C_inv = inverse(transpose(F) * F);
+      for (int n = 0; n < nnodes; ++n) {
+        for (int i = 0; i < ndims; ++i) {
+          for (int j = 0; j < ndims; ++j) {
+            double const dbasis_dx = this->dbasis(n, j);
+            this->R_nodal(pressure_idx, n, 0) -=
+              tau * grad_p(i) * dbasis_dx * w * dv;
+          }
         }
       }
     }
@@ -143,10 +172,6 @@ void Mechanics<T>::evaluate(
 
   else {
     fail("unimplemented ip set\n");
-  }
-
-  if (!local->is_finite_deformation()) {
-    fail("unimplemented small strain\n");
   }
 
 }
