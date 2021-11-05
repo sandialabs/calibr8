@@ -1,4 +1,6 @@
+#include <list>
 #include <gmi_mesh.h>
+#include <gmi_null.h>
 #include <PCU.h>
 #include <Tpetra_Core.hpp>
 #include "control.hpp"
@@ -67,11 +69,21 @@ static apf::StkModels* read_sets(apf::Mesh* m, ParameterList const& p) {
 
 static void load_mesh(apf::Mesh2** mesh, ParameterList const& p) {
   gmi_register_mesh();
+  gmi_register_null();
   std::string const geom_file = p.get<std::string>("geom file");
   std::string const mesh_file = p.get<std::string>("mesh file");
   char const* g = geom_file.c_str();
   char const* m = mesh_file.c_str();
   *mesh = apf::loadMdsMesh(g, m);
+}
+
+static bool is_null_model(ParameterList const& p) {
+  std::string const geom_file = p.get<std::string>("geom file");
+  if (geom_file == ".null") {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 static void destroy_existing_numberings(apf::Mesh2* m) {
@@ -83,6 +95,7 @@ static void destroy_existing_numberings(apf::Mesh2* m) {
 Disc::Disc(ParameterList const& params) {
   params.validateParameters(get_valid_params(), 0);
   load_mesh(&m_mesh, params);
+  m_is_null_model = is_null_model(params);
   destroy_existing_numberings(m_mesh);
   m_sets = read_sets(m_mesh, params);
   //TODO: this should really be called, maybe make an optional
@@ -111,7 +124,11 @@ void Disc::initialize() {
   m_num_elems = m_mesh->count(m_num_dims);
   m_num_elem_sets = m_sets->models[m_num_dims].size();
   m_num_side_sets = m_sets->models[m_num_dims-1].size();
-  m_num_node_sets = m_sets->models[0].size();
+  if (!m_is_null_model) {
+    m_num_node_sets = m_sets->models[0].size();
+  } else {
+    m_num_node_sets = m_num_side_sets;
+  }
   m_gv_shape = apf::getLagrange(1);
   m_lv_shape = apf::getIPFitShape(m_num_dims, 1);
   m_elem_type = (m_num_dims == 3) ? apf::Mesh::TET : apf::Mesh::TRIANGLE;
@@ -132,7 +149,11 @@ std::string Disc::side_set_name(int ss_idx) const {
 
 std::string Disc::node_set_name(int ns_idx) const {
   DEBUG_ASSERT(ns_idx < m_num_node_sets);
-  return m_sets->models[0][ns_idx]->stkName;
+  if (!m_is_null_model) {
+    return m_sets->models[0][ns_idx]->stkName;
+  } else {
+    return side_set_name(ns_idx);
+  }
 }
 
 int Disc::elem_set_idx(std::string const& esn) const {
@@ -158,14 +179,19 @@ int Disc::side_set_idx(std::string const& ssn) const {
 }
 
 int Disc::node_set_idx(std::string const& nsn) const {
-  int idx = -1;
-  for (int i = 0; i < m_num_node_sets; ++i) {
-    if (nsn == m_sets->models[0][i]->stkName) {
-      idx = i;
+  if (!m_is_null_model) {
+    int idx = -1;
+    for (int i = 0; i < m_num_node_sets; ++i) {
+      if (nsn == m_sets->models[0][i]->stkName) {
+        idx = i;
+      }
     }
+    DEBUG_ASSERT(idx > -1);
+    return idx;
   }
-  DEBUG_ASSERT(idx > -1);
-  return idx;
+  else {
+    return side_set_idx(nsn);
+  }
 }
 
 ElemSet const& Disc::elems(std::string const& name) {
@@ -409,6 +435,45 @@ void Disc::compute_node_sets() {
   }
 }
 
+void Disc::compute_derived_node_sets() {
+  std::map<std::string, std::list<apf::MeshEntity*>> lists;
+  for (int i = 0; i < m_num_node_sets; ++i) {
+    resize(m_node_sets[ node_set_name(i) ], 0);
+    lists[node_set_name(i)].resize(0);
+  }
+  apf::Downward verts;
+  apf::MeshEntity* side;
+  apf::MeshIterator* sides = m_mesh->begin(m_num_dims - 1);
+  while ((side = m_mesh->iterate(sides))) {
+    apf::ModelEntity* me = m_mesh->toModel(side);
+    if (!m_sets->invMaps[m_num_dims - 1].count(me)) {
+      continue;
+    }
+    apf::StkModel* stkm = m_sets->invMaps[m_num_dims - 1][me];
+    std::string const name = stkm->stkName;
+    int nverts = m_mesh->getDownward(side, 0, verts);
+    for (int v = 0; v < nverts; ++v) {
+      lists[name].push_back(verts[v]);
+    }
+  }
+
+  m_mesh->end(sides);
+
+  for (int i = 0; i < m_num_node_sets; ++i) {
+    std::string const name = node_set_name(i);
+    lists[name].unique();
+    int const num_nodes = lists[name].size();
+    auto const& list = lists[name];
+    auto& node_set = m_node_sets[name];
+    node_set.resize(num_nodes);
+    int n = 0;
+    for (apf::MeshEntity* vert : list) {
+      node_set[n] = apf::Node(vert, 0);
+      ++n;
+    }
+  }
+}
+
 void Disc::build_data(int num_residuals, std::vector<int> const& num_eqs) {
   destroy_data();
   m_num_residuals = num_residuals;
@@ -421,7 +486,11 @@ void Disc::build_data(int num_residuals, std::vector<int> const& num_eqs) {
   compute_graphs();
   compute_elem_sets();
   compute_side_sets();
-  compute_node_sets();
+  if (!m_is_null_model) {
+    compute_node_sets();
+  } else {
+    compute_derived_node_sets();
+  }
 }
 
 void Disc::destroy_data() {

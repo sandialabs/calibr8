@@ -2,9 +2,15 @@ elem set body 1
 3 33
 node set xmin 1
 2 20
+side set xmin 1
+2 20
 node set ymin 1
 2 29
+side set ymin 1
+2 29
 node set zmin 1
+2 9
+side set zmin 1
 2 9
 node set ymax 1
 2 23

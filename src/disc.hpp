@@ -264,6 +264,8 @@ class Disc {
     int m_num_gv_nodes = -1;
     int m_num_lv_nodes = -1;
 
+    bool m_is_null_model = false;
+
     apf::Mesh2* m_mesh = nullptr;
     apf::StkModels* m_sets = nullptr;
 
@@ -308,6 +310,7 @@ class Disc {
     void compute_elem_sets();
     void compute_side_sets();
     void compute_node_sets();
+    void compute_derived_node_sets();
 
     std::vector<size_t> compute_nentries(int i, int j);
     void compute_ghost_graph(int i, int j);
