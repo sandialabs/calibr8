@@ -686,6 +686,7 @@ RCP<LocalResidual<T>> create_local_residual(
   } else if (type == "J2_small_strain") {
     return rcp(new J2_small_strain<T>(params, ndims));
   } else {
+    fail("unknown local residual name: %s", type.c_str());
     return Teuchos::null;
   }
 }

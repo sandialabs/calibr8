@@ -5,6 +5,7 @@
 #include "adjoint.hpp"
 #include "control.hpp"
 #include "defines.hpp"
+#include "dbcs.hpp"
 #include "evaluations.hpp"
 #include "fields.hpp"
 #include "global_residual.hpp"
@@ -13,6 +14,7 @@
 #include "nested.hpp"
 #include "primal.hpp"
 #include "state.hpp"
+#include "tbcs.hpp"
 
 using namespace calibr8;
 
@@ -105,13 +107,31 @@ void Driver::solve_adjoint() {
 void Driver::estimate_error() {
   print("ESTIMATING ERROR");
   apf::Mesh* m = m_nested->apf_mesh();
+  Array1D<RCP<VectorT>>& z = m_state->la->x[OWNED];
+  Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
+  Array1D<RCP<VectorT>>& R_ghost = m_state->la->b[GHOST];
+  Array2D<RCP<MatrixT>>& dR_dx = m_state->la->A[OWNED];
   apf::Field* R_error = apf::createStepField(m, "R_error", apf::SCALAR);
   apf::Field* C_error = apf::createStepField(m, "C_error", apf::SCALAR);
   apf::zeroField(R_error);
   apf::zeroField(C_error);
   int const nsteps = m_nested->primal().size();
+  ParameterList problem_params = m_params->sublist("problem", true);
+  double const dt = problem_params.get<double>("step size");
+  ParameterList& tbcs = m_params->sublist("traction bcs");
+  ParameterList& dbcs = m_params->sublist("dirichlet bcs", true);
+  double t = dt;
+  double e = 0.;
   for (int step = 1; step < nsteps; ++step) {
+    m_state->la->zero_all();
     eval_error_contributions(m_state, m_nested, R_error, C_error, step);
+    apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
+    m_state->la->gather_b();
+    m_state->la->gather_x();
+    Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
+    apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, /*is_adjoint=*/true);
+    t += dt;
+//    e += (-R.dot(z));
   }
 }
 

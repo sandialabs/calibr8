@@ -41,6 +41,10 @@ class LinearAlg {
 
     //! \brief Perform an MPI reduction of the vectors b
     //! \details Used with the directive ADD
+    void gather_x();
+
+    //! \brief Perform an MPI reduction of the vectors b
+    //! \details Used with the directive ADD
     void gather_b();
 
     //! \brief Zero the solution vector

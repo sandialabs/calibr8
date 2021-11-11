@@ -647,6 +647,8 @@ void eval_error_contributions(
   // gather the residuals from the state object
   RCP<LocalResidual<double>> local = state->residuals->local;
   RCP<GlobalResidual<double>> global = state->residuals->global;
+  Array1D<RCP<VectorT>>& resid_vec = state->la->b[GHOST];
+  Array1D<RCP<VectorT>>& z_vec = state->la->x[GHOST];
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
@@ -696,6 +698,7 @@ void eval_error_contributions(
 
       // grab the adjoint nodal solution at the element
       EVector const z_nodes = global->gather_adjoint(z);
+      global->scatter_rhs(disc, z_nodes, z_vec);
 
       // grab the forced path if required
       if (force_path) {
@@ -731,6 +734,7 @@ void eval_error_contributions(
           double const E_R_elem = z_nodes.dot(R);
           double E_R = apf::getScalar(R_error_field, e, 0);
           apf::setScalar(R_error_field, e, 0, E_R + E_R_elem);
+          global->scatter_rhs(disc, R, resid_vec);
 
           if (ip_set == 0) {
 
