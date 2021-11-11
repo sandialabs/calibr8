@@ -116,8 +116,8 @@ void Driver::estimate_error() {
   double const dt = problem_params.get<double>("step size");
   double t = dt;
   for (int step = 1; step < nsteps; ++step) {
-    Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     print(" > at error step: %d", step);
+    Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     eval_error_contributions(m_state, m_nested, R_error, C_error, step);
     eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
   }
@@ -128,9 +128,17 @@ void Driver::evaluate_linearization_error() {
   m_E_lin_R = 0.;
   m_E_lin_C = 0.;
   int const nsteps = m_nested->primal().size();
+  apf::Mesh* m = m_nested->apf_mesh();
+  apf::Field* R_error = m->findField("R_error");
+  ParameterList problem_params = m_params->sublist("problem", true);
+  ParameterList& tbcs = m_params->sublist("traction bcs");
+  double const dt = problem_params.get<double>("step size");
+  double t = dt;
   for (int step = 1; step < nsteps; ++step) {
     print(" > at error linearization error: %d", step);
+    Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     eval_linearization_errors(m_state, m_nested, step, m_E_lin_R, m_E_lin_C);
+    eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
   }
 }
 
