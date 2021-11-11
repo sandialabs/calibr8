@@ -33,4 +33,17 @@ void apply_primal_tbcs(
     Array1D<RCP<VectorT>>& R,
     double t);
 
+//! \brief Apply adjoint-weighted residual traction BCs to the error
+//! \param tbcs The traction BC parameter list
+//! \param disc The discretization object
+//! \param zfields The adjoint solution fields
+//! \param R_error The element contributions to the global resid error
+//! \param t The current time
+void eval_tbcs_error_contributions(
+    ParameterList const& tbcs,
+    RCP<Disc> disc,
+    Array1D<apf::Field*> zfields,
+    apf::Field* R_error,
+    double t);
+
 }

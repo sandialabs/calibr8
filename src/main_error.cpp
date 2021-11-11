@@ -123,12 +123,13 @@ void Driver::estimate_error() {
   double t = dt;
   double e = 0.;
   for (int step = 1; step < nsteps; ++step) {
+    Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     m_state->la->zero_all();
     eval_error_contributions(m_state, m_nested, R_error, C_error, step);
+    eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
     apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
     m_state->la->gather_b();
     m_state->la->gather_x();
-    Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, /*is_adjoint=*/true);
     t += dt;
     for (int i = 0; i < m_state->residuals->global->num_residuals(); ++i) {

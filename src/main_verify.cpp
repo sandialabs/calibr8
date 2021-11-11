@@ -10,6 +10,7 @@
 #include "nested.hpp"
 #include "primal.hpp"
 #include "state.hpp"
+#include "tbcs.hpp"
 
 using namespace calibr8;
 
@@ -110,9 +111,15 @@ void Driver::estimate_error() {
   apf::zeroField(R_error);
   apf::zeroField(C_error);
   int const nsteps = m_nested->primal().size();
+  ParameterList problem_params = m_params->sublist("problem", true);
+  ParameterList& tbcs = m_params->sublist("traction bcs");
+  double const dt = problem_params.get<double>("step size");
+  double t = dt;
   for (int step = 1; step < nsteps; ++step) {
+    Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     print(" > at error step: %d", step);
     eval_error_contributions(m_state, m_nested, R_error, C_error, step);
+    eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
   }
 }
 
