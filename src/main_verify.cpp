@@ -138,7 +138,7 @@ void Driver::evaluate_linearization_error() {
     print(" > at error linearization error: %d", step);
     Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     eval_linearization_errors(m_state, m_nested, step, m_E_lin_R, m_E_lin_C);
-    eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
+    if ((0)) eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
   }
 }
 
@@ -170,6 +170,19 @@ void Driver::print_error_estimate() {
   double const E_computed = eta + m_E_lin_R + m_E_lin_C;
   print("E_computed - E_exact: %.16e", E_computed - E_exact);
   print("E_computed / E_exact: %.16e", E_computed / E_exact);
+
+  ParameterList problem_params = m_params->sublist("problem", true);
+  bool check = problem_params.get<bool>("do regression", false);
+  if (check) {
+    std::cout << "------ regression summary -----\n";
+    if (std::abs((E_computed / E_exact) - 1.0) < 1.e-8) {
+      std::cout << " PASS\n";
+    } else {
+      std::cout << " FAIL\n";
+      abort();
+    }
+    std::cout << "-------------------------------\n";
+  }
 }
 
 void Driver::drive() {
