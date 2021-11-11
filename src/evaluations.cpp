@@ -698,7 +698,7 @@ void eval_error_contributions(
 
       // grab the adjoint nodal solution at the element
       EVector const z_nodes = global->gather_adjoint(z);
-      global->scatter_rhs(disc, z_nodes, z_vec);
+      global->assign_rhs(disc, z_nodes, z_vec);
 
       // grab the forced path if required
       if (force_path) {

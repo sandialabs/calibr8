@@ -82,6 +82,16 @@ void LinearAlg::gather_b() {
   }
 }
 
+void LinearAlg::assign_b() {
+  int const ngr = b[OWNED].size();
+  for (int i = 0; i < ngr; ++i) {
+    RCP<VectorT> b_i_owned = b[OWNED][i];
+    RCP<VectorT> b_i_ghost = b[GHOST][i];
+    RCP<const ExportT> exporter = m_disc->exporter(i);
+    b_i_owned->doExport(*b_i_ghost, *exporter, Tpetra::INSERT);
+  }
+}
+
 void LinearAlg::zero_all() {
   int const ngr = A[OWNED].size();
   for (int distrib = 0; distrib < NUM_DISTRIB; ++distrib) {

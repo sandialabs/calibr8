@@ -131,8 +131,12 @@ void Driver::estimate_error() {
     Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, /*is_adjoint=*/true);
     t += dt;
-//    e += (-R.dot(z));
+    for (int i = 0; i < m_state->residuals->global->num_residuals(); ++i) {
+      e += (R[i]->dot(*(z[i])));
+    }
   }
+  e = PCU_Add_Double(e);
+  print("eta ~ %.16e", e);
 }
 
 double Driver::sum_error_estimate() {

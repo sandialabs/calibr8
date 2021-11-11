@@ -119,6 +119,15 @@ class GlobalResidual {
         EVector const& rhs,
         Array1D<RCP<VectorT>>& RHS);
 
+    //! \brief Assign a value into a global vector
+    //! \param disc The discretization object
+    //! \param vector The element-level vector to assign
+    //! \param RHS The global right hand side vectors
+    void assign_rhs(
+        RCP<Disc> disc,
+        EVector const& rhs,
+        Array1D<RCP<VectorT>>& RHS);
+
     //! \brief Scatter the residual into the global Jacobian matrix
     //! \param disc The discretization object
     //! \param dtotal The total element-level derivative

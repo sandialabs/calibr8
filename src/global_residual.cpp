@@ -384,6 +384,25 @@ void GlobalResidual<T>::scatter_rhs(
   }
 }
 
+template <typename T>
+void GlobalResidual<T>::assign_rhs(
+    RCP<Disc> disc,
+    EVector const& rhs,
+    Array1D<RCP<VectorT>>& RHS) {
+  apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
+  for (int i = 0; i < m_num_residuals; ++i) {
+    auto R_data = RHS[i]->get1dViewNonConst();
+    Array2D<LO> const rows = disc->get_element_lids(ent, i);
+    for (int n = 0; n < m_num_nodes; ++n) {
+      for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
+        LO const row = rows[n][eq];
+        int const i_idx = dx_idx(i, n, eq);
+        R_data[row] = rhs[i_idx];
+      }
+    }
+  }
+}
+
 template <>
 void GlobalResidual<double>::scatter_lhs(
     RCP<Disc>,
