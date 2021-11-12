@@ -18,12 +18,12 @@ TEST(disc, construct) {
   Disc disc(disc_params);
   EXPECT_EQ(disc.num_dims(), 3);
   EXPECT_EQ(disc.num_elem_sets(), 1);
-  EXPECT_EQ(disc.num_side_sets(), 1);
+  EXPECT_EQ(disc.num_side_sets(), 4);
   EXPECT_EQ(disc.num_node_sets(), 4);
   EXPECT_EQ(disc.num_gv_nodes_per_elem(), 4);
   EXPECT_EQ(disc.num_lv_nodes_per_elem(), 1);
   EXPECT_EQ(disc.node_set_name(0), "xmin");
-  EXPECT_EQ(disc.side_set_name(0), "ymax");
+  EXPECT_EQ(disc.side_set_name(3), "ymax");
   EXPECT_TRUE(disc.gv_shape() != nullptr);
   EXPECT_TRUE(disc.lv_shape() != nullptr);
 }

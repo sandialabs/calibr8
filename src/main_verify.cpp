@@ -129,7 +129,6 @@ void Driver::evaluate_linearization_error() {
   m_E_lin_C = 0.;
   int const nsteps = m_nested->primal().size();
   apf::Mesh* m = m_nested->apf_mesh();
-  apf::Field* R_error = m->findField("R_error");
   ParameterList problem_params = m_params->sublist("problem", true);
   ParameterList& tbcs = m_params->sublist("traction bcs");
   double const dt = problem_params.get<double>("step size");
@@ -138,8 +137,10 @@ void Driver::evaluate_linearization_error() {
     print(" > at error linearization error: %d", step);
     Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     eval_linearization_errors(m_state, m_nested, step, m_E_lin_R, m_E_lin_C);
-    if ((0)) eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
+    m_E_lin_R += sum_tbcs_error_contributions(tbcs, m_nested, zfields, t);
+    t += dt;
   }
+  m_E_lin_R = PCU_Add_Double(m_E_lin_R);
 }
 
 void Driver::print_error_estimate() {

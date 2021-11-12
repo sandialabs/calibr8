@@ -46,4 +46,15 @@ void eval_tbcs_error_contributions(
     apf::Field* R_error,
     double t);
 
+//! \brief Sum the adjoint-weighted residual traction BCs contribution to the error
+//! \param tbcs The traction BC parameter list
+//! \param disc The discretization object
+//! \param zfields The adjoint solution fields
+//! \param t The current time
+double sum_tbcs_error_contributions(
+    ParameterList const& tbcs,
+    RCP<Disc> disc,
+    Array1D<apf::Field*> zfields,
+    double t);
+
 }
