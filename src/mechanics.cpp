@@ -74,6 +74,9 @@ void Mechanics<T>::evaluate(
   T const mu = compute_mu(E, nu);
   T const kappa = compute_kappa(E, nu);
 
+//  this->weight.evaluate(
+//  this->m_stab_weight.evaluate(
+
   // coupled ip set (lowest quadrature order)
   if (ip_set == 0) {
 
@@ -99,7 +102,7 @@ void Mechanics<T>::evaluate(
     for (int n = 0; n < nnodes; ++n) {
       for (int i = 0; i < ndims; ++i) {
         for (int j = 0; j < ndims; ++j) {
-          double const dbasis_dx = this->dbasis(n, j);
+          double const dbasis_dx = this->grad_weight(momentum_idx, n, i, j);
           this->R_nodal(momentum_idx, n, i) +=
             stress(i, j) * dbasis_dx * w * dv;
         }
@@ -111,8 +114,9 @@ void Mechanics<T>::evaluate(
       // compute the linear part of the pressure residual
       T const dU_dJ = 0.5 * (J - 1./J);
       for (int n = 0; n < nnodes; ++n) {
-        double const basis = this->basis(n);
-        this->R_nodal(pressure_idx, n, 0) -=
+        int const eq = 0;
+        double const basis = this->weight(pressure_idx, n, eq);
+        this->R_nodal(pressure_idx, n, eq) -=
           dU_dJ * basis * w * dv;
       }
 
@@ -123,8 +127,9 @@ void Mechanics<T>::evaluate(
       for (int n = 0; n < nnodes; ++n) {
         for (int i = 0; i < ndims; ++i) {
           for (int j = 0; j < ndims; ++j) {
-            double const dbasis_dx = this->dbasis(n, j);
-            this->R_nodal(pressure_idx, n, 0) -=
+            int const eq = 0;
+            double const dbasis_dx = this->grad_stab_weight(pressure_idx, n, eq, j);
+            this->R_nodal(pressure_idx, n, eq) -=
               tau * J * C_inv(i, j) * grad_p(i) * dbasis_dx * w * dv;
           }
         }
@@ -137,8 +142,9 @@ void Mechanics<T>::evaluate(
 
       // compute the linear part of the pressure residual
       for (int n = 0; n < nnodes; ++n) {
-        double const basis = this->basis(n);
-        this->R_nodal(pressure_idx, n, 0) -=
+        int const eq  = 0;
+        double const basis = this->weight(pressure_idx, n, eq);
+        this->R_nodal(pressure_idx, n, eq) -=
           minitensor::trace(eps) * basis * w * dv;
       }
 
@@ -149,8 +155,9 @@ void Mechanics<T>::evaluate(
       for (int n = 0; n < nnodes; ++n) {
         for (int i = 0; i < ndims; ++i) {
           for (int j = 0; j < ndims; ++j) {
-            double const dbasis_dx = this->dbasis(n, j);
-            this->R_nodal(pressure_idx, n, 0) -=
+            int const eq = 0;
+            double const dbasis_dx = this->grad_stab_weight(pressure_idx, n, eq, j);
+            this->R_nodal(pressure_idx, n, eq) -=
               tau * grad_p(i) * dbasis_dx * w * dv;
           }
         }
@@ -164,8 +171,9 @@ void Mechanics<T>::evaluate(
 
     // compute the linear part of the pressure residual
     for (int n = 0; n < nnodes; ++n) {
-      double const basis = this->basis(n);
-      this->R_nodal(pressure_idx, n, 0) -=
+      int const eq = 0;
+      double const basis = this->weight(pressure_idx, n, eq);
+      this->R_nodal(pressure_idx, n, eq) -=
         p / kappa * basis * w * dv;
     }
   }

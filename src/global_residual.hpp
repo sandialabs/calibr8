@@ -7,6 +7,7 @@
 #include "arrays.hpp"
 #include "defines.hpp"
 #include "fields.hpp"
+#include "weight.hpp"
 
 namespace calibr8 {
 
@@ -169,17 +170,38 @@ class GlobalResidual {
       return m_R_nodal[i][node][eq];
     }
 
-    //! \brief The nodal basis function at the current integration point
-    //! \param node The nodal basis function index
-    double basis(int node) const {
-      return m_basis[node];
+    //! \brief The weighting function at the current integration point
+    //! \param i The global residual index
+    //! \param node The node index
+    //! \param eq The global variable equation component
+    double weight(int i, int n, int eq) {
+      return m_weight->val(i, n, eq);
     }
 
-    //! \brief The basis function gradient at the current integation point
-    //! \param node The nodal basis function index
-    //! \param dim The derivative with respect to this dimension
-    double dbasis(int node, int dim) const {
-      return m_grad_basis[node][dim];
+    //! \brief The stabilized weighting function at the current integration point
+    //! \param i The global residual index
+    //! \param node The node index
+    //! \param eq The global variable equation component
+    double stab_weight(int i, int n, int eq) {
+      return m_stab_weight->val(i, n, eq);
+    }
+
+    //! \brief The weighting function at the current integration point
+    //! \param i The global residual index
+    //! \param node The node index
+    //! \param eq The global variable equation component
+    //! \parma dim The derivative axis
+    double grad_weight(int i, int n, int eq, int dim) {
+      return m_weight->grad(i, n, eq, dim);
+    }
+
+    //! \brief The stabilized weighting function at the current integration point
+    //! \param i The global residual index
+    //! \param node The node index
+    //! \param eq The global variable equation component
+    //! \parma dim The derivative axis
+    double grad_stab_weight(int i, int n, int eq, int dim) {
+      return m_stab_weight->grad(i, n, eq, dim);
     }
 
     //! \brief Get a scalar variable at the current integration point
@@ -265,10 +287,10 @@ class GlobalResidual {
     Array3D<T> m_grad_x;
     Array3D<T> m_grad_x_prev;
 
-    apf::NewArray<double> m_basis;
-    apf::NewArray<apf::Vector3> m_grad_basis;
-
     Array1D<int> m_ip_sets;
+
+    Weight* m_weight = nullptr;
+    Weight* m_stab_weight = nullptr;
 
     //! \endcond
 

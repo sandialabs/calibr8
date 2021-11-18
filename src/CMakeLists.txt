@@ -25,6 +25,7 @@ set(CALIBR8_SOURCES
   synthetic.cpp
   surface_mismatch.cpp
   tbcs.cpp
+  weight.cpp
 )
 
 add_library(calibr8 ${CALIBR8_SOURCES})

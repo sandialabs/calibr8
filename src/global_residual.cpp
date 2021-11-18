@@ -106,6 +106,10 @@ void GlobalResidual<T>::before_elems(RCP<Disc> disc) {
   m_mesh = disc->apf_mesh();
   m_shape = disc->gv_shape();
 
+  // create weighting functions
+  m_weight = new Weight(m_shape);
+  m_stab_weight = new Weight(m_shape);
+
   // resize the nodal quantities
   resize(m_x_nodal, m_num_residuals, m_num_nodes, m_num_eqs);
   resize(m_R_nodal, m_num_residuals, m_num_nodes, m_num_eqs);
@@ -248,18 +252,19 @@ void GlobalResidual<FADT>::unseed_wrt_x_prev() {
 template <typename T>
 void GlobalResidual<T>::interpolate(apf::Vector3 const& iota) {
 
-  // evaluate the shape functions at the current integration point
-  apf::getBF(m_shape, m_mesh_elem, iota, m_basis);
-  apf::getGradBF(m_shape, m_mesh_elem, iota, m_grad_basis);
+  apf::NewArray<double> basis;
+  apf::NewArray<apf::Vector3> dbasis;
+  apf::getBF(m_shape, m_mesh_elem, iota, basis);
+  apf::getGradBF(m_shape, m_mesh_elem, iota, dbasis);
 
   // interpolate the global state variables
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
-      m_x[i][eq] = x_nodal(i, 0, eq) *  basis(0);
-      m_x_prev[i][eq] = x_prev_nodal(i, 0, eq) * basis(0);
+      m_x[i][eq] = x_nodal(i, 0, eq) *  basis[0];
+      m_x_prev[i][eq] = x_prev_nodal(i, 0, eq) * basis[0];
       for (int n = 1; n < m_num_nodes; ++n) {
-        m_x[i][eq] += x_nodal(i, n, eq) * basis(n);
-        m_x_prev[i][eq] += x_prev_nodal(i, n, eq) * basis(n);
+        m_x[i][eq] += x_nodal(i, n, eq) * basis[n];
+        m_x_prev[i][eq] += x_prev_nodal(i, n, eq) * basis[n];
       }
     }
   }
@@ -268,11 +273,11 @@ void GlobalResidual<T>::interpolate(apf::Vector3 const& iota) {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
       for (int d = 0; d < m_num_dims; ++d) {
-        m_grad_x[i][eq][d] = x_nodal(i, 0, eq) * dbasis(0, d);
-        m_grad_x_prev[i][eq][d] = x_prev_nodal(i, 0, eq) * dbasis(0, d);
+        m_grad_x[i][eq][d] = x_nodal(i, 0, eq) * dbasis[0][d];
+        m_grad_x_prev[i][eq][d] = x_prev_nodal(i, 0, eq) * dbasis[0][d];
         for (int n = 1; n < m_num_nodes; ++n) {
-          m_grad_x[i][eq][d] += x_nodal(i, n, eq) * dbasis(n, d);
-          m_grad_x_prev[i][eq][d] += x_prev_nodal(i, n, eq) * dbasis(n, d);
+          m_grad_x[i][eq][d] += x_nodal(i, n, eq) * dbasis[n][d];
+          m_grad_x_prev[i][eq][d] += x_prev_nodal(i, n, eq) * dbasis[n][d];
         }
       }
     }
@@ -455,6 +460,10 @@ void GlobalResidual<T>::unset_elem() {
 
 template <typename T>
 void GlobalResidual<T>::after_elems() {
+  ALWAYS_ASSERT(m_weight);
+  ALWAYS_ASSERT(m_stab_weight);
+  delete m_weight;
+  delete m_stab_weight;
   m_num_dims = -1;
   m_num_nodes = -1;
   m_num_dofs = -1;
