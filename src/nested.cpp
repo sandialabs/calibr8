@@ -61,10 +61,9 @@ void NestedDisc::refine() {
 void NestedDisc::create_primal(RCP<Disc> disc) {
   Array1D<Fields> const& base_primal = disc->primal();
   int const nsteps = base_primal.size();
-  m_primal.resize(0);
-  int const ngr = base_primal[0].global.size();
-  int const nlr = base_primal[0].local.size();
   for (int step = 0; step < nsteps; ++step) {
+    int const ngr = base_primal[0].global.size();
+    int const nlr = base_primal[0].local.size();
     Fields fields;
     for (int i = 0; i < ngr; ++i) {
       const char* name = apf::getName(base_primal[step].global[i]);
