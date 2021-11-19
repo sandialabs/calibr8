@@ -74,8 +74,6 @@ void Mechanics<T>::evaluate(
   T const mu = compute_mu(E, nu);
   T const kappa = compute_kappa(E, nu);
 
-//  this->weight.evaluate(
-//  this->m_stab_weight.evaluate(
 
   // coupled ip set (lowest quadrature order)
   if (ip_set == 0) {

@@ -249,22 +249,21 @@ void GlobalResidual<FADT>::unseed_wrt_x_prev() {
   }
 }
 
+// TODO: add optional arguments for POU error mode / adjoint fields
 template <typename T>
 void GlobalResidual<T>::interpolate(apf::Vector3 const& iota) {
 
-  apf::NewArray<double> basis;
-  apf::NewArray<apf::Vector3> dbasis;
-  apf::getBF(m_shape, m_mesh_elem, iota, basis);
-  apf::getGradBF(m_shape, m_mesh_elem, iota, dbasis);
+  m_weight->evaluate(m_mesh_elem, iota);
+  m_stab_weight->evaluate(m_mesh_elem, iota);
 
   // interpolate the global state variables
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
-      m_x[i][eq] = x_nodal(i, 0, eq) *  basis[0];
-      m_x_prev[i][eq] = x_prev_nodal(i, 0, eq) * basis[0];
+      m_x[i][eq] = x_nodal(i, 0, eq) * this->weight(i, 0, eq);
+      m_x_prev[i][eq] = x_prev_nodal(i, 0, eq) * this->weight(i, 0, eq);
       for (int n = 1; n < m_num_nodes; ++n) {
-        m_x[i][eq] += x_nodal(i, n, eq) * basis[n];
-        m_x_prev[i][eq] += x_prev_nodal(i, n, eq) * basis[n];
+        m_x[i][eq] += x_nodal(i, n, eq) * this->weight(i, n, eq);
+        m_x_prev[i][eq] += x_prev_nodal(i, n, eq) * this->weight(i, n, eq);
       }
     }
   }
@@ -273,11 +272,15 @@ void GlobalResidual<T>::interpolate(apf::Vector3 const& iota) {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
       for (int d = 0; d < m_num_dims; ++d) {
-        m_grad_x[i][eq][d] = x_nodal(i, 0, eq) * dbasis[0][d];
-        m_grad_x_prev[i][eq][d] = x_prev_nodal(i, 0, eq) * dbasis[0][d];
+        m_grad_x[i][eq][d] =
+            x_nodal(i, 0, eq) * this->grad_weight(i, 0, eq, d);
+        m_grad_x_prev[i][eq][d] =
+            x_prev_nodal(i, 0, eq) * this->grad_weight(i, 0, eq, d);
         for (int n = 1; n < m_num_nodes; ++n) {
-          m_grad_x[i][eq][d] += x_nodal(i, n, eq) * dbasis[n][d];
-          m_grad_x_prev[i][eq][d] += x_prev_nodal(i, n, eq) * dbasis[n][d];
+          m_grad_x[i][eq][d] +=
+              x_nodal(i, n, eq) * this->grad_weight(i, n, eq, d);
+          m_grad_x_prev[i][eq][d] +=
+              x_prev_nodal(i, n, eq) * this->grad_weight(i, n, eq, d);
         }
       }
     }
