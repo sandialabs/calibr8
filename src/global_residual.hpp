@@ -93,10 +93,16 @@ class GlobalResidual {
 
     //! \brief Interpolate the nodal values to an integration point
     //! \param iota The integration point in the reference element space
-    //! \details This will also fill in basis function data (m_basis, m_grad_basis).
+    //! \details This calls weight->evaluate
     //! This should be called after gather + seed have been called
     //! appropriately
     void interpolate(apf::Vector3 const& iota);
+
+    //! \brief Interpolate nodal values to an integration point in error mode
+    //! \param iota The integration point in the reference element space
+    //! \details This calls weight->evaluate, which should have been constructed
+    //! with the ErrorWeight class
+    void interpolate_with_error(apf::Vector3 const& iota);
 
     //! \brief Evaluate the residual at an integration point
     //! \param local The local residual

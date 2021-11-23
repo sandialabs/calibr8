@@ -5,6 +5,7 @@ set(CALIBR8_SOURCES
   control.cpp
   dbcs.cpp
   disc.cpp
+  error_weight.cpp
   evaluations.cpp
   femu_objective.cpp
   fields.cpp

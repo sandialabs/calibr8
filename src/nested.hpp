@@ -46,12 +46,15 @@ class NestedDisc : public Disc {
     void copy_mesh();
     void tag_old_verts();
     void refine();
+    void store_old_verts();
     void create_primal(RCP<Disc> disc);
 
   private:
 
     apf::Mesh2* m_base_mesh = nullptr;
+    apf::MeshTag* m_old_vtx_tag = nullptr;
     EntArray m_base_elems;
+    EntArray m_old_vertices;
 
     Array1D<Fields> m_primal_fine;
     Array3D<bool> m_branch_paths; /* [load step, elem_set, elem] */

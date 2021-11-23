@@ -16,7 +16,9 @@ NestedDisc::NestedDisc(RCP<Disc> disc, int type) {
   m_sets = disc->sets();
   number_elems();
   copy_mesh();
+  tag_old_verts();
   refine();
+  store_old_verts();
   initialize();
   create_primal(disc);
 }
@@ -50,12 +52,36 @@ void NestedDisc::copy_mesh() {
   apf::disownMdsModel(m_mesh);
 }
 
+void NestedDisc::tag_old_verts() {
+  int i = -1;
+  apf::MeshEntity* vtx;
+  apf::MeshIterator* it = m_mesh->begin(0);
+  m_old_vtx_tag = m_mesh->createIntTag("ovt", 1);
+  while ((vtx = m_mesh->iterate(it))) {
+    m_mesh->setIntTag(vtx, m_old_vtx_tag, &(++i));
+  }
+  m_mesh->end(it);
+  m_old_vertices.resize(m_mesh->count(0));
+}
+
 void NestedDisc::refine() {
   ma::AutoSolutionTransfer transfers(m_mesh);
   auto in = ma::makeAdvanced(ma::configureUniformRefine(m_mesh, 1, &transfers));
   in->shouldFixShape = false;
   in->shouldSnap = false;
   ma::adapt(in);
+}
+
+void NestedDisc::store_old_verts() {
+  apf::MeshEntity* vtx;
+  apf::MeshIterator* it = m_mesh->begin(0);
+  while ((vtx = m_mesh->iterate(it))) {
+    if (! m_mesh->hasTag(vtx, m_old_vtx_tag)) continue;
+    int tag;
+    m_mesh->getIntTag(vtx, m_old_vtx_tag, &tag);
+    m_old_vertices[tag] = vtx;
+  }
+  m_mesh->end(it);
 }
 
 void NestedDisc::create_primal(RCP<Disc> disc) {
