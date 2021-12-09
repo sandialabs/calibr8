@@ -44,6 +44,10 @@ NestedDisc::~NestedDisc() {
   apf::Field* e2 = m_mesh->findField("elems");
   apf::destroyField(e1);
   apf::destroyField(e2);
+  apf::removeTagFromDimension(m_mesh, m_old_vtx_tag, 0);
+  apf::removeTagFromDimension(m_mesh, m_new_vtx_tag, 0);
+  m_mesh->destroyTag(m_old_vtx_tag);
+  m_mesh->destroyTag(m_new_vtx_tag);
 }
 
 void NestedDisc::copy_mesh() {
@@ -57,6 +61,7 @@ void NestedDisc::tag_old_verts() {
   apf::MeshEntity* vtx;
   apf::MeshIterator* it = m_mesh->begin(0);
   m_old_vtx_tag = m_mesh->createIntTag("ovt", 1);
+  m_new_vtx_tag = m_mesh->createIntTag("nvt", 2);
   while ((vtx = m_mesh->iterate(it))) {
     m_mesh->setIntTag(vtx, m_old_vtx_tag, &(++i));
   }
@@ -64,8 +69,48 @@ void NestedDisc::tag_old_verts() {
   m_old_vertices.resize(m_mesh->count(0));
 }
 
+class Transfer : public ma::SolutionTransfer {
+  public:
+    Transfer(apf::Mesh* m, apf::MeshTag* o, apf::MeshTag* n);
+    bool hasNodesOn(int dim);
+    void onVertex(apf::MeshElement* p, ma::Vector const&, ma::Entity* vtx);
+  private:
+    apf::Mesh* mesh;
+    apf::MeshTag* old_vtx_tag;
+    apf::MeshTag* new_vtx_tag;
+    int num_dims;
+};
+
+Transfer::Transfer(apf::Mesh* m, apf::MeshTag* o, apf::MeshTag* n) {
+  mesh = m;
+  old_vtx_tag = o;
+  new_vtx_tag = n;
+  num_dims = mesh->getDimension();
+}
+
+bool Transfer::hasNodesOn(int dim) {
+  if (dim == 0) return true;
+  if (dim == num_dims) return true;
+  return false;
+}
+
+void Transfer::onVertex(
+    apf::MeshElement* p,
+    ma::Vector const&,
+    ma::Entity* vtx) {
+  int tags[2];
+  apf::MeshEntity* verts[2];
+  auto edge = apf::getMeshEntity(p);
+  mesh->getDownward(edge, 0, verts);
+  mesh->getIntTag(verts[0], old_vtx_tag, &(tags[0]));
+  mesh->getIntTag(verts[1], old_vtx_tag, &(tags[1]));
+  mesh->setIntTag(vtx, new_vtx_tag, &(tags[0]));
+}
+
 void NestedDisc::refine() {
   ma::AutoSolutionTransfer transfers(m_mesh);
+  auto mytransfer = new Transfer(m_mesh, m_old_vtx_tag, m_new_vtx_tag);
+  transfers.add(mytransfer);
   auto in = ma::makeAdvanced(ma::configureUniformRefine(m_mesh, 1, &transfers));
   in->shouldFixShape = false;
   in->shouldSnap = false;
@@ -151,7 +196,33 @@ void NestedDisc::create_verification_data() {
 
 }
 
-//TODO: somehow get z_coarse and z_diff...
+apf::Field* NestedDisc::get_coarse(apf::Field* f) {
+  int tags[2];
+  double comps0[3];
+  double comps1[3];
+  double new_comps[3];
+  std::string const name = std::string(apf::getName(f)) + "_coarse";
+  int const vt = apf::getValueType(f);
+  apf::Mesh* m = apf::getMesh(f);
+  apf::FieldShape* shape = apf::getShape(f);
+  apf::Field* coarse = apf::createField(m, name.c_str(), vt, shape);
+  apf::MeshEntity* vtx;
+  apf::MeshIterator* it = m_mesh->begin(0);
+  while ((vtx = m->iterate(it))) {
+    if (!m->hasTag(vtx, m_new_vtx_tag)) continue;
+    m_mesh->getIntTag(vtx, m_new_vtx_tag, &(tags[0]));
+    auto vtx0 = m_old_vertices[tags[0]];
+    auto vtx1 = m_old_vertices[tags[1]];
+    apf::getComponents(f, vtx0, 0, &(comps0[0]));
+    apf::getComponents(f, vtx1, 0, &(comps1[0]));
+    int ncomps = apf::countComponents(f);
+    for (int comp = 0; comp < ncomps; ++comp) {
+      new_comps[comp] = 0.5*(comps0[comp] + comps1[comp]);
+    }
+    apf::setComponents(coarse, vtx, 0, &(new_comps[0]));
+  }
+  return coarse;
+}
 
 void NestedDisc::set_error(
     apf::Field* nested_global_error,

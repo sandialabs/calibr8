@@ -230,4 +230,33 @@ apf::Field* enrich_qp_field(
   return qp;
 }
 
+apf::Field* subtract(apf::Field* fine, apf::Field* coarse) {
+  std::string const bname = apf::getName(fine);
+  std::string const name = bname + "_diff";
+  apf::Mesh* m = apf::getMesh(fine);
+  int const vt = apf::getValueType(fine);
+  int const ncomps = apf::countComponents(fine);
+  apf::FieldShape* shape = apf::getShape(fine);
+  ALWAYS_ASSERT(vt == apf::getValueType(coarse));
+  ALWAYS_ASSERT(m == apf::getMesh(coarse));
+  ALWAYS_ASSERT(shape == apf::getShape(coarse));
+  ALWAYS_ASSERT(ncomps == apf::countComponents(coarse));
+  apf::Field* diff = apf::createField(m, name.c_str(), vt, shape);
+  double f_comps[3];
+  double c_comps[3];
+  double diff_comps[3];
+  apf::MeshEntity* vtx;
+  apf::MeshIterator* it = m->begin(0);
+  while ((vtx = m->iterate(it))) {
+    apf::getComponents(fine, vtx, 0, &(f_comps[0]));
+    apf::getComponents(coarse, vtx, 0, &(c_comps[0]));
+    for (int comp = 0; comp < ncomps; ++comp) {
+      diff_comps[comp] = f_comps[comp] - c_comps[comp];
+    }
+    apf::setComponents(diff, vtx, 0, &(diff_comps[0]));
+  }
+  m->end(it);
+  return diff;
+}
+
 }

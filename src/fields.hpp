@@ -69,4 +69,8 @@ apf::Field* enrich_qp_field(
     apf::Field* phi_H,
     apf::FieldShape* fine_shape);
 
+//! \brief Subtract two nodal fields on the same mesh
+//! \returns b - a
+apf::Field* subtract(apf::Field* b, apf::Field* a);
+
 }

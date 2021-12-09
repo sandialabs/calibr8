@@ -29,6 +29,9 @@ class NestedDisc : public Disc {
     //! \param E_local The local residual error contribs
     void set_error(apf::Field* E_global, apf::Field* E_local);
 
+    //! \brief Get a coarse nodal representation of a fine field
+    apf::Field* get_coarse(apf::Field* f);
+
     //! \brief Get the fine primal fields
     //! \details For VERIFICATION discretizations
     Array1D<Fields>& primal_fine() { return m_primal_fine; }
@@ -53,6 +56,7 @@ class NestedDisc : public Disc {
 
     apf::Mesh2* m_base_mesh = nullptr;
     apf::MeshTag* m_old_vtx_tag = nullptr;
+    apf::MeshTag* m_new_vtx_tag = nullptr;
     EntArray m_base_elems;
     EntArray m_old_vertices;
 
