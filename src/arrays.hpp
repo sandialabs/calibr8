@@ -22,6 +22,11 @@ using Array2D = std::vector<std::vector<T>>;
 template <typename T>
 using Array3D = std::vector<std::vector<std::vector<T>>>;
 
+//! \brief A 4-dimensional array type
+//! \tparam The underlying type of the array
+template <typename T>
+using Array4D = std::vector<std::vector<std::vector<std::vector<T>>>>;
+
 //! \brief Resize a 1D array type
 //! \param a The array to resize
 //! \param ni The number of entries in the first dimension
@@ -84,6 +89,27 @@ void resize(Array3D<T>& a, int ni, int nj, Array1D<int> const& nk) {
     a[i].resize(nj);
     for (int j = 0; j < nj; ++j) {
       a[i][j].resize(nk[i]);
+    }
+  }
+}
+
+//! \brief resize the 4D array type
+//! \tparam The underlying type of the array
+//! \param a The array to resize
+//! \param ni The number of entries in the first dimension
+//! \param nj The number of entries in the second dimension
+//! \param nk The number of entries in the third dimension as a function of i
+//! \param nl The number of entries in the fourth dimension
+template <typename T>
+void resize(Array4D<T>& a, int ni, int nj, Array1D<int> const& nk, int nl) {
+  a.resize(ni);
+  for (int i = 0; i < ni; ++i) {
+    a[i].resize(nj);
+    for (int j = 0; j < nj; ++j) {
+      a[i][j].resize(nk[i]);
+      for (int k = 0; k < nk[i]; ++k) {
+        a[i][j][k].resize(nl);
+      }
     }
   }
 }

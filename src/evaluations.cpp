@@ -637,6 +637,9 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   return grad;
 }
 
+// TODO: write this using global->interpolate_error
+//void eval_error_contributions_nodal();
+
 void eval_error_contributions(
     RCP<State> state,
     RCP<Disc> disc,
@@ -731,7 +734,7 @@ void eval_error_contributions(
             // evaluate the global residual error contributions
             local->gather(pt, xi, xi_prev);
             global->zero_residual();
-            global->interpolate(iota); // TODO make new
+            global->interpolate(iota);
             global->evaluate(local, iota, w, dv, ip_set);
             EVector const R = global->eigen_residual();
             double const E_R_elem = z_nodes.dot(R);
@@ -753,7 +756,7 @@ void eval_error_contributions(
 
             // evaluate the global residual error contributions
             global->zero_residual();
-            global->interpolate(iota); // TODO make new
+            global->interpolate(iota);
             global->evaluate(local, iota, w, dv, ip_set);
             EVector const R = global->eigen_residual();
             double const E_R_elem = z_nodes.dot(R);

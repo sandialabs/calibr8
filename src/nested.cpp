@@ -151,6 +151,8 @@ void NestedDisc::create_verification_data() {
 
 }
 
+//TODO: somehow get z_coarse and z_diff...
+
 void NestedDisc::set_error(
     apf::Field* nested_global_error,
     apf::Field* nested_local_error) {
