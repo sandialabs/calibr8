@@ -15,6 +15,8 @@ static ParameterList get_valid_params() {
   p.set<double>("nu", 0.);
   p.set<double>("K", 0.);
   p.set<double>("Y", 0.);
+  p.set<double>("cte", 0.);
+  p.set<double>("delta_T", 0.);
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
@@ -27,7 +29,7 @@ J2_small_strain<T>::J2_small_strain(ParameterList const& inputs, int ndims) {
   inputs.validateParameters(get_valid_params(), 0);
 
   int const num_residuals = 2;
-  int const num_params = 4;
+  int const num_params = 6;
 
   this->m_num_residuals = num_residuals;
   this->m_num_eqs.resize(num_residuals);
@@ -49,11 +51,15 @@ J2_small_strain<T>::J2_small_strain(ParameterList const& inputs, int ndims) {
   this->m_param_names[1] = "nu";
   this->m_param_names[2] = "K";
   this->m_param_names[3] = "Y";
+  this->m_param_names[4] = "cte";
+  this->m_param_names[5] = "delta_T";
 
   this->m_params[0] = inputs.get<double>("E");
   this->m_params[1] = inputs.get<double>("nu");
   this->m_params[2] = inputs.get<double>("K");
   this->m_params[3] = inputs.get<double>("Y");
+  this->m_params[4] = inputs.get<double>("cte");
+  this->m_params[5] = inputs.get<double>("delta_T");
 
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
@@ -226,9 +232,14 @@ Tensor<T> J2_small_strain<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
 template <typename T>
 Tensor<T> J2_small_strain<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   int const ndims = global->num_dims();
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
+  T const cte = this->m_params[4];
+  T const kappa = compute_kappa(E, nu);
+  T const delta_T = this->m_params[5];
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const dev_sigma = this->dev_cauchy(global);
-  Tensor<T> const sigma = dev_sigma - p * I;
+  Tensor<T> const sigma = dev_sigma - p * I - 3.*kappa*cte*delta_T*I;
   return sigma;
 }
 
