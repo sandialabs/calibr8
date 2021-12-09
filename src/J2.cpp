@@ -266,6 +266,15 @@ Tensor<T> J2<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   return mu * zeta / J;
 }
 
+template <typename T>
+Tensor<T> J2<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
+  int const ndims = global->num_dims();
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const dev_sigma = this->dev_cauchy(global);
+  Tensor<T> const sigma = dev_sigma - p * I;
+  return sigma;
+}
+
 template class J2<double>;
 template class J2<FADT>;
 

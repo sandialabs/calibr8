@@ -129,6 +129,11 @@ class LocalResidual {
     //! \param global The global residual equations
     virtual Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global) = 0;
 
+    //! \brief Get the deviatoric part of the Cauchy stress tensor
+    //! \param global The global residual equations
+    //! \param p The pressure
+    virtual Tensor<T> cauchy(RCP<GlobalResidual<T>> global, T p) = 0;
+
     //! \brief Save the solved local variables to the current integration point
     //! \param pt The integration point index
     //! \param xi The local state variable fields at the current step

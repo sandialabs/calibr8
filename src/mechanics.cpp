@@ -92,8 +92,7 @@ void Mechanics<T>::evaluate(
 
     // compute stress measures
     RCP<GlobalResidual<T>> global = rcp(this, false);
-    Tensor<T> const dev_sigma = local->dev_cauchy(global);
-    Tensor<T> stress = dev_sigma - p * I;
+    Tensor<T> stress = local->cauchy(global, p);
     if (local->is_finite_deformation()) stress = J * stress * F_invT;
 
     // compute the balance of linear momentum residual

@@ -1036,9 +1036,7 @@ apf::Field* eval_cauchy(RCP<State> state, int step) {
         global->interpolate(iota);
         local->gather(pt, xi, xi_prev);
         double const p = global->scalar_x(pressure_idx);
-        Tensor<double> const dev_sigma = local->dev_cauchy(global);
-        Tensor<double> const I = minitensor::eye<double>(ndims);
-        Tensor<double> const sigma = dev_sigma - p * I;
+        Tensor<double> const sigma = local->cauchy(global, p);
 
         // set the cauchy stress tensor to a field
         apf::Matrix3x3 apf_sigma(0, 0, 0, 0, 0, 0, 0, 0, 0);

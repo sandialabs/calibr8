@@ -47,6 +47,11 @@ class J2_small_strain : public LocalResidual<T> {
     //! \param global The global residual equations
     Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global);
 
+    //! \brief Get the deviatoric part of the Cauchy stress tensor
+    //! \param global The global residual equations
+    //! \param p The pressure
+    Tensor<T> cauchy(RCP<GlobalResidual<T>> global, T p);
+
   private:
 
     int m_max_iters;

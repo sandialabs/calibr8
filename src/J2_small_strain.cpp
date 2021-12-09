@@ -223,6 +223,15 @@ Tensor<T> J2_small_strain<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   return 2. * mu * (dev_eps - pstrain);
 }
 
+template <typename T>
+Tensor<T> J2_small_strain<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
+  int const ndims = global->num_dims();
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const dev_sigma = this->dev_cauchy(global);
+  Tensor<T> const sigma = dev_sigma - p * I;
+  return sigma;
+}
+
 template class J2_small_strain<double>;
 template class J2_small_strain<FADT>;
 
