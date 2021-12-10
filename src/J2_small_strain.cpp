@@ -220,12 +220,14 @@ int J2_small_strain<T>::evaluate(
 template <typename T>
 Tensor<T> J2_small_strain<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
+  Tensor<T> const I = minitensor::eye<T>(ndims);
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const mu = E / (2. * (1. + nu));
   Tensor<T> const pstrain = this->sym_tensor_xi(0);
   Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const dev_eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
+  Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
+  Tensor<T> const dev_eps = eps - (minitensor::trace(eps) / 3.) * I;
   return 2. * mu * (dev_eps - pstrain);
 }
 
