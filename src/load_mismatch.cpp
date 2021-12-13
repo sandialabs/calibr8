@@ -27,7 +27,8 @@ void LoadMismatch<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_num_dims = disc->num_dims();
   this->m_shape = disc->gv_shape();
   this->m_step = step;
-  this->vec_value_pt = Vector<T>(this->m_num_dims);
+  m_load_mismatch_computed = false;
+  //this->vec_value_pt = Vector<T>(this->m_num_dims);
 
   // initialize the surface mesh information
   if (!is_initd) {
@@ -75,9 +76,9 @@ void LoadMismatch<T>::evaluate(
   T const dummy1 = global->vector_x(0)[0];
   T const dummy2 = local->first_value();
   this->value_pt = 0. * (dummy1 + dummy2);
-  for (int i = 0; i < ndims; ++i) {
-    this->vec_value_pt(i) = 0. * (dummy1 + dummy2);
-  }
+  //for (int i = 0; i < ndims; ++i) {
+  //  this->vec_value_pt(i) = 0. * (dummy1 + dummy2);
+  //}
 
   // get the id of the facet wrt element if this facet is on the QoI side
   // do not evaluate if the facet is not adjacent to the QoI side
@@ -148,28 +149,16 @@ void LoadMismatch<T>::evaluate(
     apf::Vector3 N = ree::computeFaceOutwardNormal(mesh, elem_entity, face,
         iota_face);
 
-    Vector<T> Trac(0., 0., 0.);
+    // compute the normal load
+    T load = T(0.);
     for (int i = 0; i < ndims; ++i) {
       for (int j = 0; j < ndims; ++j) {
-        //print("Normal comp %d = %.16e", j, N[j]);
-        //print("P(%d, %d) = %.16e", i, j, val(stress(i, j)));
-        Trac(i) += stress(i, j) * N[j];
-        //print("Trac(%d) = %.16e", i, val(Trac(i)));
+        load += N[i] * stress(i, j) * N[j];
       }
     }
 
-    // interpolate the measured displacement data to the point
-    // apf::Vector3 u_meas;
-    // apf::getVector(e_meas, iota_elem, u_meas);
-
-    // compute the QoI contribution at the point
-    // T const qoi =
-    //   (u_fem[0] - u_meas[0]) * (u_fem[0] - u_meas[0]) +
-    //   (u_fem[1] - u_meas[1]) * (u_fem[1] - u_meas[1]) +
-    //   (u_fem[2] - u_meas[2]) * (u_fem[2] - u_meas[2]);
-    
-    // integrate the traction over the surface
-    this->vec_value_pt = Trac * w * dv;
+    // integrate the load over the surface
+    this->value_pt = load * w * dv;
 
   }
 
@@ -184,18 +173,15 @@ void LoadMismatch<T>::evaluate(
 }
 
 template <typename T>
-void LoadMismatch<T>::finalize(int step, double& J, Vector<double> const& H) {
+void LoadMismatch<T>::finalize(int step, double& J) {
   if (m_predict_load) {
-    print("Load on surface %s at step %d:", m_side_set.c_str(), step);
-    for (int i = 0; i < this->m_num_dims; ++i) {
-      print("  H(%d) = %.16e", i, val(H(i)));
-    }
+    print("Load on surface %s at step %d = %.16e",
+        m_side_set.c_str(), step, J);
   } else {
     // compute H_{diff}(i) = H(i) - H^{meas}(i) (store this for each step?)
     // finalized value -> \sum_i^n 0.5 * ||H_{diff}||^2
     (void) step;
     (void) J;
-    (void) H;
   }
 }
 

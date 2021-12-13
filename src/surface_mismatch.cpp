@@ -23,7 +23,7 @@ void SurfaceMismatch<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_num_dims = disc->num_dims();
   this->m_shape = disc->gv_shape();
   this->m_step = step;
-  this->vec_value_pt = Vector<T>(this->m_num_dims);
+  //this->vec_value_pt = Vector<T>(this->m_num_dims);
 
   // initialize the surface mesh information
   if (!is_initd) {
@@ -70,9 +70,9 @@ void SurfaceMismatch<T>::evaluate(
   T const dummy1 = global->vector_x(0)[0];
   T const dummy2 = local->first_value();
   this->value_pt = 0 * (dummy1 + dummy2);
-  for (int i = 0; i < ndims; ++i) {
-    this->vec_value_pt(i) = 0. * (dummy1 + dummy2);
-  }
+  //for (int i = 0; i < ndims; ++i) {
+  //  this->vec_value_pt(i) = 0. * (dummy1 + dummy2);
+  //}
 
   // get the id of the facet wrt element if this facet is on the QoI side
   // do not evaluate if the facet is not adjacent to the QoI side

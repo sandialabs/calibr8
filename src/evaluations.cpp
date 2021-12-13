@@ -513,7 +513,7 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
         local->gather(pt, xi, xi_prev);
         qoi->evaluate(es, elem, global, local, iota, w, dv);
         qoi->scatter(J);
-        qoi->scatter_vec(H);
+        //qoi->scatter_vec(H);
 
       }
 
@@ -526,7 +526,7 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
     }
 
     // DTS: no op for disp matching; compute qoi for load matching
-    qoi->finalize(step, J, H);
+    qoi->finalize(step, J);
 
     // for (int i = 0; i < ndims; ++i) {
     //   print("Load component %d = %.16e", i, H(i));

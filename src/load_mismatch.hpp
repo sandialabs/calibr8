@@ -39,15 +39,16 @@ class LoadMismatch : public QoI<T> {
 
     //! \brief Finalize  the QoI computation
     //! \param step load step
-    //! \param J scalar part of QoI
-    //! \param H vector part of QoI
-    void finalize(int step, double& J, Vector<double> const& H);
+    //! \param J QoI (possibly partial)
+    void finalize(int step, double& J);
 
   private:
 
     bool is_initd = false;
     std::string m_side_set = "";
     bool m_predict_load = false;
+    bool m_load_mismatch_computed = false;
+    double m_load_mismatch = 0.;
     Array2D<int> m_mapping; // m_mapping[es_idx][elem_idx]
 
 };

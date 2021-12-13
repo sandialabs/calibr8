@@ -55,13 +55,12 @@ class QoI {
     void scatter(double& J);
 
     //! \brief Scatter the integration point vector value into the total vector
-    void scatter_vec(Vector<double>& H);
+    //void scatter_vec(Vector<double>& H);
 
-    //! \brief Finalize  the QoI computation
+    //! \brief Finalize the QoI computation
     //! \param step load step
-    //! \param J scalar part of QoI
-    //! \param H vector part of QoI
-    virtual void finalize(int step, double &J, Vector<double> const& H);
+    //! \param J QoI (possibly partial)
+    virtual void finalize(int step, double &J);
 
     //! \brief Gather the derivative vector dJ / d(seeded_vars)
     EVector eigen_dvector() const;
@@ -83,7 +82,7 @@ class QoI {
     apf::MeshElement* m_mesh_elem = nullptr;
 
     T value_pt = T(0);
-    Vector<T> vec_value_pt; // DTS: how to initialize when ndims is unknown?
+    //Vector<T> vec_value_pt; // DTS: how to initialize when ndims is unknown?
 
     //! \endcod
 
