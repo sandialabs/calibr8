@@ -57,6 +57,12 @@ class QoI {
     //! \brief Scatter the integration point vector value into the total vector
     void scatter_vec(Vector<double>& H);
 
+    //! \brief Finalize  the QoI computation
+    //! \param step load step
+    //! \param J scalar part of QoI
+    //! \param H vector part of QoI
+    virtual void finalize(int step, double &J, Vector<double> const& H);
+
     //! \brief Gather the derivative vector dJ / d(seeded_vars)
     EVector eigen_dvector() const;
 

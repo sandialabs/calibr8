@@ -50,6 +50,13 @@ void QoI<T>::scatter_vec(Vector<double>& H) {
   }
 }
 
+template <typename T>
+void QoI<T>::finalize(int step, double& J, Vector<double> const& H) {
+  (void) step;
+  (void) J;
+  (void) H;
+}
+
 template <>
 EVector QoI<double>::eigen_dvector() const {
   EVector empty;

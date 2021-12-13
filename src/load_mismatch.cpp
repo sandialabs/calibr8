@@ -11,6 +11,8 @@ namespace calibr8 {
 template <typename T>
 LoadMismatch<T>::LoadMismatch(ParameterList const& params) {
   m_side_set = params.get<std::string>("side set");
+  // DTS: how to set default value?
+  m_predict_load = params.get<bool>("predict load");
 }
 
 template <typename T>
@@ -152,7 +154,7 @@ void LoadMismatch<T>::evaluate(
         //print("Normal comp %d = %.16e", j, N[j]);
         //print("P(%d, %d) = %.16e", i, j, val(stress(i, j)));
         Trac(i) += stress(i, j) * N[j];
-        print("Trac(%d) = %.16e", i, val(Trac(i)));
+        //print("Trac(%d) = %.16e", i, val(Trac(i)));
       }
     }
 
@@ -179,6 +181,22 @@ void LoadMismatch<T>::evaluate(
   global->interpolate(iota_input);
 
 
+}
+
+template <typename T>
+void LoadMismatch<T>::finalize(int step, double& J, Vector<double> const& H) {
+  if (m_predict_load) {
+    print("Load on surface %s at step %d:", m_side_set.c_str(), step);
+    for (int i = 0; i < this->m_num_dims; ++i) {
+      print("  H(%d) = %.16e", i, val(H(i)));
+    }
+  } else {
+    // compute H_{diff}(i) = H(i) - H^{meas}(i) (store this for each step?)
+    // finalized value -> \sum_i^n 0.5 * ||H_{diff}||^2
+    (void) step;
+    (void) J;
+    (void) H;
+  }
 }
 
 template class LoadMismatch<double>;
