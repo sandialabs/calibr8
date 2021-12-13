@@ -448,6 +448,7 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
   RCP<LocalResidual<double>> local = state->residuals->local;
   RCP<GlobalResidual<double>> global = state->residuals->global;
   RCP<QoI<double>> qoi = state->qoi;
+  RCP<QoI<FADT>> d_qoi = state->d_qoi;
   Array1D<apf::Field*> x = disc->primal(step).global;
   Array1D<apf::Field*> xi = disc->primal(step).local;
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
@@ -519,10 +520,11 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
 
     }
 
-    // DTS: no op for disp matching; compute load info for load matching
-    qoi->finalize(step, J);
 
   }
+
+  // DTS: no op for disp matching; compute load info for load matching
+  qoi->finalize(step, J, d_qoi);
 
   // perform clean-ups of the residual objects
   local->after_elems();

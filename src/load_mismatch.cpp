@@ -11,7 +11,6 @@ namespace calibr8 {
 template <typename T>
 LoadMismatch<T>::LoadMismatch(ParameterList const& params) {
   m_side_set = params.get<std::string>("side set");
-  // DTS: how to set default value?
   m_predict_load = params.get<bool>("predict load");
 }
 
@@ -27,9 +26,6 @@ void LoadMismatch<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_num_dims = disc->num_dims();
   this->m_shape = disc->gv_shape();
   this->m_step = step;
-  if (std::is_same<T, double>::value) {
-      m_load_mismatch = 1.;
-  }
 
   // initialize the surface mesh information
   if (!is_initd) {
@@ -122,11 +118,6 @@ void LoadMismatch<T>::evaluate(
     Tensor<T> const grad_u = global->grad_vector_x(disp_idx);
     T const p = global->scalar_x(pressure_idx);
 
-    // gather material properties
-    T const E = local->params(0);
-    T const nu = local->params(1);
-    T const mu = compute_mu(E, nu);
-
     // compute the stress
     Tensor<T> stress = local->cauchy(global, p);
     if (local->is_finite_deformation()) {
@@ -150,7 +141,7 @@ void LoadMismatch<T>::evaluate(
     }
 
     // integrate the load over the surface
-    this->value_pt = m_load_mismatch * load * w * dv;
+    this->value_pt = this->m_qoi_mismatch * load * w * dv;
 
   }
 
@@ -164,17 +155,23 @@ void LoadMismatch<T>::evaluate(
 }
 
 template <typename T>
-void LoadMismatch<T>::finalize(int step, double& J) {
+void LoadMismatch<T>::finalize(int step, double& J, RCP<QoI<FADT>> d_qoi) {
   if (m_predict_load) {
     // TODO: dump to file instead of print
     print("Load on surface %s at step %d = %.16e",
         m_side_set.c_str(), step, J);
   } else {
-    // TODO: read in from a file
-    (void) step;
-    double load_meas = 1.;
-    m_load_mismatch = J - load_meas;
-    J = 0.5 * std::pow(m_load_mismatch, 2);
+    // TODO: read in load data from a file
+    double load_meas = 0.;
+    if (step == 2) {
+      load_meas = 1.8295969629832529e-01;
+    } else if (step == 1) {
+      load_meas = 9.1479848149162643e-02;
+    }
+
+    double qoi_mismatch = J - load_meas;
+    d_qoi->set_qoi_mismatch(qoi_mismatch);
+    J = 0.5 * std::pow(qoi_mismatch, 2);
   }
 }
 

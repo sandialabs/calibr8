@@ -37,9 +37,10 @@ void QoI<T>::scatter(double& J) {
 }
 
 template <typename T>
-void QoI<T>::finalize(int step, double& J) {
+void QoI<T>::finalize(int step, double& J, RCP<QoI<FADT>> d_qoi) {
   (void) step;
   (void) J;
+  (void) d_qoi;
 }
 
 template <>
@@ -83,6 +84,14 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
   } else {
     return Teuchos::null;
   }
+}
+
+template <>
+void QoI<double>::set_qoi_mismatch(double const& qoi_mismatch) {}
+
+template <>
+void QoI<FADT>::set_qoi_mismatch(double const& qoi_mismatch) {
+  m_qoi_mismatch = qoi_mismatch;
 }
 
 template class QoI<double>;

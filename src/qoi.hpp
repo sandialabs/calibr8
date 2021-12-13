@@ -60,7 +60,12 @@ class QoI {
     //! \brief Finalize the QoI computation
     //! \param step load step
     //! \param J QoI (possibly partial)
-    virtual void finalize(int step, double &J);
+    //! \param d_qoi FADT QoI object
+    virtual void finalize(int step, double &J, RCP<QoI<FADT>> d_qoi);
+
+    //! \brief Set the QoI mismatch
+    //! \param qoi_mismatch The value of the QoI mismatch
+    void set_qoi_mismatch(double const& qoi_mismatch);
 
     //! \brief Gather the derivative vector dJ / d(seeded_vars)
     EVector eigen_dvector() const;
@@ -80,6 +85,8 @@ class QoI {
     apf::Mesh* m_mesh = nullptr;
     apf::FieldShape* m_shape = nullptr;
     apf::MeshElement* m_mesh_elem = nullptr;
+
+    double m_qoi_mismatch = 1.;
 
     T value_pt = T(0);
 
