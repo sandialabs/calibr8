@@ -47,8 +47,7 @@ class LoadMismatch : public QoI<T> {
     bool is_initd = false;
     std::string m_side_set = "";
     bool m_predict_load = false;
-    bool m_load_mismatch_computed = false;
-    double m_load_mismatch = 0.;
+    double m_load_mismatch = 1.;
     Array2D<int> m_mapping; // m_mapping[es_idx][elem_idx]
 
 };

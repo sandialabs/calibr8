@@ -470,12 +470,6 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
 
   // initialize the QoI value at the step
   double J = 0.;
-  int const ndims = mesh->getDimension();
-  // DTS how to initialize to 0 ?
-  Vector<double> H = Vector<double>(ndims);
-  for (int i = 0; i < ndims; ++i) {
-    H(i) = 0.;
-  }
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
@@ -525,12 +519,8 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
 
     }
 
-    // DTS: no op for disp matching; compute qoi for load matching
+    // DTS: no op for disp matching; compute load info for load matching
     qoi->finalize(step, J);
-
-    // for (int i = 0; i < ndims; ++i) {
-    //   print("Load component %d = %.16e", i, H(i));
-    // }
 
   }
 
@@ -556,6 +546,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   // gather information from the state object
   RCP<LocalResidual<FADT>> local = state->d_residuals->local;
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  RCP<QoI<FADT>> qoi = state->d_qoi;
   Array1D<apf::Field*> x = disc->primal(step).global;
   Array1D<apf::Field*> xi = disc->primal(step).local;
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
@@ -566,6 +557,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   // perform initializations of the residual objects
   local->before_elems(disc);
   global->before_elems(disc);
+  qoi->before_elems(disc, step);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
@@ -584,6 +576,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
       // peform operations on element input
       global->set_elem(me);
       local->set_elem(me);
+      qoi->set_elem(me);
       global->gather(x, x_prev);
 
       // grab the adjoint nodal solution at the element
@@ -622,6 +615,12 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
             EMatrix const dC_dpT = local->eigen_jacobian().transpose();
             EVector const phi_pt = local->gather_adjoint(pt, phi);
             Egrad += dC_dpT * phi_pt;
+
+            // evaluate the QoI derivatives to obtain dJ_dp
+            qoi->evaluate(es, elem, global, local, iota, w, dv);
+            EVector const dJ_dp = qoi->eigen_dvector();
+            Egrad += dJ_dp;
+
           }
 
           global->evaluate(local, iota, w, dv, ip_set);
@@ -637,6 +636,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
       apf::destroyMeshElement(me);
       global->unset_elem();
       local->unset_elem();
+      qoi->unset_elem();
 
     }
 
@@ -645,6 +645,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   // perform clean-ups of the residual objects
   local->after_elems();
   global->after_elems();
+  qoi->after_elems();
 
   EVector::Map(&grad[0], num_opt_params) = Egrad;
 

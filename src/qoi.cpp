@@ -24,11 +24,6 @@ void QoI<T>::before_elems(RCP<Disc> disc, int step) {
   m_shape = disc->gv_shape();
   m_step = step;
 
-  // vec_value_pt = Vector<T>(m_num_dims);
-  // for (int i = 0; i < m_num_dims; ++i) {
-  //   vec_value_pt(i) = T(0.);
-  // }
-
 }
 
 template <typename T>
@@ -40,15 +35,6 @@ template <typename T>
 void QoI<T>::scatter(double& J) {
   J += val(value_pt);
 }
-
-//template <typename T>
-//void QoI<T>::scatter_vec(Vector<double>& H) {
-//  for (int i = 0; i < m_num_dims; ++i) {
-//    //print("Trac(%d) in scatter = %.16e", i, val(vec_value_pt(i)));
-//   //H(i) += val(vec_value_pt(i));
-//    //print("H(%d) in scatter = %.16e", i, H(i));
-//  }
-//}
 
 template <typename T>
 void QoI<T>::finalize(int step, double& J) {

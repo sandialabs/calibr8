@@ -82,7 +82,6 @@ class QoI {
     apf::MeshElement* m_mesh_elem = nullptr;
 
     T value_pt = T(0);
-    //Vector<T> vec_value_pt; // DTS: how to initialize when ndims is unknown?
 
     //! \endcod
 

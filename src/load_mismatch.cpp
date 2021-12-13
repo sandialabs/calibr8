@@ -27,8 +27,9 @@ void LoadMismatch<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_num_dims = disc->num_dims();
   this->m_shape = disc->gv_shape();
   this->m_step = step;
-  m_load_mismatch_computed = false;
-  //this->vec_value_pt = Vector<T>(this->m_num_dims);
+  if (std::is_same<T, double>::value) {
+      m_load_mismatch = 1.;
+  }
 
   // initialize the surface mesh information
   if (!is_initd) {
@@ -72,13 +73,10 @@ void LoadMismatch<T>::evaluate(
 
 
   // initialize the QoI contribution to 0
-  int const ndims = this->m_num_dims;
   T const dummy1 = global->vector_x(0)[0];
   T const dummy2 = local->first_value();
-  this->value_pt = 0. * (dummy1 + dummy2);
-  //for (int i = 0; i < ndims; ++i) {
-  //  this->vec_value_pt(i) = 0. * (dummy1 + dummy2);
-  //}
+  T const dummy3 = local->params(0);
+  this->value_pt = 0. * (dummy1 + dummy2 + dummy3);
 
   // get the id of the facet wrt element if this facet is on the QoI side
   // do not evaluate if the facet is not adjacent to the QoI side
@@ -86,15 +84,10 @@ void LoadMismatch<T>::evaluate(
   if (facet_id < 0) return;
 
   // store some information contained in this class as local variables
+  int const ndims = this->m_num_dims;
   int const step = this->m_step;
   apf::Mesh* mesh = this->m_mesh;
   apf::MeshElement* mesh_elem = this->m_mesh_elem;
-
-  // grab the field for the measured displacement data at the step
-  // std::string name = "measured_" + std::to_string(step);
-  // apf::Field* f_meas = mesh->findField(name.c_str());
-  // ALWAYS_ASSERT(f_meas);
-  // apf::Element* e_meas = createElement(f_meas, mesh_elem);
 
   // grab the face to integrate over
   apf::Downward elem_faces;
@@ -103,7 +96,6 @@ void LoadMismatch<T>::evaluate(
   apf::MeshEntity* face = elem_faces[facet_id];
 
   // get quadrature information over the face
-  // int const q_order = 2;
   int const q_order = 1;
   apf::MeshElement* me = apf::createMeshElement(mesh, face);
   int const num_qps = apf::countIntPoints(me, q_order);
@@ -158,12 +150,11 @@ void LoadMismatch<T>::evaluate(
     }
 
     // integrate the load over the surface
-    this->value_pt = load * w * dv;
+    this->value_pt = m_load_mismatch * load * w * dv;
 
   }
 
   // clean up allocated memory
-  // apf::destroyElement(e_meas);
   apf::destroyMeshElement(me);
 
   // reset the state in global residual to what it was on input
@@ -175,13 +166,15 @@ void LoadMismatch<T>::evaluate(
 template <typename T>
 void LoadMismatch<T>::finalize(int step, double& J) {
   if (m_predict_load) {
+    // TODO: dump to file instead of print
     print("Load on surface %s at step %d = %.16e",
         m_side_set.c_str(), step, J);
   } else {
-    // compute H_{diff}(i) = H(i) - H^{meas}(i) (store this for each step?)
-    // finalized value -> \sum_i^n 0.5 * ||H_{diff}||^2
+    // TODO: read in from a file
     (void) step;
-    (void) J;
+    double load_meas = 1.;
+    m_load_mismatch = J - load_meas;
+    J = 0.5 * std::pow(m_load_mismatch, 2);
   }
 }
 
