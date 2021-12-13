@@ -1,6 +1,7 @@
 #pragma once
 
 #include <apf.h>
+#include "control.hpp"
 #include "defines.hpp"
 
 namespace calibr8 {
@@ -53,6 +54,9 @@ class QoI {
     //! \brief Scatter the integration point value into the total QoI
     void scatter(double& J);
 
+    //! \brief Scatter the integration point vector value into the total vector
+    void scatter_vec(Vector<double>& H);
+
     //! \brief Gather the derivative vector dJ / d(seeded_vars)
     EVector eigen_dvector() const;
 
@@ -73,6 +77,7 @@ class QoI {
     apf::MeshElement* m_mesh_elem = nullptr;
 
     T value_pt = T(0);
+    Vector<T> vec_value_pt; // DTS: how to initialize when ndims is unknown?
 
     //! \endcod
 

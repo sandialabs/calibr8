@@ -470,6 +470,14 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
 
   // initialize the QoI value at the step
   double J = 0.;
+  int const ndims = mesh->getDimension();
+  // DTS how to initialize to 0 ?
+  print("ndims = %d", ndims);
+  Vector<double> H = Vector<double>(ndims);
+  for (int i = 0; i < ndims; ++i) {
+    H(i) = 0.;
+    print("H(%d) in evaluations = %.16e", i, H(i));
+  }
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
@@ -507,8 +515,13 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
         local->gather(pt, xi, xi_prev);
         qoi->evaluate(es, elem, global, local, iota, w, dv);
         qoi->scatter(J);
+        qoi->scatter_vec(H);
 
       }
+
+
+      // DTS: no op for disp matching; compute qoi for load matching
+      // qoi->finalize(J);
 
       // perform operations on element output
       apf::destroyMeshElement(me);
@@ -516,6 +529,10 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
       local->unset_elem();
       qoi->unset_elem();
 
+    }
+
+    for (int i = 0; i < ndims; ++i) {
+      print("Load component %d = %.16e", i, H(i));
     }
 
   }

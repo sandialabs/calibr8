@@ -1,6 +1,7 @@
 #include "avg_disp.hpp"
 #include "disc.hpp"
 #include "fad.hpp"
+#include "load_mismatch.hpp"
 #include "qoi.hpp"
 #include "surface_mismatch.hpp"
 
@@ -23,6 +24,11 @@ void QoI<T>::before_elems(RCP<Disc> disc, int step) {
   m_shape = disc->gv_shape();
   m_step = step;
 
+  vec_value_pt = Vector<T>(m_num_dims);
+  for (int i = 0; i < m_num_dims; ++i) {
+    vec_value_pt(i) = T(0.);
+  }
+
 }
 
 template <typename T>
@@ -33,6 +39,15 @@ void QoI<T>::set_elem(apf::MeshElement* mesh_elem) {
 template <typename T>
 void QoI<T>::scatter(double& J) {
   J += val(value_pt);
+}
+
+template <typename T>
+void QoI<T>::scatter_vec(Vector<double>& H) {
+  for (int i = 0; i < m_num_dims; ++i) {
+    //print("Trac(%d) in scatter = %.16e", i, val(vec_value_pt(i)));
+    H(i) += val(vec_value_pt(i));
+    //print("H(%d) in scatter = %.16e", i, H(i));
+  }
 }
 
 template <>
@@ -71,6 +86,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
     return rcp(new AvgDisp<T>());
   } else if (type == "surface mismatch") {
     return rcp(new SurfaceMismatch<T>(params));
+  } else if (type == "load mismatch") {
+    return rcp(new LoadMismatch<T>(params));
   } else {
     return Teuchos::null;
   }
