@@ -184,7 +184,7 @@ int J2_small_strain<T>::evaluate(
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_pstrain = pstrain - pstrain_old - dgam * n;
+      R_pstrain = pstrain - pstrain_old - dgam * n + 0. * grad_u_prev;
       R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
       path = PLASTIC;
     }
@@ -202,7 +202,7 @@ int J2_small_strain<T>::evaluate(
     // plastic step
     if (path == PLASTIC) {
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_pstrain = pstrain - pstrain_old - dgam * n;
+      R_pstrain = pstrain - pstrain_old - dgam * n + 0. * grad_u_prev;
       R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
     }
     // elastic step

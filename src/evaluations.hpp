@@ -65,13 +65,13 @@ void solve_adjoint_local(
 //! \param state The application state object
 //! \param disc The discretization object
 //! \param step The current load/time step
-template <typename T>
-void preprocess_qoi(RCP<QoI<T>> qoi,
-    RCP<LocalResidual<T>> local,
-    RCP<GlobalResidual<T>> global,
-    RCP<State> state,
-    RCP<Disc> disc,
-    int step);
+//template <typename T>
+//void preprocess_qoi(RCP<QoI<T>> qoi,
+//    RCP<LocalResidual<T>> local,
+//    RCP<GlobalResidual<T>> global,
+//    RCP<State> state,
+//    RCP<Disc> disc,
+//    int step);
 
 //! \brief Return the QoI evaluation at a step
 //! \param state The application state object
