@@ -58,26 +58,14 @@ void LoadMismatch<T>::before_elems(RCP<Disc> disc, int step) {
 }
 
 template <typename T>
-void LoadMismatch<T>::evaluate(
+T LoadMismatch<T>::compute_load(
     int elem_set,
     int elem,
     RCP<GlobalResidual<T>> global,
     RCP<LocalResidual<T>> local,
-    apf::Vector3 const& iota_input,
-    double,
-    double) {
+    apf::Vector3 const& iota_input) {
 
-
-  // initialize the QoI contribution to 0
-  T const dummy1 = global->vector_x(0)[0];
-  T const dummy2 = local->first_value();
-  T const dummy3 = local->params(0);
-  this->value_pt = 0. * (dummy1 + dummy2 + dummy3);
-
-  // get the id of the facet wrt element if this facet is on the QoI side
-  // do not evaluate if the facet is not adjacent to the QoI side
-  int const facet_id = m_mapping[elem_set][elem];
-  if (facet_id < 0) return;
+  T load_pt = T(0.);
 
   // store some information contained in this class as local variables
   int const ndims = this->m_num_dims;
@@ -86,6 +74,7 @@ void LoadMismatch<T>::evaluate(
   apf::MeshElement* mesh_elem = this->m_mesh_elem;
 
   // grab the face to integrate over
+  int const facet_id = m_mapping[elem_set][elem];
   apf::Downward elem_faces;
   apf::MeshEntity* elem_entity = apf::getMeshEntity(mesh_elem);
   mesh->getDownward(elem_entity, ndims - 1, elem_faces);
@@ -132,16 +121,15 @@ void LoadMismatch<T>::evaluate(
     apf::Vector3 N = ree::computeFaceOutwardNormal(mesh, elem_entity, face,
         iota_face);
 
-    // compute the normal load
-    T load = T(0.);
+    // compute the normal load at the integration point
     for (int i = 0; i < ndims; ++i) {
       for (int j = 0; j < ndims; ++j) {
-        load += N[i] * stress(i, j) * N[j];
+        load_pt += N[i] * stress(i, j) * N[j];
       }
     }
 
-    // integrate the load over the surface
-    this->value_pt = this->m_qoi_mismatch * load * w * dv;
+    // integrate the normal loadintegrate the normal load
+    load_pt *= w * dv;
 
   }
 
@@ -151,28 +139,88 @@ void LoadMismatch<T>::evaluate(
   // reset the state in global residual to what it was on input
   global->interpolate(iota_input);
 
-
+  return load_pt;
 }
 
 template <typename T>
-void LoadMismatch<T>::finalize(int step, double& J, RCP<QoI<FADT>> d_qoi) {
+void LoadMismatch<T>::preprocess_finalize(int step) {
   if (m_predict_load) {
     // TODO: dump to file instead of print
     print("Load on surface %s at step %d = %.16e",
-        m_side_set.c_str(), step, J);
-  } else {
-    // TODO: read in load data from a file
-    double load_meas = 0.;
-    if (step == 2) {
-      load_meas = 1.8295969629832529e-01;
-    } else if (step == 1) {
-      load_meas = 9.1479848149162643e-02;
-    }
-
-    double qoi_mismatch = J - load_meas;
-    d_qoi->set_qoi_mismatch(qoi_mismatch);
-    J = 0.5 * std::pow(qoi_mismatch, 2);
+        m_side_set.c_str(), step, m_total_load);
   }
+  // TODO: read in load data from a file
+  double load_meas = 0.;
+  if (step == 2) {
+    load_meas = 1.8295969629832529e-01;
+  } else if (step == 1) {
+    load_meas = 9.1479848149162643e-02;
+  }
+  m_load_mismatch = m_total_load - load_meas;
+  // reset the total load
+  m_total_load = 0.;
+}
+
+template <typename T>
+void LoadMismatch<T>::postprocess(double& J) {
+  J += 0.5 * std::pow(m_load_mismatch, 2);
+}
+
+template <typename T>
+void LoadMismatch<T>::preprocess(
+    int elem_set,
+    int elem,
+    RCP<GlobalResidual<T>> global,
+    RCP<LocalResidual<T>> local,
+    apf::Vector3 const& iota_input,
+    double,
+    double) {
+
+  // get the id of the facet wrt element if this facet is on the QoI side
+  // do not evaluate if the facet is not adjacent to the QoI side
+  int const facet_id = m_mapping[elem_set][elem];
+  if (facet_id < 0) return;
+
+  T load = compute_load(elem_set, elem, global, local, iota_input);
+  m_total_load += val(load);
+}
+
+template <>
+void LoadMismatch<double>::evaluate(
+    int elem_set,
+    int elem,
+    RCP<GlobalResidual<double>> global,
+    RCP<LocalResidual<double>> local,
+    apf::Vector3 const& iota_input,
+    double,
+    double) {
+  this->value_pt = 0.;
+}
+
+template <>
+void LoadMismatch<FADT>::evaluate(
+    int elem_set,
+    int elem,
+    RCP<GlobalResidual<FADT>> global,
+    RCP<LocalResidual<FADT>> local,
+    apf::Vector3 const& iota_input,
+    double,
+    double) {
+
+  // initialize the QoI contribution to 0
+  FADT const dummy1 = global->vector_x(0)[0];
+  FADT const dummy2 = local->first_value();
+  FADT const dummy3 = local->params(0);
+  this->value_pt = 0. * (dummy1 + dummy2 + dummy3);
+
+  // get the id of the facet wrt element if this facet is on the QoI side
+  // do not evaluate if the facet is not adjacent to the QoI side
+  int const facet_id = m_mapping[elem_set][elem];
+  if (facet_id < 0) return;
+
+  // weight the load by the mismatch
+  FADT load = compute_load(elem_set, elem, global, local, iota_input);
+  this->value_pt = m_load_mismatch * load;
 }
 
 template class LoadMismatch<double>;

@@ -37,17 +37,51 @@ class LoadMismatch : public QoI<T> {
         double,
         double);
 
-    //! \brief Finalize  the QoI computation
+    //! \brief Evaluate a preprocessing quantity at an integration point
+    //! \param elem_set The index of the current element set
+    //! \param elem_idx The index of the current element in the element set
+    //! \param global The global residual object
+    //! \param local The local residual object
+    //! \param w The integration point weight
+    //! \param dv The differential volume (Jacobian) of the element at the point
+    void preprocess(
+        int elem_set,
+        int elem,
+        RCP<GlobalResidual<T>> global,
+        RCP<LocalResidual<T>> local,
+        apf::Vector3 const& iota,
+        double w,
+        double dv);
+
+    //! \brief Finalize the QoI preprocessing computation
     //! \param step load step
-    //! \param J QoI (possibly partial)
-    //! \param d_qoi FADT QoI object
-    void finalize(int step, double &J, RCP<QoI<FADT>> d_qoi);
+    void preprocess_finalize(int step);
+
+    //! \brief Add preprocessing contributions to the QoI
+    //! \param J QoI value
+    void postprocess(double& J);
+
+    //! \brief Evaluate a preprocessing quantity at an integration point
+    //! \param elem_set The index of the current element set
+    //! \param elem_idx The index of the current element in the element set
+    //! \param global The global residual object
+    //! \param local The local residual object
+    //! \param w The integration point weight
+    //! \param dv The differential volume (Jacobian) of the element at the point
+    T compute_load(
+        int elem_set,
+        int elem,
+        RCP<GlobalResidual<T>> global,
+        RCP<LocalResidual<T>> local,
+        apf::Vector3 const& iota_input);
 
   private:
 
     bool is_initd = false;
     std::string m_side_set = "";
     bool m_predict_load = false;
+    double m_total_load = 0.;
+    double m_load_mismatch = 0.;
     Array2D<int> m_mapping; // m_mapping[es_idx][elem_idx]
 
 };

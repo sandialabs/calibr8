@@ -154,10 +154,13 @@ void eval_adjoint_jacobian(
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
 
-  // gather information from the state object
+  // preprocess the QoI
   RCP<LocalResidual<FADT>> local = state->d_residuals->local;
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
   RCP<QoI<FADT>> qoi = state->d_qoi;
+  preprocess_qoi(qoi, local, global, state, disc, step);
+
+  // gather information from the state object
   Array2D<RCP<MatrixT>>& LHS = state->la->A[GHOST];
   Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
   Array1D<apf::Field*> x = disc->primal(step).global;
@@ -327,7 +330,6 @@ void solve_adjoint_local(
   // gather information from the state object
   RCP<LocalResidual<FADT>> local = state->d_residuals->local;
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
-  RCP<QoI<FADT>> qoi = state->d_qoi;
   Array1D<apf::Field*> x = disc->primal(step).global;
   Array1D<apf::Field*> xi = disc->primal(step).local;
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
@@ -434,6 +436,94 @@ void solve_adjoint_local(
   // perform clean-ups of the residual objects
   local->after_elems();
   global->after_elems();
+
+}
+
+template<typename T>
+void preprocess_qoi(RCP<QoI<T>> qoi,
+    RCP<LocalResidual<T>> local,
+    RCP<GlobalResidual<T>> global,
+    RCP<State> state,
+    RCP<Disc> disc,
+    int step) {
+
+  // gather discretization information
+  apf::Mesh* mesh = disc->apf_mesh();
+  int const q_order = disc->lv_shape()->getOrder();
+
+  // gather information from the state object
+  Array1D<apf::Field*> x = disc->primal(step).global;
+  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+
+  RCP<NestedDisc> nested;
+  if (disc->type() == VERIFICATION) {
+    nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
+    ALWAYS_ASSERT(nested != Teuchos::null);
+    x = nested->primal_fine(step).global;
+    xi = nested->primal_fine(step).local;
+    x_prev = nested->primal_fine(step - 1).global;
+    xi_prev = nested->primal_fine(step - 1).local;
+  }
+
+  // perform initializations of the residual objects
+  local->before_elems(disc);
+  global->before_elems(disc);
+  qoi->before_elems(disc, step);
+
+  // loop over all element sets in the discretization
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    // gather the elements in the current element set
+    std::string const& es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+
+    // loop over all elements in the element set
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+
+      // get the current mesh element
+      apf::MeshEntity* e = elems[elem];
+      apf::MeshElement* me = apf::createMeshElement(mesh, e);
+
+      // peform operations on element input
+      global->set_elem(me);
+      local->set_elem(me);
+      qoi->set_elem(me);
+      global->gather(x, x_prev);
+
+      // loop over all integration points in the current element
+      int const npts = apf::countIntPoints(me, q_order);
+      for (int pt = 0; pt < npts; ++pt) {
+
+        // get integration point specific information
+        apf::Vector3 iota;
+        apf::getIntPoint(me, q_order, pt, iota);
+        double const w = apf::getIntWeight(me, q_order, pt);
+        double const dv = apf::getDV(me, iota);
+
+        // preprocess the quantities needed for QoI evaluation
+        global->interpolate(iota);
+        local->gather(pt, xi, xi_prev);
+        qoi->preprocess(es, elem, global, local, iota, w, dv);
+
+      }
+
+      // perform operations on element output
+      apf::destroyMeshElement(me);
+      global->unset_elem();
+      local->unset_elem();
+      qoi->unset_elem();
+
+    }
+
+  }
+
+  qoi->preprocess_finalize(step);
+
+  // perform clean-ups of the residual objects
+  local->after_elems();
+  global->after_elems();
   qoi->after_elems();
 
 }
@@ -444,15 +534,18 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
   apf::Mesh* mesh = disc->apf_mesh();
   int const q_order = disc->lv_shape()->getOrder();
 
-  // gather information from the state object
+  // preprocess the QoI
   RCP<LocalResidual<double>> local = state->residuals->local;
   RCP<GlobalResidual<double>> global = state->residuals->global;
   RCP<QoI<double>> qoi = state->qoi;
-  RCP<QoI<FADT>> d_qoi = state->d_qoi;
+  preprocess_qoi(qoi, local, global, state, disc, step);
+
+  // gather information from the state object
   Array1D<apf::Field*> x = disc->primal(step).global;
   Array1D<apf::Field*> xi = disc->primal(step).local;
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+
 
   RCP<NestedDisc> nested;
   if (disc->type() == VERIFICATION) {
@@ -508,7 +601,6 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
         local->gather(pt, xi, xi_prev);
         qoi->evaluate(es, elem, global, local, iota, w, dv);
         qoi->scatter(J);
-        //qoi->scatter_vec(H);
 
       }
 
@@ -520,11 +612,9 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
 
     }
 
-
   }
 
-  // DTS: no op for disp matching; compute load info for load matching
-  qoi->finalize(step, J, d_qoi);
+  qoi->postprocess(J);
 
   // perform clean-ups of the residual objects
   local->after_elems();
@@ -545,16 +635,20 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   RCP<Disc> disc = state->disc;
   apf::Mesh* mesh = disc->apf_mesh();
 
-  // gather information from the state object
+  // preprocess the QoI
   RCP<LocalResidual<FADT>> local = state->d_residuals->local;
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
   RCP<QoI<FADT>> qoi = state->d_qoi;
+  preprocess_qoi(qoi, local, global, state, disc, step);
+
+  // gather information from the state object
   Array1D<apf::Field*> x = disc->primal(step).global;
   Array1D<apf::Field*> xi = disc->primal(step).local;
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
   Array1D<apf::Field*> z = disc->adjoint(step).global;
   Array1D<apf::Field*> phi = disc->adjoint(step).local;
+
 
   // perform initializations of the residual objects
   local->before_elems(disc);
