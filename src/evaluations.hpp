@@ -11,6 +11,9 @@ namespace calibr8 {
 
 class Disc;
 class State;
+template <typename T> class QoI;
+template <typename T> class LocalResidual;
+template <typename T> class GlobalResidual;
 
 //! \brief Evaluate the Jacobian matrix and residual vector
 //! \param state The application state object
@@ -56,6 +59,19 @@ void solve_adjoint_local(
     Array3D<EVector>& g,
     Array3D<EVector>& f,
     int step);
+
+//! \brief Preprocessing computation for QoI evaluation at a step
+//! \param qoi The QoI object
+//! \param state The application state object
+//! \param disc The discretization object
+//! \param step The current load/time step
+//template <typename T>
+//void preprocess_qoi(RCP<QoI<T>> qoi,
+//    RCP<LocalResidual<T>> local,
+//    RCP<GlobalResidual<T>> global,
+//    RCP<State> state,
+//    RCP<Disc> disc,
+//    int step);
 
 //! \brief Return the QoI evaluation at a step
 //! \param state The application state object

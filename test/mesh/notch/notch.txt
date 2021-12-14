@@ -10,6 +10,8 @@ node set xmax 1
 2 35
 node set ymax 1
 2 32
+side set ymax 1
+2 32
 node set zmax 1
 2 39
 side set zmax 1

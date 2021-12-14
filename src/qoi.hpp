@@ -1,6 +1,7 @@
 #pragma once
 
 #include <apf.h>
+#include "control.hpp"
 #include "defines.hpp"
 
 namespace calibr8 {
@@ -53,6 +54,30 @@ class QoI {
     //! \brief Scatter the integration point value into the total QoI
     void scatter(double& J);
 
+    //! \brief Evaluate a preprocessing quantity at an integration point
+    //! \param elem_set The index of the current element set
+    //! \param elem_idx The index of the current element in the element set
+    //! \param global The global residual object
+    //! \param local The local residual object
+    //! \param w The integration point weight
+    //! \param dv The differential volume (Jacobian) of the element at the point
+    virtual void preprocess(
+        int elem_set,
+        int elem,
+        RCP<GlobalResidual<T>> global,
+        RCP<LocalResidual<T>> local,
+        apf::Vector3 const& iota,
+        double w,
+        double dv);
+
+    //! \brief Finalize the QoI preprocessing computation
+    //! \param step load step
+    virtual void preprocess_finalize(int step);
+
+    //! \brief Add preprocessing contributions to the QoI
+    //! \param J QoI value
+    virtual void postprocess(double& J);
+
     //! \brief Gather the derivative vector dJ / d(seeded_vars)
     EVector eigen_dvector() const;
 
@@ -72,7 +97,7 @@ class QoI {
     apf::FieldShape* m_shape = nullptr;
     apf::MeshElement* m_mesh_elem = nullptr;
 
-    T value_pt = T(0);
+    T value_pt = T(0.);
 
     //! \endcod
 

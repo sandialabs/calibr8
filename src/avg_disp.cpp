@@ -21,12 +21,17 @@ void AvgDisp<T>::evaluate(
     apf::Vector3 const&,
     double w,
     double dv) {
+
+  // initialize the QoI contribution to 0
+  T const dummy1 = global->vector_x(0)[0];
+  T const dummy2 = local->first_value();
+  T const dummy3 = local->params(0);
+  this->value_pt = 0. * (dummy1 + dummy2 + dummy3);
+
   static constexpr int disp_idx = 0;
-  this->value_pt = T(0.);
   Vector<T> const u = global->vector_x(disp_idx);
-  T const first_value = local->first_value();
   for (int i = 0; i < this->m_num_dims; ++i) {
-    this->value_pt += u[i] * w * dv + 0. * first_value;
+    this->value_pt += u[i] * w * dv;
   }
   this->value_pt /= this->m_num_dims;
 }

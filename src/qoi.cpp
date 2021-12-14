@@ -1,6 +1,7 @@
 #include "avg_disp.hpp"
 #include "disc.hpp"
 #include "fad.hpp"
+#include "load_mismatch.hpp"
 #include "qoi.hpp"
 #include "surface_mismatch.hpp"
 
@@ -34,6 +35,22 @@ template <typename T>
 void QoI<T>::scatter(double& J) {
   J += val(value_pt);
 }
+
+template <typename T>
+void QoI<T>::preprocess(
+    int elem_set,
+    int elem,
+    RCP<GlobalResidual<T>> global,
+    RCP<LocalResidual<T>> local,
+    apf::Vector3 const& iota_input,
+    double w,
+    double dv) {}
+
+template <typename T>
+void QoI<T>::preprocess_finalize(int step) {}
+
+template <typename T>
+void QoI<T>::postprocess(double& J) {}
 
 template <>
 EVector QoI<double>::eigen_dvector() const {
@@ -71,6 +88,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
     return rcp(new AvgDisp<T>());
   } else if (type == "surface mismatch") {
     return rcp(new SurfaceMismatch<T>(params));
+  } else if (type == "load mismatch") {
+    return rcp(new LoadMismatch<T>(params));
   } else {
     return Teuchos::null;
   }

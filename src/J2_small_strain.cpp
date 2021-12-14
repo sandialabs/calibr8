@@ -175,6 +175,8 @@ int J2_small_strain<T>::evaluate(
   T const sigma_yield = Y + K * alpha;
   T const f = s_mag - sqrt_23 * sigma_yield;
 
+  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
+
   Tensor<T> R_pstrain;
   T R_alpha;
 
@@ -182,14 +184,14 @@ int J2_small_strain<T>::evaluate(
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_pstrain = pstrain - pstrain_old - dgam * n;
+      R_pstrain = pstrain - pstrain_old - dgam * n + 0. * grad_u_prev;
       R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
       path = PLASTIC;
     }
     // elastic step
     else {
-      R_pstrain = (0. * mu + 1.) * pstrain - pstrain_old;
-      R_alpha = alpha - alpha_old + 0. * mu;
+      R_pstrain = (0. * mu + 1.) * pstrain - pstrain_old + 0. * s + 0. * grad_u_prev;
+      R_alpha = alpha - alpha_old + 0. * mu + 0. * s_mag;
       path = ELASTIC;
     }
   }
@@ -200,13 +202,13 @@ int J2_small_strain<T>::evaluate(
     // plastic step
     if (path == PLASTIC) {
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_pstrain = pstrain - pstrain_old - dgam * n;
+      R_pstrain = pstrain - pstrain_old - dgam * n + 0. * grad_u_prev;
       R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
     }
     // elastic step
     else {
-      R_pstrain = (0. * mu + 1.) * pstrain - pstrain_old;
-      R_alpha = alpha - alpha_old + 0. * mu;
+      R_pstrain = (0. * mu + 1.) * pstrain - pstrain_old + 0. * s + 0. * grad_u_prev;
+      R_alpha = alpha - alpha_old + 0. * mu + 0. * s_mag;
     }
   }
 
