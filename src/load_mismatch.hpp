@@ -79,9 +79,13 @@ class LoadMismatch : public QoI<T> {
 
     bool is_initd = false;
     std::string m_side_set = "";
-    bool m_predict_load = false;
+    bool m_write_load = false;
+    std::string m_load_out_file = "";
+    bool m_read_load = false;
+    std::string m_load_in_file = "";
     double m_total_load = 0.;
     double m_load_mismatch = 0.;
+    Array1D<double> m_load_data;
     Array2D<int> m_mapping; // m_mapping[es_idx][elem_idx]
 
 };

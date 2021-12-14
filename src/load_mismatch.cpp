@@ -1,3 +1,5 @@
+#include <fstream>
+#include <iomanip>
 #include "disc.hpp"
 #include "global_residual.hpp"
 #include "load_mismatch.hpp"
@@ -11,7 +13,18 @@ namespace calibr8 {
 template <typename T>
 LoadMismatch<T>::LoadMismatch(ParameterList const& params) {
   m_side_set = params.get<std::string>("side set");
-  m_predict_load = params.get<bool>("predict load");
+  m_write_load = params.isParameter("load out file");
+  m_read_load = params.isParameter("load input file");
+  if (m_write_load) m_load_out_file = params.get<std::string>("load out file");
+  if (m_read_load) m_load_in_file = params.get<std::string>("load input file");
+  ALWAYS_ASSERT((m_write_load + m_read_load) == 1);
+  if (m_read_load) {
+    std::ifstream in_file(m_load_in_file);
+    std::string line;
+    while(getline(in_file, line)) {
+      m_load_data.push_back(std::stod(line));
+    }
+  }
 }
 
 template <typename T>
@@ -144,17 +157,16 @@ T LoadMismatch<T>::compute_load(
 
 template <typename T>
 void LoadMismatch<T>::preprocess_finalize(int step) {
-  if (m_predict_load) {
-    // TODO: dump to file instead of print
-    print("Load on surface %s at step %d = %.16e",
-        m_side_set.c_str(), step, m_total_load);
+  if (m_write_load) {
+    std::ofstream out_file;
+    out_file.open(m_load_out_file, std::ios::app | std::ios::out);
+    out_file << std::scientific << std::setprecision(17);
+    out_file << m_total_load << "\n";
+    out_file.close();
   }
-  // TODO: read in load data from a file
   double load_meas = 0.;
-  if (step == 2) {
-    load_meas = 1.8295969629832529e-01;
-  } else if (step == 1) {
-    load_meas = 9.1479848149162643e-02;
+  if (step < m_load_data.size()) {
+    load_meas = m_load_data[step];
   }
   m_load_mismatch = m_total_load - load_meas;
   // reset the total load
