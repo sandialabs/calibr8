@@ -20,16 +20,19 @@ class Objective : public ROL::Objective<double> {
     Objective(RCP<ParameterList> params);
     ~Objective();
 
-    Array1D<double> model_params() const;
-    Array1D<double> extract_active_params(
-        Array1D<double> const& model_params) const;
+    Array2D<double> model_params() const;
+    Array1D<double> active_params() const;
     Array1D<double> transform_params(Array1D<double> const& params,
         bool scale_to_canonical);
 
     double value(ROL::Vector<double> const& p, double&) = 0;
 
-    Array1D<std::string> active_param_names() const {
+    Array2D<std::string> active_param_names() const {
       return m_active_param_names;
+    }
+
+    Array1D<std::string> elem_set_names() const {
+      return m_elem_set_names;
     }
 
   protected:
@@ -41,11 +44,12 @@ class Objective : public ROL::Objective<double> {
     RCP<State> m_state;
     RCP<Primal> m_primal;
 
-    Array1D<size_t> m_active_indices;
+    Array2D<int> m_active_indices;
+    Array1D<std::string> m_elem_set_names;
+    Array2D<std::string> m_active_param_names;
     Array1D<double> m_lower_bounds;
     Array1D<double> m_upper_bounds;
-    Array1D<std::string> m_active_param_names;
-    size_t m_num_opt_params;
+    int m_num_opt_params;
 
     ROL::Ptr<Array1D<double> const> getVector(V const& vec);
     ROL::Ptr<Array1D<double>> getVector(V& vec);

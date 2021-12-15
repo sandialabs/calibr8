@@ -70,14 +70,14 @@ void Adjoint_Objective::gradient(
     //t += dt;
     m_adjoint->solve_at_step(step);
     grad_at_step = eval_qoi_gradient(m_state, step);
-    for (size_t i = 0; i < m_num_opt_params; ++i) {
+    for (int i = 0; i < m_num_opt_params; ++i) {
       grad[i] += grad_at_step[i];
     }
   }
 
   Array1D<double> const canonical_grad = transform_gradient(grad);
 
-  for (size_t i = 0; i < m_num_opt_params; ++i) {
+  for (int i = 0; i < m_num_opt_params; ++i) {
     (*gp)[i] = canonical_grad[i];
   }
 

@@ -295,20 +295,22 @@ class LocalResidual {
 
   public:
 
-    //! \brief Get the material model parameters
-    Array1D<double> params() const {
-      Array1D<double> r(m_params.size());
-      for (size_t i = 0; i < m_params.size(); ++i) {
-        r[i] = val(m_params[i]);
-      }
-      return r;
+    //! \brief Get the material model parameter values
+    Array2D<double> params() const {
+      return m_param_values;
     }
 
     //! \brief Set the material model parameters
     void set_params(Array1D<double> const& params,
-        Array1D<size_t> const& active_indices) {
-      for (size_t i = 0; i < active_indices.size(); ++i) {
-        m_params[active_indices[i]] = params[i];
+        Array2D<int> const& active_indices) {
+      int const num_elem_sets = m_elem_set_names.size();
+      int p = 0;
+      for (int es = 0; es < num_elem_sets; ++es) {
+        for (int i = 0; i < active_indices[es].size(); ++i) {
+          int const active_idx = active_indices[es][i];
+          m_param_values[es][active_idx] = params[p];
+          ++p;
+        }
       }
     }
 
@@ -318,6 +320,9 @@ class LocalResidual {
 
     //! \brief Get the parameter names for the local residual model
     Array1D<std::string> const& param_names() { return m_param_names; }
+
+    //! \brief Get the element set names
+    Array1D<std::string> const& elem_set_names() { return m_elem_set_names; }
 
   protected:
 

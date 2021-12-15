@@ -66,7 +66,6 @@ int main(int argc, char** argv) {
     auto rol_params = rcp(new ParameterList);
     set_default_rol_params(rol_params);
 
-
     ParameterList& inverse_params = params->sublist("inverse", true);
     std::string const grad_type = inverse_params.get<std::string>("gradient type");
     bool check_gradient  = inverse_params.get<bool>("check gradient", false);
@@ -81,14 +80,12 @@ int main(int argc, char** argv) {
 
     auto rol_objective = create_rol_objective(params, grad_type);
 
-    Array1D<double> const model_params = rol_objective->model_params();
-    Array1D<double> const active_model_params =
-        rol_objective->extract_active_params(model_params);
-    Array1D<double> const initial_guess =
-        rol_objective->transform_params(model_params, true);
-    size_t const dim = initial_guess.size();
+    Array1D<double> const& active_params = rol_objective->active_params();
+    Array1D<double> const& initial_guess =
+        rol_objective->transform_params(active_params, true);
+    int const dim = initial_guess.size();
     ROL::Ptr<std::vector<double> > x_ptr = ROL::makePtr<std::vector<double>>(dim, 0.0);
-    for (size_t i = 0; i < dim; ++i) {
+    for (int i = 0; i < dim; ++i) {
         (*x_ptr)[i] = initial_guess[i];
     }
     ROL::StdVector<double> x(x_ptr);
@@ -116,7 +113,7 @@ int main(int argc, char** argv) {
 
     std::vector<std::string> output;
     output = algo.run(x, *rol_objective, *bound, isProcZero, *outStream);
-    for (size_t i = 0; i < output.size(); ++i) {
+    for (int i = 0; i < output.size(); ++i) {
       *outStream << output[i];
     }
 
@@ -126,15 +123,27 @@ int main(int argc, char** argv) {
       rolOut.precision(16);
       ROL::Ptr<Array1D<double> const> xp =
           (dynamic_cast<ROL::StdVector<double> const&>(x)).getVector();
-      Array1D<double> const opt_params = rol_objective->transform_params(*xp, false);
-      for (size_t i = 0; i < output.size(); ++i) {
+      Array1D<double> const opt_params =
+          rol_objective->transform_params(*xp, false);
+      for (int i = 0; i < output.size(); ++i) {
         *outStream << output[i];
         rolOut << output[i];
       }
-      Array1D<std::string> const param_names = rol_objective->active_param_names();
-      for (size_t i = 0; i < param_names.size(); ++i) {
-          *outStream << param_names[i] << " = " << opt_params[i] << "\n";
-          rolOut << param_names[i] << " = " << opt_params[i] << "\n";
+      Array1D<std::string> const& elem_set_names =
+          rol_objective->elem_set_names();
+      Array2D<std::string> const& active_param_names =
+          rol_objective->active_param_names();
+      int const num_elem_sets = elem_set_names.size();
+      int p = 0;
+      for (int es = 0; es < num_elem_sets; ++es) {
+        int const num_active_params = active_param_names[es].size();
+        for (int i = 0; i < num_active_params; ++i) {
+          *outStream << elem_set_names[es] << ": " << active_param_names[es][i]
+              << " = " << opt_params[p] << "\n";
+          rolOut << elem_set_names[es] << ": " << active_param_names[es][i]
+              << " = " << opt_params[p] << "\n";
+          ++p;
+        }
       }
       rolOut.close();
     }
