@@ -37,10 +37,12 @@ notch hyperJ2 FEMU:
     gradient type: "FEMU"
     # gradient type: "adjoint"
     # check gradient: true
-    E: [800., 1000.]
-    nu: [0.2, 0.3]
-    K: [90., 110.]
-    Y: [9., 11.]
+    materials:
+      body:
+        E: [800., 1000.]
+        nu: [0.2, 0.3]
+        K: [90., 110.]
+        Y: [9., 11.]
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
