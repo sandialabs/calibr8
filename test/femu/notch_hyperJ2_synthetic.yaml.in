@@ -23,10 +23,12 @@ notch hyperJ2 synthetic:
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
-      E: 1000.
-      nu: 0.25
-      K: 100.
-      Y: 10.
+      materials:
+        body:
+          E: 1000.
+          nu: 0.25
+          K: 100.
+          Y: 10.
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:

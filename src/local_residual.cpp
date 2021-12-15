@@ -20,13 +20,21 @@ LocalResidual<T>::~LocalResidual() {
 
 template <typename T>
 void LocalResidual<T>::init_variables(RCP<State> state) {
+  RCP<Disc> disc = state->disc;
+  int const num_elem_sets = disc->num_elem_sets();
+  m_elem_set_names.resize(num_elem_sets);
+  for (int es = 0; es < num_elem_sets; ++es) {
+    m_elem_set_names[es] = disc->elem_set_name(es);
+  }
+  this->init_params();
+
   Array1D<apf::Field*>& xi = state->disc->primal(/*step=*/ 0).local;
   int const q_order = state->disc->lv_shape()->getOrder();
-  RCP<Disc> disc = state->disc;
   apf::MeshEntity* elem = nullptr;
   apf::Mesh* mesh = state->disc->apf_mesh();
   apf::MeshIterator* elems = mesh->begin(disc->num_dims());
-  this->before_elems(disc);
+  int const dummy_es = 0;
+  this->before_elems(dummy_es, disc);
   while ((elem = mesh->iterate(elems))) {
     apf::MeshElement* me = apf::createMeshElement(mesh, elem);
     this->set_elem(me);
@@ -38,10 +46,11 @@ void LocalResidual<T>::init_variables(RCP<State> state) {
     this->unset_elem();
   }
   mesh->end(elems);
+
 }
 
 template <typename T>
-void LocalResidual<T>::before_elems(RCP<Disc> disc) {
+void LocalResidual<T>::before_elems(int const es, RCP<Disc> disc) {
 
   // set discretization-based information
   m_num_dims = disc->num_dims();
@@ -58,6 +67,12 @@ void LocalResidual<T>::before_elems(RCP<Disc> disc) {
   for (int i = 0; i < m_num_residuals; ++i) {
     m_dxi_offsets[i] = m_num_dofs;
     m_num_dofs += m_num_eqs[i];
+  }
+
+  // set the parameters for the element set
+  int const num_params = m_params.size();
+  for (int p = 0; p < num_params; ++p) {
+    m_params[p] = m_param_values[es][p];
   }
 
 }

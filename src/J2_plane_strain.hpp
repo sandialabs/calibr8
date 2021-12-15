@@ -24,6 +24,9 @@ class J2_plane_strain : public LocalResidual<T> {
     //! \brief The J2_plane_strain destructor
     ~J2_plane_strain();
 
+    //! \brief Initialize the parameters
+    void init_params();
+
     //! \brief Initialize the local variables
     void init_variables_impl();
 

@@ -24,6 +24,9 @@ class J2 : public LocalResidual<T> {
     //! \brief The J2 destructor
     ~J2();
 
+    //! \brief Initialize the parameters
+    void init_params();
+
     //! \brief Initialize the local variables
     void init_variables_impl();
 

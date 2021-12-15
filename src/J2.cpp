@@ -8,34 +8,38 @@
 
 namespace calibr8 {
 
-static ParameterList get_valid_params() {
+static ParameterList get_valid_local_residual_params() {
   ParameterList p;
   p.set<std::string>("type", "J2");
+  p.set<int>("nonlinear max iters", 0);
+  p.set<double>("nonlinear absolute tol", 0.);
+  p.set<double>("nonlinear relative tol", 0.);
+  p.sublist("materials");
+  return p;
+}
+
+static ParameterList get_valid_material_params() {
+  ParameterList p;
   p.set<double>("E", 0.);
   p.set<double>("nu", 0.);
   p.set<double>("K", 0.);
   p.set<double>("Y", 0.);
-  p.set<int>("nonlinear max iters", 0);
-  p.set<double>("nonlinear absolute tol", 0.);
-  p.set<double>("nonlinear relative tol", 0.);
   return p;
 }
 
 template <typename T>
 J2<T>::J2(ParameterList const& inputs, int ndims) {
 
-  inputs.validateParameters(get_valid_params(), 0);
+  this->m_params_list = inputs;
+  this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
 
   int const num_residuals = 3;
-  int const num_params = 4;
 
   this->m_num_residuals = num_residuals;
   this->m_num_eqs.resize(num_residuals);
   this->m_var_types.resize(num_residuals);
   this->m_resid_names.resize(num_residuals);
 
-  this->m_params.resize(num_params);
-  this->m_param_names.resize(num_params);
 
   this->m_resid_names[0] = "zeta";
   this->m_var_types[0] = SYM_TENSOR;
@@ -49,16 +53,6 @@ J2<T>::J2(ParameterList const& inputs, int ndims) {
   this->m_var_types[2] = SCALAR;
   this->m_num_eqs[2] = get_num_eqs(SCALAR, ndims);
 
-  this->m_param_names[0] = "E";
-  this->m_param_names[1] = "nu";
-  this->m_param_names[2] = "K";
-  this->m_param_names[3] = "Y";
-
-  this->m_params[0] = inputs.get<double>("E");
-  this->m_params[1] = inputs.get<double>("nu");
-  this->m_params[2] = inputs.get<double>("K");
-  this->m_params[3] = inputs.get<double>("Y");
-
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
   m_rel_tol = inputs.get<double>("nonlinear relative tol");
@@ -67,6 +61,37 @@ J2<T>::J2(ParameterList const& inputs, int ndims) {
 
 template <typename T>
 J2<T>::~J2() {
+}
+
+template <typename T>
+void J2<T>::init_params() {
+
+  int const num_params = 4;
+  this->m_params.resize(num_params);
+  this->m_param_names.resize(num_params);
+
+  this->m_param_names.resize(num_params);
+  this->m_param_names[0] = "E";
+  this->m_param_names[1] = "nu";
+  this->m_param_names[2] = "K";
+  this->m_param_names[3] = "Y";
+
+  int const num_elem_sets = this->m_elem_set_names.size();
+  resize(this->m_param_values, num_elem_sets, num_params);
+
+  ParameterList& all_material_params =
+      this->m_params_list.sublist("materials", true);
+
+  for (int es = 0; es < num_elem_sets; ++es) {
+    std::string const& elem_set_name = this->m_elem_set_names[es];
+    ParameterList& material_params =
+        all_material_params.sublist(elem_set_name, true);
+    material_params.validateParameters(get_valid_material_params(), 0);
+    this->m_param_values[es][0] = material_params.get<double>("E");
+    this->m_param_values[es][1] = material_params.get<double>("nu");
+    this->m_param_values[es][2] = material_params.get<double>("K");
+    this->m_param_values[es][3] = material_params.get<double>("Y");
+  }
 }
 
 template <typename T>

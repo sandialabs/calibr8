@@ -38,11 +38,12 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
   }
 
   // perform initializations of the residual objects
-  local->before_elems(disc);
   global->before_elems(disc);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -173,12 +174,13 @@ void preprocess_qoi(RCP<QoI<T>> qoi,
   }
 
   // perform initializations of the residual objects
-  local->before_elems(disc);
   global->before_elems(disc);
   qoi->before_elems(disc, step);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -268,12 +270,13 @@ void eval_adjoint_jacobian(
   }
 
   // perform initializations of the residual objects
-  local->before_elems(disc);
   global->before_elems(disc);
   qoi->before_elems(disc, step);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -437,11 +440,12 @@ void solve_adjoint_local(
   }
 
   // perform initializations of the residual objects
-  local->before_elems(disc);
   global->before_elems(disc);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -559,7 +563,6 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
   }
 
   // perform initializations of the residual objects
-  local->before_elems(disc);
   global->before_elems(disc);
   qoi->before_elems(disc, step);
 
@@ -568,6 +571,8 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -652,12 +657,13 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
 
 
   // perform initializations of the residual objects
-  local->before_elems(disc);
   global->before_elems(disc);
   qoi->before_elems(disc, step);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -789,11 +795,12 @@ void eval_error_contributions(
   }
 
   // perform initializations of the residual objects
-  local->before_elems(disc);
   global->before_elems(disc);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -933,11 +940,12 @@ void eval_linearization_errors(
   Array1D<apf::Field*> phi = disc->adjoint(step).local;
 
   // perform initializations of the residual objects
-  local->before_elems(disc);
   global->before_elems(disc);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -1114,11 +1122,12 @@ apf::Field* eval_cauchy(RCP<State> state, int step) {
   if (step == 0) return field;
 
   // perform initializations of the residual objects
-  local->before_elems(disc);
   global->before_elems(disc);
 
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);

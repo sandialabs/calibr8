@@ -22,10 +22,12 @@ notch hyperJ2 FEMU:
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
-      E: 1000.
-      nu: 0.25
-      K: 100.
-      Y: 10.
+      materials:
+        body:
+          E: 1000.
+          nu: 0.25
+          K: 100.
+          Y: 10.
 
   quantity of interest:
     type: 'surface mismatch'

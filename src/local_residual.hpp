@@ -57,14 +57,15 @@ class LocalResidual {
     //! \param state The application state object
     void init_variables(RCP<State> state);
 
+    //! \brief Initialize material parameters
+    virtual void init_params() = 0;
+
     //! \brief Initialize local state at an integration point
-    //! \param pt The integration point index
-    //! \param xi The local state variable fields at the current step
     virtual void init_variables_impl() = 0;
 
     //! \brief Perform intializations before the loop over elements
     //! \param disc The discretization object
-    void before_elems(RCP<Disc> disc);
+    void before_elems(int const es, RCP<Disc> disc);
 
     //! \brief Process element data on element input
     //! \param mesh_elem The current mesh element to operate on
@@ -327,8 +328,13 @@ class LocalResidual {
     std::vector<int> m_var_types;
     std::vector<std::string> m_resid_names;
 
+    ParameterList m_params_list;
+
     Array1D<T> m_params;
+    Array2D<double> m_param_values;
     Array1D<std::string> m_param_names;
+
+    Array1D<std::string> m_elem_set_names;
 
     int m_num_dims = -1;
     int m_num_nodes = -1;

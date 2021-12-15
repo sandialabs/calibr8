@@ -165,8 +165,8 @@ void LoadMismatch<T>::preprocess_finalize(int step) {
     out_file.close();
   }
   double load_meas = 0.;
-  if (step < m_load_data.size()) {
-    load_meas = m_load_data[step];
+  if (m_read_load) {
+    load_meas = m_load_data[step - 1];
   }
   m_load_mismatch = m_total_load - load_meas;
   // reset the total load

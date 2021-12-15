@@ -35,7 +35,6 @@ class Objective : public ROL::Objective<double> {
   protected:
 
     void setup_opt_params(ParameterList const& inverse_params);
-    void set_params(ROL::Vector<double> const& p);
     Array1D<double> transform_gradient(Array1D<double> const& gradient);
 
     RCP<ParameterList> m_params;

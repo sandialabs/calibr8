@@ -19,6 +19,7 @@ Primal::Primal(
   m_disc = disc_in;
   if (m_disc->type() == COARSE) {
     m_disc->create_primal(m_state->residuals, 0);
+    m_state->residuals->local->init_variables(m_state);
     m_state->d_residuals->local->init_variables(m_state);
   }
 }

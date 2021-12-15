@@ -24,6 +24,9 @@ class J2_small_strain : public LocalResidual<T> {
     //! \brief The J2_small_strain destructor
     ~J2_small_strain();
 
+    //! \brief Initialize the parameters
+    void init_params();
+
     //! \brief Initialize the local variables
     void init_variables_impl();
 
