@@ -180,10 +180,20 @@ static apf::Field* get_size_field(apf::Field* error, int cycle, ParameterList& p
 }
 
 static void configure_ma(ma::Input* in, ParameterList& p) {
-  in->maximumIterations = p.get<int>("adapt iters", 1);
-  in->shouldCoarsen = p.get<bool>("should coarsen", true);
-  in->shouldFixShape = p.get<bool>("fix shape", true);
-  in->goodQuality = p.get<double>("good quality", 0.2);
+  int const adapt_iters = p.get<int>("adapt iters", 1);
+  bool const should_coarsen = p.get<bool>("should coarsen", false);
+  bool const fix_shape = p.get<bool>("fix shape", false);
+  double const good_quality = p.get<double>("good quality", 0.5);
+  print("ma inputs----");
+  print(" > adapt iters: %d", adapt_iters);
+  print(" > should coarsen: %d", should_coarsen);
+  print(" > fix shape: %d", fix_shape);
+  print(" > good quality: %f", good_quality);
+  print("----");
+  in->maximumIterations = adapt_iters;
+  in->shouldCoarsen = should_coarsen;
+  in->shouldFixShape = fix_shape;
+  in->goodQuality = good_quality;
   in->shouldRunPreParma = true;
   in->shouldRunMidParma = true;
   in->shouldRunPostParma = true;
@@ -248,20 +258,33 @@ double Driver::solve_primal_fine() {
 }
 
 void Driver::print_final_summary() {
-  if (!m_solve_exact) return;
   ALWAYS_ASSERT(m_J_H.size() == m_eta.size());
-  print("*******************************************");
-  print(" FINAL SUMMARY\n");
-  print("*******************************************");
-  print("step | nodes | J_ex  | J_H  | eta  | I");
-  print("--------------------------------");
-  for (size_t step = 0; step < m_J_H.size(); ++step) {
-    int const nnodes = m_nnodes[step];
-    double const JH = m_J_H[step];
-    double const J_ex = m_J_exact;
-    double const eta = m_eta[step];
-    double const I = eta / (J_ex - JH);
-    print("%d | %d | %.15e | %.15e | %.15e | %.15e", step, nnodes, J_ex, JH, eta, I);
+  if (m_solve_exact) {
+    print("*******************************************");
+    print(" FINAL SUMMARY\n");
+    print("*******************************************");
+    print("step | nodes | J_ex  | J_H  | eta  | I");
+    print("--------------------------------");
+    for (size_t step = 0; step < m_J_H.size(); ++step) {
+      int const nnodes = m_nnodes[step];
+      double const JH = m_J_H[step];
+      double const J_ex = m_J_exact;
+      double const eta = m_eta[step];
+      double const I = eta / (J_ex - JH);
+      print("%d | %d | %.15e | %.15e | %.15e | %.15e", step, nnodes, J_ex, JH, eta, I);
+    }
+  } else {
+    print("*******************************************");
+    print(" FINAL SUMMARY\n");
+    print("*******************************************");
+    print("step | nodes | J_H  | eta");
+    print("--------------------------------");
+    for (size_t step = 0; step < m_J_H.size(); ++step) {
+      int const nnodes = m_nnodes[step];
+      double const JH = m_J_H[step];
+      double const eta = m_eta[step];
+      print("%d | %d | %.15e | %.15e", step, nnodes, JH, eta);
+    }
   }
 }
 

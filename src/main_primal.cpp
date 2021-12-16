@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <Teuchos_YamlParameterListHelpers.hpp>
+#include <lionPrint.h>
 #include <PCU.h>
 #include "control.hpp"
 #include "defines.hpp"
@@ -212,6 +213,7 @@ int main(int argc, char** argv) {
   initialize();
   ALWAYS_ASSERT(argc == 2);
   {
+    lion_set_verbosity(1);
     std::string const yaml_input = argv[1];
     Solver solver(yaml_input);
     solver.solve();
