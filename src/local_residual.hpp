@@ -101,11 +101,13 @@ class LocalResidual {
     void seed_wrt_x(EMatrix const& dxi_dx);
 
     //! \brief Seed the parameters as derivative quantities
-    void seed_wrt_params();
+    //! \param es The element set index
+    void seed_wrt_params(int const es);
 
     //! \brief Unseed the parameters as derivative quantities
+    //! \param es The element set index
     //! \details This will set the value of m_params to m_params.val()
-    void unseed_wrt_params();
+    void unseed_wrt_params(int const es);
 
     //! \brief Solve the nonlinear model at the current integration point
     //! \param global The global residual equations
@@ -300,29 +302,75 @@ class LocalResidual {
       return m_param_values;
     }
 
-    //! \brief Set the material model parameters
-    void set_params(Array1D<double> const& params,
-        Array2D<int> const& active_indices) {
-      int const num_elem_sets = m_elem_set_names.size();
-      int p = 0;
-      for (int es = 0; es < num_elem_sets; ++es) {
-        for (int i = 0; i < active_indices[es].size(); ++i) {
-          int const active_idx = active_indices[es][i];
-          m_param_values[es][active_idx] = params[p];
-          ++p;
-        }
-      }
-    }
-
     //! \brief Get the material model parameters by index
     //! \param p The parameter index
     T const& params(int const p) { return m_params[p]; }
 
     //! \brief Get the parameter names for the local residual model
-    Array1D<std::string> const& param_names() { return m_param_names; }
+    Array1D<std::string> const& param_names() const { return m_param_names; }
 
     //! \brief Get the element set names
-    Array1D<std::string> const& elem_set_names() { return m_elem_set_names; }
+    Array1D<std::string> const& elem_set_names() const { return m_elem_set_names; }
+
+    //! \brief Set the active parameter indices for each element set
+    //! \param active_indices The active parameter indices
+    void set_active_indices(Array2D<int> const& active_indices) {
+      m_active_indices = active_indices;
+      int const num_elem_sets = m_elem_set_names.size();
+      m_num_active_params = 0;
+      for (int es = 0; es < num_elem_sets; ++es) {
+        m_num_active_params += m_active_indices[es].size();
+      }
+    }
+
+    //! \brief Get the active parameter indices for each element set
+    Array2D<int> active_indices() const { return m_active_indices; }
+
+    //! \brief Get the number of active optimization parameters
+    int num_active_params() const { return m_num_active_params; }
+
+    //! \brief Get the active optimization parameters
+    Array1D<double> active_params() const {
+      Array1D<double> active_params(m_num_active_params);;
+      int const num_elem_sets = m_elem_set_names.size();
+
+      int p = 0;
+      for (int es = 0; es < num_elem_sets; ++es) {
+        for (int i = 0; i < m_active_indices[es].size(); ++i) {
+          int const active_idx = m_active_indices[es][i];
+          active_params[p] = m_param_values[es][active_idx];
+          ++p;
+        }
+      }
+      return active_params;
+    }
+
+    //! \brief Get the active optimization parameter names
+    Array2D<std::string> active_param_names() const {
+      int const num_elem_sets = m_elem_set_names.size();
+      Array2D<std::string> active_param_names(num_elem_sets);
+      for (int es = 0; es < num_elem_sets; ++es) {
+        active_param_names[es].resize(m_active_indices[es].size());
+        for (int i = 0; i < m_active_indices[es].size(); ++i) {
+          int const active_idx = m_active_indices[es][i];
+          active_param_names[es][i] = m_param_names[active_idx];
+        }
+      }
+      return active_param_names;
+    }
+
+    //! \brief Set the material model parameters
+    void set_params(Array1D<double> const& params) {
+      int const num_elem_sets = m_elem_set_names.size();
+      int p = 0;
+      for (int es = 0; es < num_elem_sets; ++es) {
+        for (int i = 0; i < m_active_indices[es].size(); ++i) {
+          int const active_idx = m_active_indices[es][i];
+          m_param_values[es][active_idx] = params[p];
+          ++p;
+        }
+      }
+    }
 
   protected:
 
@@ -338,6 +386,8 @@ class LocalResidual {
     Array1D<T> m_params;
     Array2D<double> m_param_values;
     Array1D<std::string> m_param_names;
+    Array2D<int> m_active_indices;
+    int m_num_active_params = -1;
 
     Array1D<std::string> m_elem_set_names;
 

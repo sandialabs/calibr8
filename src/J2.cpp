@@ -92,6 +92,10 @@ void J2<T>::init_params() {
     this->m_param_values[es][2] = material_params.get<double>("K");
     this->m_param_values[es][3] = material_params.get<double>("Y");
   }
+
+  this->m_active_indices.resize(1);
+  this->m_active_indices[0].resize(1);
+  this->m_active_indices[0][0] = 0;
 }
 
 template <typename T>

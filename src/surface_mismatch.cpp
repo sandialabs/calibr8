@@ -67,7 +67,8 @@ void SurfaceMismatch<T>::evaluate(
   // initialize the QoI contribution to 0
   T const dummy1 = global->vector_x(0)[0];
   T const dummy2 = local->first_value();
-  T const dummy3 = local->params(0);
+  Array2D<int> const& active_indices = local->active_indices();
+  T const dummy3 = local->params(active_indices[0][0]);
   this->value_pt = 0. * (dummy1 + dummy2 + dummy3);
 
   // get the id of the facet wrt element if this facet is on the QoI side

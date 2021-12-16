@@ -641,28 +641,29 @@ void LocalResidual<FADT>::seed_wrt_x(EMatrix const& dxi_dx) {
   }
 }
 
-// TODO: only seed active params
 template <>
-void LocalResidual<double>::seed_wrt_params() {
+void LocalResidual<double>::seed_wrt_params(int const es) {
 }
 
 template <>
-void LocalResidual<FADT>::seed_wrt_params() {
-  int const num_params = m_params.size();
-  for (int p = 0; p < num_params; ++p) {
-    m_params[p].diff(p, num_params);
+void LocalResidual<FADT>::seed_wrt_params(int const es) {
+  int const num_es_active_params = m_active_indices[es].size();
+  for (int p = 0; p < num_es_active_params; ++p) {
+    int const active_idx = m_active_indices[es][p];
+    m_params[active_idx].diff(p, num_es_active_params);
   }
 }
 
 template <>
-void LocalResidual<double>::unseed_wrt_params() {
+void LocalResidual<double>::unseed_wrt_params(int const es) {
 }
 
 template <>
-void LocalResidual<FADT>::unseed_wrt_params() {
-  int const num_params = m_params.size();
-  for (int p = 0; p < num_params; ++p) {
-    m_params[p] = m_params[p].val();
+void LocalResidual<FADT>::unseed_wrt_params(int const es) {
+  int const num_es_active_params = m_active_indices[es].size();
+  for (int p = 0; p < num_es_active_params; ++p) {
+    int const active_idx = m_active_indices[es][p];
+    m_params[active_idx] = m_params[active_idx].val();
   }
   // for safety?
   for (int i = 0; i < m_num_residuals; ++i) {

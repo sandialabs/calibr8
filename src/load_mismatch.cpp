@@ -222,7 +222,8 @@ void LoadMismatch<FADT>::evaluate(
   // initialize the QoI contribution to 0
   FADT const dummy1 = global->vector_x(0)[0];
   FADT const dummy2 = local->first_value();
-  FADT const dummy3 = local->params(0);
+  Array2D<int> const& active_indices = local->active_indices();
+  FADT const dummy3 = local->params(active_indices[0][0]);
   this->value_pt = 0. * (dummy1 + dummy2 + dummy3);
 
   // get the id of the facet wrt element if this facet is on the QoI side

@@ -633,9 +633,9 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
 
 Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
 
-  int const num_opt_params = state->residuals->local->params().size();
-  Array1D<double> grad(num_opt_params);
-  EVector Egrad = EVector::Zero(num_opt_params);
+  int const num_active_params = state->residuals->local->num_active_params();
+  Array1D<double> grad(num_active_params);
+  EVector Egrad = EVector::Zero(num_active_params);
 
   // gather discretization information
   RCP<Disc> disc = state->disc;
@@ -710,7 +710,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
           // compute gradient contributions
           global->interpolate(iota);
           global->zero_residual();
-          local->seed_wrt_params();
+          local->seed_wrt_params(es);
 
           if (ip_set == 0) {
             local->gather(pt, xi, xi_prev);
@@ -729,7 +729,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
           global->evaluate(local, iota, w, dv, ip_set);
           EMatrix const dR_dpT = global->eigen_jacobian().transpose();
           Egrad += dR_dpT * z_nodes;
-          local->unseed_wrt_params();
+          local->unseed_wrt_params(es);
 
         }
 
@@ -750,7 +750,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   global->after_elems();
   qoi->after_elems();
 
-  EVector::Map(&grad[0], num_opt_params) = Egrad;
+  EVector::Map(&grad[0], num_active_params) = Egrad;
 
   return grad;
 }

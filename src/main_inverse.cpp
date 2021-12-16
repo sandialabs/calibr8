@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
       rolOut.precision(16);
       ROL::Ptr<Array1D<double> const> xp =
           (dynamic_cast<ROL::StdVector<double> const&>(x)).getVector();
-      Array1D<double> const opt_params =
+      Array1D<double> const& opt_params =
           rol_objective->transform_params(*xp, false);
       for (int i = 0; i < output.size(); ++i) {
         *outStream << output[i];
@@ -136,8 +136,8 @@ int main(int argc, char** argv) {
       int const num_elem_sets = elem_set_names.size();
       int p = 0;
       for (int es = 0; es < num_elem_sets; ++es) {
-        int const num_active_params = active_param_names[es].size();
-        for (int i = 0; i < num_active_params; ++i) {
+        int const num_es_active_params = active_param_names[es].size();
+        for (int i = 0; i < num_es_active_params; ++i) {
           *outStream << elem_set_names[es] << ": " << active_param_names[es][i]
               << " = " << opt_params[p] << "\n";
           rolOut << elem_set_names[es] << ": " << active_param_names[es][i]

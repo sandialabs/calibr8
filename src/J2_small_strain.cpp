@@ -92,6 +92,10 @@ void J2_small_strain<T>::init_params() {
     this->m_param_values[es][4] = material_params.get<double>("cte");
     this->m_param_values[es][5] = material_params.get<double>("delta_T");
   }
+
+  this->m_active_indices.resize(1);
+  this->m_active_indices[0].resize(1);
+  this->m_active_indices[0][0] = 0;
 }
 
 template <typename T>
