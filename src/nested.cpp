@@ -14,6 +14,7 @@ NestedDisc::NestedDisc(RCP<Disc> disc, int type) {
   m_disc_type = type;
   m_base_mesh = disc->apf_mesh();
   m_sets = disc->sets();
+  m_is_null_model = disc->is_null();
   number_elems();
   copy_mesh();
   tag_old_verts();

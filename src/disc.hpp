@@ -251,6 +251,9 @@ class Disc {
         Array1D<apf::Field*>& x,
         Array1D<RCP<VectorT>> const& dx);
 
+    //! \brief Is the geometric model '.null'
+    bool is_null() { return m_is_null_model; }
+
   protected:
 
     int m_num_dims = -1;
