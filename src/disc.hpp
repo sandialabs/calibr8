@@ -85,7 +85,7 @@ class Disc {
     //! \param num_residuals The number of PDE residuals
     //! \param num_eqs The number of equations per each PDE residual
     //! \details For use on initialization and after mesh adaptation
-    void build_data(int num_residuals, std::vector<int> const& num_eqs);
+    void build_data(int num_residuals, Array1D<int> const& num_eqs);
 
     //! \brief Get the number of spatial dimensions of the mesh
     int num_dims() const { return m_num_dims; }
@@ -315,7 +315,7 @@ class Disc {
     void compute_node_sets();
     void compute_derived_node_sets();
 
-    std::vector<size_t> compute_nentries(int i, int j);
+    Array1D<size_t> compute_nentries(int i, int j);
     void compute_ghost_graph(int i, int j);
     void compute_owned_graph(int i, int j);
 

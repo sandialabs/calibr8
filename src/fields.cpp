@@ -1,6 +1,7 @@
 #include <apfMesh.h>
 #include <apfShape.h>
 #include <spr.h>
+#include "arrays.hpp"
 #include "fad.hpp"
 #include "fields.hpp"
 #include "macros.hpp"
@@ -184,7 +185,7 @@ static void interpolate_to_from(
   apf::MeshEntity* elem;
   apf::MeshIterator* elems = m->begin(m->getDimension());
   int const q_order = apf::getShape(qp)->getOrder();
-  std::vector<double> field_comps(9);
+  Array1D<double> field_comps(9);
   while ((elem = m->iterate(elems))) {
     apf::MeshElement* me = apf::createMeshElement(m, elem);
     apf::Element* nodal_elem = apf::createElement(nodal, me);

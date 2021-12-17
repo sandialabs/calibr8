@@ -48,7 +48,7 @@ class GlobalResidual {
     std::string const& resid_name(int i) const { return m_resid_names[i]; }
 
     //! \brief The number of equations for all PDE residuals
-    std::vector<int> const& num_eqs() const { return m_num_eqs; }
+    Array1D<int> const& num_eqs() const { return m_num_eqs; }
 
     //! \brief The number of spatial dimensions
     int num_dims() const { return m_num_dims; }
@@ -270,15 +270,15 @@ class GlobalResidual {
     //! \cond
 
     int m_num_residuals = -1;
-    std::vector<int> m_num_eqs;
-    std::vector<int> m_var_types;
-    std::vector<std::string> m_resid_names;
+    Array1D<int> m_num_eqs;
+    Array1D<int> m_var_types;
+    Array1D<std::string> m_resid_names;
 
     int m_num_dims = -1;
     int m_num_nodes = -1;
     int m_num_dofs = -1;
 
-    std::vector<int> m_dx_offsets;
+    Array1D<int> m_dx_offsets;
 
     apf::Mesh* m_mesh = nullptr;
     apf::FieldShape* m_shape = nullptr;

@@ -6,9 +6,9 @@ cube hyperJ2:
     step size: 1.
 
   discretization:
-    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
-    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.smb'
-    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.txt'
+    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'
+    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.smb'
+    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.txt'
 
   residuals:
     global residual:
@@ -18,7 +18,7 @@ cube hyperJ2:
       nonlinear relative tol: 1.e-12
       print convergence: false
     local residual:
-      type: 'J2'
+      type: 'J2_small_strain'
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
@@ -28,16 +28,16 @@ cube hyperJ2:
           nu: 0.25
           K: 100.
           Y: 10.
+          cte: 0.
+          delta_T: 0.
 
   quantity of interest:
     type: 'average displacement'
 
   inverse:
-#    gradient type: "FEMU"
-# TODO: somehow make ROL # iterations an input parameter
     gradient type: "adjoint"
     check gradient: true
-    iteration limit: 1
+    iteration limit: 0
     materials:
       body:
         E: [800., 1000.]
@@ -49,8 +49,7 @@ cube hyperJ2:
   dirichlet bcs:
     bc 1: [0, 0, xmin, 0.0]
     bc 2: [0, 1, ymin, 0.0]
-    bc 3: [0, 2, zmin, 0.0]
-    bc 4: [0, 1, ymax, 0.001 * t]
+    bc 3: [0, 1, ymax, 0.001 * t]
 
   linear algebra:
     Linear Solver Type: "Belos"

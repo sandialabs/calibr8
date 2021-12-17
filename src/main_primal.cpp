@@ -4,6 +4,7 @@
 #include <Teuchos_YamlParameterListHelpers.hpp>
 #include <lionPrint.h>
 #include <PCU.h>
+#include "arrays.hpp"
 #include "control.hpp"
 #include "defines.hpp"
 #include "evaluations.hpp"
@@ -82,11 +83,11 @@ static void mkdir(const char* path) {
   }
 }
 
-static std::vector<std::string> get_names(
+static Array1D<std::string> get_names(
     RCP<GlobalResidual<double>> global,
     RCP<LocalResidual<double>> local,
     bool has_adjoint) {
-  std::vector<std::string> names;
+  Array1D<std::string> names;
   for (int i = 0; i < global->num_residuals(); ++i) {
     names.push_back(global->resid_name(i));
   }
@@ -111,7 +112,7 @@ void Solver::write_at_step(int step, bool has_adjoint) {
   RCP<GlobalResidual<double>> global = m_state->residuals->global;
   RCP<LocalResidual<double>> local = m_state->residuals->local;
   apf::Mesh* mesh = m_state->disc->apf_mesh();
-  std::vector<std::string> names = get_names(global, local, has_adjoint);
+  Array1D<std::string> names = get_names(global, local, has_adjoint);
   for (std::string const& name : names) {
     std::string const name_step = name + "_" + std::to_string(step);
     apf::Field* f = mesh->findField(name_step.c_str());

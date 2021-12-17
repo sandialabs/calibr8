@@ -1,6 +1,7 @@
 #include <apf.h>
 #include <apfMesh2.h>
 #include <apfNumbering.h>
+#include "arrays.hpp"
 #include "control.hpp"
 #include "disc.hpp"
 #include "macros.hpp"
@@ -26,7 +27,7 @@ static void apply_primal_tbc(
   // information about the BC from the input
   int const i = std::stoi(a[0]); // the residual index
   std::string const set = a[1];  // the side set to apply the bc to
-  std::vector<std::string> vals;
+  Array1D<std::string> vals;
   for (int d = 1; d <= disc->num_dims(); ++d) {
     vals.push_back(a[1 + d]);
   }
@@ -110,7 +111,7 @@ void eval_tbc_error_contributions(
   // information about the BC from the input
   int const i = std::stoi(a[0]); // the residual index
   std::string const set = a[1];  // the side set to apply the bc to
-  std::vector<std::string> vals;
+  Array1D<std::string> vals;
   for (int d = 1; d <= disc->num_dims(); ++d) {
     vals.push_back(a[1 + d]);
   }
@@ -197,7 +198,7 @@ double sum_tbc_error_contributions(
   // information about the BC from the input
   int const i = std::stoi(a[0]); // the residual index
   std::string const set = a[1];  // the side set to apply the bc to
-  std::vector<std::string> vals;
+  Array1D<std::string> vals;
   for (int d = 1; d <= disc->num_dims(); ++d) {
     vals.push_back(a[1 + d]);
   }

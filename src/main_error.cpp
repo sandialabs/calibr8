@@ -3,6 +3,7 @@
 #include <lionPrint.h>
 #include <Teuchos_YamlParameterListHelpers.hpp>
 #include "adjoint.hpp"
+#include "arrays.hpp"
 #include "control.hpp"
 #include "defines.hpp"
 #include "dbcs.hpp"
@@ -221,7 +222,7 @@ void Driver::clean_up_fine_space() {
 void Driver::rebuild_coarse_space() {
   RCP<Disc> disc = m_state->disc;
   int const ngr = m_state->residuals->global->num_residuals();
-  std::vector<int> const neqs = m_state->residuals->global->num_eqs();
+  Array1D<int> const neqs = m_state->residuals->global->num_eqs();
   disc->build_data(ngr, neqs);
   m_state->la->build_data(disc);
 }

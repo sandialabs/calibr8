@@ -3,6 +3,7 @@
 #include <gmi_null.h>
 #include <PCU.h>
 #include <Tpetra_Core.hpp>
+#include "arrays.hpp"
 #include "control.hpp"
 #include "disc.hpp"
 #include "global_residual.hpp"
@@ -302,12 +303,12 @@ void Disc::compute_exporters() {
   }
 }
 
-std::vector<size_t> Disc::compute_nentries(int i, int j) {
+Array1D<size_t> Disc::compute_nentries(int i, int j) {
   int const num_i_eqs = num_eqs(i);
   int const num_j_eqs = num_eqs(j);
   RCP<const MapT> map_i = m_maps[GHOST][i];
   RCP<const MapT> map_j = m_maps[GHOST][j];
-  std::vector<size_t> num_entries_per_row(map_i->getNodeNumElements(), 0);
+  Array1D<size_t> num_entries_per_row(map_i->getNodeNumElements(), 0);
   apf::MeshEntity* elem;
   apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
   while ((elem = m_mesh->iterate(elems))) {
@@ -331,7 +332,7 @@ void Disc::compute_ghost_graph(int i, int j) {
   int const num_j_eqs = num_eqs(j);
   RCP<const MapT> map_i = m_maps[GHOST][i];
   RCP<const MapT> map_j = m_maps[GHOST][j];
-  std::vector<size_t> nentries = compute_nentries(i, j);
+  Array1D<size_t> nentries = compute_nentries(i, j);
   Teuchos::ArrayView<const size_t> nentries_per_row(nentries);
   m_graphs[GHOST][i][j] = rcp(new GraphT(
         map_i, map_j, nentries_per_row, Tpetra::StaticProfile));
@@ -476,7 +477,7 @@ void Disc::compute_derived_node_sets() {
   }
 }
 
-void Disc::build_data(int num_residuals, std::vector<int> const& num_eqs) {
+void Disc::build_data(int num_residuals, Array1D<int> const& num_eqs) {
   destroy_data();
   m_num_residuals = num_residuals;
   m_num_eqs = num_eqs;
@@ -659,7 +660,7 @@ void Disc::add_to_soln(
   }
 
   // storage used below
-  std::vector<double> sol_comps(3);
+  Array1D<double> sol_comps(3);
 
   // loop over all the nodes in the discretization
   for (size_t n = 0; n < nodes.size(); ++n) {

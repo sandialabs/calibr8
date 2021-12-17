@@ -1,6 +1,7 @@
 #include <apf.h>
 #include <apfMesh2.h>
 #include <apfNumbering.h>
+#include "arrays.hpp"
 #include "control.hpp"
 #include "dbcs.hpp"
 #include "disc.hpp"
@@ -46,7 +47,7 @@ void apply_primal_dbcs(
   // storage used below
   Teuchos::Array<double> entries;
   Teuchos::Array<LO> indices;
-  std::vector<double> sol_comps(3);
+  Array1D<double> sol_comps(3);
 
   // loop through all the dirichlet boundary conditions
   for (auto it = dbcs.begin(); it != dbcs.end(); ++it) {

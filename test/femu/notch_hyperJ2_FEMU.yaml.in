@@ -35,8 +35,7 @@ notch hyperJ2 FEMU:
 
   inverse:
     gradient type: "FEMU"
-    # gradient type: "adjoint"
-    # check gradient: true
+    iteration limit: 0
     materials:
       body:
         E: [800., 1000.]

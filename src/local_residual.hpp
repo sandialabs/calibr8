@@ -377,9 +377,9 @@ class LocalResidual {
     //! \cond
 
     int m_num_residuals = -1;
-    std::vector<int> m_num_eqs;
-    std::vector<int> m_var_types;
-    std::vector<std::string> m_resid_names;
+    Array1D<int> m_num_eqs;
+    Array1D<int> m_var_types;
+    Array1D<std::string> m_resid_names;
 
     ParameterList m_params_list;
 
@@ -395,7 +395,7 @@ class LocalResidual {
     int m_num_nodes = -1;
     int m_num_dofs = -1;
 
-    std::vector<int> m_dxi_offsets;
+    Array1D<int> m_dxi_offsets;
 
     apf::FieldShape* m_shape = nullptr;
     apf::MeshElement* m_mesh_elem = nullptr;

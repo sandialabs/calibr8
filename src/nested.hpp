@@ -7,7 +7,7 @@
 
 namespace calibr8 {
 
-using EntArray = std::vector<apf::MeshEntity*>;
+using EntArray = Array1D<apf::MeshEntity*>;
 
 class NestedDisc : public Disc {
   public:

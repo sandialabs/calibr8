@@ -6,6 +6,7 @@
 #include <ROL_ParameterList.hpp>
 #include <ROL_Stream.hpp>
 #include <Teuchos_YamlParameterListHelpers.hpp>
+#include "arrays.hpp"
 #include "adjoint_objective.hpp"
 #include "control.hpp"
 #include "defines.hpp"
@@ -35,6 +36,7 @@ static ParameterList get_valid_params() {
   p.sublist("traction bcs");
   p.sublist("linear algebra");
   p.sublist("quantity of interest");
+  //p.sublist("regression");
   p.sublist("inverse");
   return p;
 }
@@ -67,7 +69,9 @@ int main(int argc, char** argv) {
     set_default_rol_params(rol_params);
 
     ParameterList& inverse_params = params->sublist("inverse", true);
+    //ParameterList& regression_params = params->sublist("regression", false);
     std::string const grad_type = inverse_params.get<std::string>("gradient type");
+
     bool check_gradient  = inverse_params.get<bool>("check gradient", false);
     int const iteration_limit = inverse_params.get<int>("iteration limit", 20);
     double const gradient_tol =
@@ -84,15 +88,15 @@ int main(int argc, char** argv) {
     Array1D<double> const& initial_guess =
         rol_objective->transform_params(active_params, true);
     int const dim = initial_guess.size();
-    ROL::Ptr<std::vector<double> > x_ptr = ROL::makePtr<std::vector<double>>(dim, 0.0);
+    ROL::Ptr<Array1D<double>> x_ptr = ROL::makePtr<Array1D<double>>(dim, 0.0);
     for (int i = 0; i < dim; ++i) {
         (*x_ptr)[i] = initial_guess[i];
     }
     ROL::StdVector<double> x(x_ptr);
 
     ROL::Ptr<ROL::Bounds<double>> bound;
-    ROL::Ptr<std::vector<double>> lo_ptr = ROL::makePtr<std::vector<double>>(dim, -1.);
-    ROL::Ptr<std::vector<double>> hi_ptr = ROL::makePtr<std::vector<double>>(dim, 1.);
+    ROL::Ptr<Array1D<double>> lo_ptr = ROL::makePtr<Array1D<double>>(dim, -1.);
+    ROL::Ptr<Array1D<double>> hi_ptr = ROL::makePtr<Array1D<double>>(dim, 1.);
     ROL::Ptr<ROL::Vector<double>> lop = ROL::makePtr<ROL::StdVector<double>>(lo_ptr);
     ROL::Ptr<ROL::Vector<double>> hip = ROL::makePtr<ROL::StdVector<double>>(hi_ptr);
     bound = ROL::makePtr<ROL::Bounds<double>>(lop, hip);
@@ -106,12 +110,23 @@ int main(int argc, char** argv) {
     bool isProcZero = (PCU_Comm_Self() == 0);
 
     if (grad_type != "femu" && check_gradient) {
-      ROL::Ptr<std::vector<double>> d_ptr = ROL::makePtr<std::vector<double> >(dim, 0.1);
+      int const num_steps = 13;
+      Array2D<double> fd_results;
+      ROL::Ptr<Array1D<double>> d_ptr = ROL::makePtr<Array1D<double>>(dim, 0.1);
       ROL::StdVector<double> d(d_ptr);
-      (*rol_objective).checkGradient(x, d, isProcZero, *outStream, 13, 2);
+      fd_results = (*rol_objective).checkGradient(x, d, isProcZero,
+          *outStream, num_steps, 2);
+      double min_error = std::numeric_limits<double>::max();
+      double max_error = std::numeric_limits<double>::min();
+      for (int i = 0; i < num_steps; ++i) {
+        min_error = std::min(min_error, fd_results[i][3]);
+        max_error = std::max(max_error, fd_results[i][3]);
+      }
+      double log10_mag_drop = std::log10(max_error / min_error);
+      print("log10 of FD error magnitude drop = %.16e", log10_mag_drop);
     }
 
-    std::vector<std::string> output;
+    Array1D<std::string> output;
     output = algo.run(x, *rol_objective, *bound, isProcZero, *outStream);
     for (int i = 0; i < output.size(); ++i) {
       *outStream << output[i];
