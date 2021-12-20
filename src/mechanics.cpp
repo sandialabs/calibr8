@@ -74,6 +74,8 @@ void Mechanics<T>::evaluate(
   T const mu = compute_mu(E, nu);
   T const kappa = compute_kappa(E, nu);
 
+  Array2D<int> const& active_indices = local->active_indices();
+  T const dummy3 = local->params(active_indices[0][0]);
 
   // coupled ip set (lowest quadrature order)
   if (ip_set == 0) {
@@ -93,6 +95,8 @@ void Mechanics<T>::evaluate(
     // compute stress measures
     RCP<GlobalResidual<T>> global = rcp(this, false);
     Tensor<T> stress = local->cauchy(global, p);
+
+
     if (local->is_finite_deformation()) stress = J * stress * F_invT;
 
     // compute the balance of linear momentum residual
@@ -101,7 +105,7 @@ void Mechanics<T>::evaluate(
         for (int j = 0; j < ndims; ++j) {
           double const dbasis_dx = this->grad_weight(momentum_idx, n, i, j);
           this->R_nodal(momentum_idx, n, i) +=
-            stress(i, j) * dbasis_dx * w * dv;
+            stress(i, j) * dbasis_dx * w * dv + 0. * dummy3;
         }
       }
     }
@@ -114,7 +118,7 @@ void Mechanics<T>::evaluate(
         int const eq = 0;
         double const basis = this->weight(pressure_idx, n, eq);
         this->R_nodal(pressure_idx, n, eq) -=
-          dU_dJ * basis * w * dv;
+          dU_dJ * basis * w * dv + 0. * dummy3;
       }
 
       // compute the stabilization to the pressure residual
@@ -127,7 +131,7 @@ void Mechanics<T>::evaluate(
             int const eq = 0;
             double const dbasis_dx = this->grad_stab_weight(pressure_idx, n, eq, j);
             this->R_nodal(pressure_idx, n, eq) -=
-              tau * J * C_inv(i, j) * grad_p(i) * dbasis_dx * w * dv;
+              tau * J * C_inv(i, j) * grad_p(i) * dbasis_dx * w * dv + 0. * dummy3;
           }
         }
       }
@@ -142,7 +146,7 @@ void Mechanics<T>::evaluate(
         int const eq  = 0;
         double const basis = this->weight(pressure_idx, n, eq);
         this->R_nodal(pressure_idx, n, eq) -=
-          minitensor::trace(eps) * basis * w * dv;
+          minitensor::trace(eps) * basis * w * dv + 0. * dummy3;
       }
 
       // compute the stabilization to the pressure residual
@@ -155,7 +159,7 @@ void Mechanics<T>::evaluate(
             int const eq = 0;
             double const dbasis_dx = this->grad_stab_weight(pressure_idx, n, eq, j);
             this->R_nodal(pressure_idx, n, eq) -=
-              tau * grad_p(i) * dbasis_dx * w * dv;
+              tau * grad_p(i) * dbasis_dx * w * dv + 0. * dummy3;
           }
         }
       }
@@ -171,7 +175,7 @@ void Mechanics<T>::evaluate(
       int const eq = 0;
       double const basis = this->weight(pressure_idx, n, eq);
       this->R_nodal(pressure_idx, n, eq) -=
-        p / kappa * basis * w * dv;
+        p / kappa * basis * w * dv + 0. * dummy3;
     }
   }
 

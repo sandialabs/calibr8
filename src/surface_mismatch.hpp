@@ -3,6 +3,7 @@
 //! \file surface_mismatch.hpp
 //! \brief The interface for displacement mismatch QoIs
 
+#include "arrays.hpp"
 #include "qoi.hpp"
 
 namespace calibr8 {

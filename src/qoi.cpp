@@ -1,4 +1,5 @@
 #include "avg_disp.hpp"
+#include "calibration.hpp"
 #include "disc.hpp"
 #include "fad.hpp"
 #include "load_mismatch.hpp"
@@ -90,6 +91,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
     return rcp(new SurfaceMismatch<T>(params));
   } else if (type == "load mismatch") {
     return rcp(new LoadMismatch<T>(params));
+  } else if (type == "calibration") {
+    return rcp(new Calibration<T>(params));
   } else {
     return Teuchos::null;
   }
