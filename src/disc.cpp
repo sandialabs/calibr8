@@ -574,7 +574,11 @@ void Disc::create_primal(
     std::string const fname = name + "_" + std::to_string(step);
     int const vtype = get_value_type(R->global->num_eqs(i));
     fields.global[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_gv_shape);
-    apf::zeroField(fields.global[i]);
+    if (step == 0) {
+      apf::zeroField(fields.global[i]);
+    } else {
+      apf::copyData(fields.global[i], m_primal[step - 1].global[i]);
+    }
   }
   for (int i = 0; i < nlr; ++i) {
     std::string const name = R->local->resid_name(i);
@@ -582,6 +586,11 @@ void Disc::create_primal(
     int const vtype = get_value_type(R->local->num_eqs(i));
     fields.local[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
     apf::zeroField(fields.local[i]);
+    if (step == 0) {
+      apf::zeroField(fields.local[i]);
+    } else {
+      apf::copyData(fields.local[i], m_primal[step - 1].local[i]);
+    }
   }
   m_primal.push_back(fields);
 }
