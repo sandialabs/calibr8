@@ -128,11 +128,6 @@ void Adjoint::solve_at_step(int step) {
     // solve the linear system
     calibr8::solve(lin_alg, m_disc, dR_dxT, dx, rhs);
 
-    if (iter == 1) {
-      MMWriterT::writeDenseFile("adjoint_disp.mm", dx[0]);
-      MMWriterT::writeDenseFile("adjoint_pressure.mm", dx[1]);
-    }
-
     // add the increment to the current solution fields
     m_disc->add_to_soln(eta, dx);
 

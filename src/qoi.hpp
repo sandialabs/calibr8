@@ -1,6 +1,7 @@
 #pragma once
 
 #include <apf.h>
+#include "arrays.hpp"
 #include "control.hpp"
 #include "defines.hpp"
 
@@ -89,7 +90,16 @@ class QoI {
 
   protected:
 
+
     //! \cond
+
+    //! \brief Initialize the mapping from elements to facets in a side set
+    //! \param side_set The name of the side set
+    //! \param mapping The element to side set facet mapping array
+    //! \returns Flag for whether the mapping array exists
+    bool setup_mapping(std::string const& side_set,
+        RCP<Disc> disc,
+        Array2D<int>& mapping);
 
     int m_num_dims = -1;
     int m_step = -1;

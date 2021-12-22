@@ -42,65 +42,95 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_shape = disc->gv_shape();
   this->m_step = step;
 
-  //TODO: make this a general function in QoI?
-
-  // initialize the surface mesh information
   if (!is_initd_disp) {
-    int ndims = this->m_num_dims;
-    apf::Mesh* mesh = disc->apf_mesh();
-    apf::Downward downward_faces;
-    m_mapping_disp.resize(disc->num_elem_sets());
-    SideSet const& sides = disc->sides(m_side_set_disp);
-    for (int es = 0; es < disc->num_elem_sets(); ++es) {
-      std::string const& es_name = disc->elem_set_name(es);
-      ElemSet const& elems = disc->elems(es_name);
-      m_mapping_disp[es].resize(elems.size());
-      for (size_t elem = 0; elem < elems.size(); ++elem) {
-        m_mapping_disp[es][elem] = -1;
-        apf::MeshEntity* elem_entity = elems[elem];
-        int ndown = mesh->getDownward(elem_entity, ndims - 1, downward_faces);
-        for (int down = 0; down < ndown; ++down) {
-          apf::MeshEntity* downward_entity = downward_faces[down];
-          for (apf::MeshEntity* side : sides) {
-            if (side == downward_entity) {
-              m_mapping_disp[es][elem] = down;
-            }
-          }
-        }
-      }
-    }
-    is_initd_disp = true;
+    is_initd_disp = this->setup_mapping(m_side_set_disp, disc, m_mapping_disp);
   }
 
-  // initialize the surface mesh information
   if (!is_initd_load) {
-    int ndims = this->m_num_dims;
-    apf::Mesh* mesh = disc->apf_mesh();
-    apf::Downward downward_faces;
-    m_mapping_load.resize(disc->num_elem_sets());
-    SideSet const& sides = disc->sides(m_side_set_load);
-    for (int es = 0; es < disc->num_elem_sets(); ++es) {
-      std::string const& es_name = disc->elem_set_name(es);
-      ElemSet const& elems = disc->elems(es_name);
-      m_mapping_load[es].resize(elems.size());
-      for (size_t elem = 0; elem < elems.size(); ++elem) {
-        m_mapping_load[es][elem] = -1;
-        apf::MeshEntity* elem_entity = elems[elem];
-        int ndown = mesh->getDownward(elem_entity, ndims - 1, downward_faces);
-        for (int down = 0; down < ndown; ++down) {
-          apf::MeshEntity* downward_entity = downward_faces[down];
-          for (apf::MeshEntity* side : sides) {
-            if (side == downward_entity) {
-              m_mapping_load[es][elem] = down;
-            }
-          }
-        }
-      }
-    }
-    is_initd_load = true;
+    is_initd_load = this->setup_mapping(m_side_set_load, disc, m_mapping_load);
   }
 
 }
+template <typename T>
+T Calibration<T>::compute_surface_mismatch(
+    int elem_set,
+    int elem,
+    RCP<GlobalResidual<T>> global,
+    RCP<LocalResidual<T>> local,
+    apf::Vector3 const& iota_input) {
+
+  T mismatch = T(0.);
+
+  // store some information contained in this class as local variables
+  int const ndims = this->m_num_dims;
+  int const step = this->m_step;
+  apf::Mesh* mesh = this->m_mesh;
+  apf::MeshElement* mesh_elem = this->m_mesh_elem;
+
+  // grab the face to integrate over
+  int const facet_id = m_mapping_disp[elem_set][elem];
+  apf::Downward elem_faces;
+  apf::MeshEntity* elem_entity = apf::getMeshEntity(mesh_elem);
+  mesh->getDownward(elem_entity, ndims - 1, elem_faces);
+  apf::MeshEntity* face = elem_faces[facet_id];
+
+  // grab the field for the measured displacement data at the step
+  std::string name = "measured_" + std::to_string(step);
+  apf::Field* f_meas = mesh->findField(name.c_str());
+  ALWAYS_ASSERT(f_meas);
+  apf::Element* e_meas = createElement(f_meas, mesh_elem);
+
+  // get quadrature information over the face
+  int const q_order = 2;
+  apf::MeshElement* me = apf::createMeshElement(mesh, face);
+  int const num_qps = apf::countIntPoints(me, q_order);
+
+  // numerically integrate the QoI over the face
+  for (int pt = 0; pt < num_qps; ++pt) {
+
+    // get the integration point info on the face
+    apf::Vector3 iota_face;
+    apf::getIntPoint(me, q_order, pt, iota_face);
+    double const w = apf::getIntWeight(me, q_order, pt);
+    double const dv = apf::getDV(me, iota_face);
+
+    // map the integration point on the face parametric space to
+    // the element parametric space
+    apf::Vector3 iota_elem = boundaryToElementXi(
+        mesh, face, elem_entity, iota_face);
+
+    // interpolate the global variable solution to face integration point
+    // we assume displacements are index 0
+    int const disp_idx = 0;
+    global->interpolate(iota_elem);
+    Vector<T> const u_fem = global->vector_x(disp_idx);
+
+    // interpolate the measured displacement data to the point
+    apf::Vector3 u_meas;
+    apf::getVector(e_meas, iota_elem, u_meas);
+
+    // compute the QoI contribution at the point
+    T const qoi =
+      (u_fem[0] - u_meas[0]) * (u_fem[0] - u_meas[0]) +
+      (u_fem[1] - u_meas[1]) * (u_fem[1] - u_meas[1]) +
+      (u_fem[2] - u_meas[2]) * (u_fem[2] - u_meas[2]);
+
+    // compute the difference between the FEM displacement and
+    // the measured input displacement data
+    mismatch += qoi * w * dv;
+
+  }
+
+  // clean up allocated memory
+  apf::destroyElement(e_meas);
+  apf::destroyMeshElement(me);
+
+  // reset the state in global residual to what it was on input
+  global->interpolate(iota_input);
+
+  return mismatch;
+}
+
 
 template <typename T>
 T Calibration<T>::compute_load(
@@ -110,7 +140,7 @@ T Calibration<T>::compute_load(
     RCP<LocalResidual<T>> local,
     apf::Vector3 const& iota_input) {
 
-  T load_pt = T(0.);
+  T load = T(0.);
 
   // store some information contained in this class as local variables
   int const ndims = this->m_num_dims;
@@ -169,12 +199,12 @@ T Calibration<T>::compute_load(
     // compute the normal load at the integration point
     for (int i = 0; i < ndims; ++i) {
       for (int j = 0; j < ndims; ++j) {
-        load_pt += N[i] * stress(i, j) * N[j];
+        load += N[i] * stress(i, j) * N[j];
       }
     }
 
     // integrate the normal loadintegrate the normal load
-    load_pt *= w * dv;
+    load *= w * dv;
 
   }
 
@@ -184,7 +214,7 @@ T Calibration<T>::compute_load(
   // reset the state in global residual to what it was on input
   global->interpolate(iota_input);
 
-  return load_pt;
+  return load;
 }
 
 template <typename T>
@@ -250,71 +280,8 @@ void Calibration<double>::evaluate(
   int const facet_id_disp = m_mapping_disp[elem_set][elem];
   if (facet_id_disp < 0) return;
 
-  // store some information contained in this class as local variables
-  int const ndims = this->m_num_dims;
-  int const step = this->m_step;
-  apf::Mesh* mesh = this->m_mesh;
-  apf::MeshElement* mesh_elem = this->m_mesh_elem;
-
-  // grab the field for the measured displacement data at the step
-  std::string name = "measured_" + std::to_string(step);
-  apf::Field* f_meas = mesh->findField(name.c_str());
-  ALWAYS_ASSERT(f_meas);
-  apf::Element* e_meas = createElement(f_meas, mesh_elem);
-
-  // grab the face to integrate over
-  apf::Downward elem_faces;
-  apf::MeshEntity* elem_entity = apf::getMeshEntity(mesh_elem);
-  mesh->getDownward(elem_entity, ndims - 1, elem_faces);
-  apf::MeshEntity* face = elem_faces[facet_id_disp];
-
-  // get quadrature information over the face
-  int const q_order = 2;
-  apf::MeshElement* me = apf::createMeshElement(mesh, face);
-  int const num_qps = apf::countIntPoints(me, q_order);
-
-  // numerically integrate the QoI over the face
-  for (int pt = 0; pt < num_qps; ++pt) {
-
-    // get the integration point info on the face
-    apf::Vector3 iota_face;
-    apf::getIntPoint(me, q_order, pt, iota_face);
-    double const w = apf::getIntWeight(me, q_order, pt);
-    double const dv = apf::getDV(me, iota_face);
-
-    // map the integration point on the face parametric space to
-    // the element parametric space
-    apf::Vector3 iota_elem = boundaryToElementXi(
-        mesh, face, elem_entity, iota_face);
-
-    // interpolate the global variable solution to face integration point
-    // we assume displacements are index 0
-    int const disp_idx = 0;
-    global->interpolate(iota_elem);
-    Vector<double> const u_fem = global->vector_x(disp_idx);
-
-    // interpolate the measured displacement data to the point
-    apf::Vector3 u_meas;
-    apf::getVector(e_meas, iota_elem, u_meas);
-
-    // compute the QoI contribution at the point
-    double const qoi =
-      (u_fem[0] - u_meas[0]) * (u_fem[0] - u_meas[0]) +
-      (u_fem[1] - u_meas[1]) * (u_fem[1] - u_meas[1]) +
-      (u_fem[2] - u_meas[2]) * (u_fem[2] - u_meas[2]);
-
-    // compute the difference between the FEM displacement and
-    // the measured input displacement data
-    this->value_pt += qoi * w * dv;
-
-  }
-
-  // clean up allocated memory
-  apf::destroyElement(e_meas);
-  apf::destroyMeshElement(me);
-
-  // reset the state in global residual to what it was on input
-  global->interpolate(iota_input);
+  this->value_pt =
+    compute_surface_mismatch(elem_set, elem, global, local, iota_input);
 
 }
 
@@ -342,77 +309,12 @@ void Calibration<FADT>::evaluate(
   if (facet_id_disp + facet_id_load == -2) return;
 
   if (facet_id_disp > -1) {
-
-    // store some information contained in this class as local variables
-    int const ndims = this->m_num_dims;
-    int const step = this->m_step;
-    apf::Mesh* mesh = this->m_mesh;
-    apf::MeshElement* mesh_elem = this->m_mesh_elem;
-
-    // grab the field for the measured displacement data at the step
-    std::string name = "measured_" + std::to_string(step);
-    apf::Field* f_meas = mesh->findField(name.c_str());
-    ALWAYS_ASSERT(f_meas);
-    apf::Element* e_meas = createElement(f_meas, mesh_elem);
-
-    // grab the face to integrate over
-    apf::Downward elem_faces;
-    apf::MeshEntity* elem_entity = apf::getMeshEntity(mesh_elem);
-    mesh->getDownward(elem_entity, ndims - 1, elem_faces);
-    apf::MeshEntity* face = elem_faces[facet_id_disp];
-
-    // get quadrature information over the face
-    int const q_order = 2;
-    apf::MeshElement* me = apf::createMeshElement(mesh, face);
-    int const num_qps = apf::countIntPoints(me, q_order);
-
-    // numerically integrate the QoI over the face
-    for (int pt = 0; pt < num_qps; ++pt) {
-
-      // get the integration point info on the face
-      apf::Vector3 iota_face;
-      apf::getIntPoint(me, q_order, pt, iota_face);
-      double const w = apf::getIntWeight(me, q_order, pt);
-      double const dv = apf::getDV(me, iota_face);
-
-      // map the integration point on the face parametric space to
-      // the element parametric space
-      apf::Vector3 iota_elem = boundaryToElementXi(
-          mesh, face, elem_entity, iota_face);
-
-      // interpolate the global variable solution to face integration point
-      // we assume displacements are index 0
-      int const disp_idx = 0;
-      global->interpolate(iota_elem);
-      Vector<FADT> const u_fem = global->vector_x(disp_idx);
-
-      // interpolate the measured displacement data to the point
-      apf::Vector3 u_meas;
-      apf::getVector(e_meas, iota_elem, u_meas);
-
-      // compute the QoI contribution at the point
-      FADT const qoi =
-        (u_fem[0] - u_meas[0]) * (u_fem[0] - u_meas[0]) +
-        (u_fem[1] - u_meas[1]) * (u_fem[1] - u_meas[1]) +
-        (u_fem[2] - u_meas[2]) * (u_fem[2] - u_meas[2]);
-      
-      // compute the difference between the FEM displacement and
-      // the measured input displacement data
-      this->value_pt += qoi * w * dv;
-
-    }
-
-    // clean up allocated memory
-    apf::destroyElement(e_meas);
-    apf::destroyMeshElement(me);
-
-    // reset the state in global residual to what it was on input
-    global->interpolate(iota_input);
-
+    FADT mismatch =
+        compute_surface_mismatch(elem_set, elem, global, local, iota_input);
+    this->value_pt += mismatch;
   }
 
   if (facet_id_load > -1) {
-    // weight the load by the mismatch
     FADT load = compute_load(elem_set, elem, global, local, iota_input);
     this->value_pt += m_balance_factor * m_load_mismatch * load;
   }

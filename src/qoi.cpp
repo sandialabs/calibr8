@@ -38,6 +38,37 @@ void QoI<T>::scatter(double& J) {
 }
 
 template <typename T>
+bool QoI<T>::setup_mapping(std::string const& side_set,
+    RCP<Disc> disc,
+    Array2D<int>& mapping) {
+
+  int ndims = m_num_dims;
+  apf::Mesh* m_mesh = disc->apf_mesh();
+  apf::Downward downward_faces;
+  mapping.resize(disc->num_elem_sets());
+  SideSet const& sides = disc->sides(side_set);
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+    std::string const& es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+    mapping[es].resize(elems.size());
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+      mapping[es][elem] = -1;
+      apf::MeshEntity* elem_entity = elems[elem];
+      int ndown = m_mesh->getDownward(elem_entity, ndims - 1, downward_faces);
+      for (int down = 0; down < ndown; ++down) {
+        apf::MeshEntity* downward_entity = downward_faces[down];
+        for (apf::MeshEntity* side : sides) {
+          if (side == downward_entity) {
+            mapping[es][elem] = down;
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
+
+template <typename T>
 void QoI<T>::preprocess(
     int elem_set,
     int elem,

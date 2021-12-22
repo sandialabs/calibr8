@@ -85,7 +85,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
           if (ip_set == 0) {
 
             // solve the local constitutive equations at the integration point
-            // and store the resultant local residual and it's derivatives (dC_dxi)
+            // and store the resultant local residual and its derivatives (dC_dxi)
             global->interpolate(iota);
             local->gather(pt, xi, xi_prev);
             local->seed_wrt_xi();
@@ -324,7 +324,7 @@ void eval_adjoint_jacobian(
           if (ip_set == 0) {
 
             // solve the local constitutive equations at the integration point
-            // and store the resultant local residual and it's derivatives (dC_dxi)
+            // and store the resultant local residual and its derivatives (dC_dxi)
             global->interpolate(iota);
             local->gather(pt, xi, xi_prev);
             local->seed_wrt_xi();
@@ -602,7 +602,7 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
         double const dv = apf::getDV(me, iota);
 
         // solve the local constitutive equations at the integration point
-        // and store the resultant local residual and it's derivatives (dC_dxi)
+        // and store the resultant local residual and its derivatives (dC_dxi)
         global->interpolate(iota);
         local->gather(pt, xi, xi_prev);
         qoi->evaluate(es, elem, global, local, iota, w, dv);
