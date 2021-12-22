@@ -32,6 +32,11 @@ double Adjoint_Objective::value(ROL::Vector<double> const& p, double&) {
     J += eval_qoi(m_state, m_state->disc, step);
   }
   m_state->disc->destroy_primal();
+  for (int i = 0; i < m_num_opt_params; ++i) {
+    print("Unscaled x[%i] = %.16e", i, unscaled_params[i]);
+  }
+  print("J = %.16e", J);
+
   return J;
 }
 
@@ -76,6 +81,11 @@ void Adjoint_Objective::gradient(
   }
 
   Array1D<double> const canonical_grad = transform_gradient(grad);
+
+  for (int i = 0; i < m_num_opt_params; ++i) {
+    print("x[%i] = %.16e -> g[%i] = %.16e", i, unscaled_params[i],
+        i, canonical_grad[i]);
+  }
 
   for (int i = 0; i < m_num_opt_params; ++i) {
     (*gp)[i] = canonical_grad[i];

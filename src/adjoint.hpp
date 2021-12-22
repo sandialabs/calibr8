@@ -38,6 +38,8 @@ class Adjoint {
     Array3D<EVector> global_history; // (elem_set_idx, elem, int pt)
     Array3D<EVector> local_history;  // (elem_set_idx, elem, int pt)
 
+    void initialize_history_vectors();
+
 };
 
 }

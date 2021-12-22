@@ -32,6 +32,10 @@ Adjoint::Adjoint(RCP<ParameterList> params, RCP<State> state, RCP<Disc> disc) {
   m_params = params;
   m_state = state;
   m_disc = disc;
+  (void)params;
+}
+
+void Adjoint::initialize_history_vectors() {
   int const nsets = m_disc->num_elem_sets();
   int const nglobal_dofs = get_num_global_dofs(m_state);
   int const nlocal_dofs = get_num_local_dofs(m_state);
@@ -52,7 +56,7 @@ Adjoint::Adjoint(RCP<ParameterList> params, RCP<State> state, RCP<Disc> disc) {
       }
     }
   }
-  (void)params;
+
 }
 
 void Adjoint::solve_at_step(int step) {
@@ -65,10 +69,17 @@ void Adjoint::solve_at_step(int step) {
   ParameterList& lin_alg = m_params->sublist("linear algebra", true);
   ParameterList& resids = m_params->sublist("residuals", true);
   ParameterList& global = resids.sublist("global residual", true);
+  ParameterList& problem_params = m_params->sublist("problem", true);
   int const max_iters = global.get<int>("nonlinear max iters");
   double const abs_tol = global.get<double>("nonlinear absolute tol");
   double const rel_tol = global.get<double>("nonlinear relative tol");
   bool const do_print = global.get<bool>("print convergence");
+  int const nsteps = problem_params.get<int>("num steps");
+
+  // set the history vectors to zero
+  if (step == nsteps) {
+    initialize_history_vectors();
+  }
 
   // print the step information
   if (do_print) print("ON ADJOINT STEP (%d)", step);
@@ -116,6 +127,11 @@ void Adjoint::solve_at_step(int step) {
 
     // solve the linear system
     calibr8::solve(lin_alg, m_disc, dR_dxT, dx, rhs);
+
+    if (iter == 1) {
+      MMWriterT::writeDenseFile("adjoint_disp.mm", dx[0]);
+      MMWriterT::writeDenseFile("adjoint_pressure.mm", dx[1]);
+    }
 
     // add the increment to the current solution fields
     m_disc->add_to_soln(eta, dx);

@@ -125,6 +125,7 @@ void Driver::estimate_error() {
   double e = 0.;
   for (int step = 1; step < nsteps; ++step) {
     Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
+    m_state->la->resume_fill_A();
     m_state->la->zero_all();
     eval_error_contributions(m_state, m_nested, R_error, C_error, step);
     eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
