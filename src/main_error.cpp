@@ -43,7 +43,7 @@ class Driver {
     RCP<Primal> m_primal;
     RCP<Adjoint> m_adjoint;
   private:
-    bool m_solve_exact;
+    bool m_solve_exact = false;
     Array1D<double> m_eta;
     Array1D<double> m_J_H;
     Array1D<double> m_nnodes;

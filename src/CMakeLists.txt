@@ -60,6 +60,10 @@ add_executable(error main_error.cpp)
 target_link_libraries(error PRIVATE calibr8)
 set_code_standards(error)
 
+add_executable(perturber perturber.cpp)
+target_link_libraries(perturber PRIVATE calibr8)
+set_code_standards(perturber)
+
 add_executable(verify main_verify.cpp)
 target_link_libraries(verify PRIVATE calibr8)
 set_code_standards(verify)
