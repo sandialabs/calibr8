@@ -24,32 +24,8 @@ void SurfaceMismatch<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_shape = disc->gv_shape();
   this->m_step = step;
 
-  // initialize the surface mesh information
   if (!is_initd) {
-    int ndims = this->m_num_dims;
-    apf::Mesh* mesh = disc->apf_mesh();
-    apf::Downward downward_faces;
-    m_mapping.resize(disc->num_elem_sets());
-    SideSet const& sides = disc->sides(m_side_set);
-    for (int es = 0; es < disc->num_elem_sets(); ++es) {
-      std::string const& es_name = disc->elem_set_name(es);
-      ElemSet const& elems = disc->elems(es_name);
-      m_mapping[es].resize(elems.size());
-      for (size_t elem = 0; elem < elems.size(); ++elem) {
-        m_mapping[es][elem] = -1;
-        apf::MeshEntity* elem_entity = elems[elem];
-        int ndown = mesh->getDownward(elem_entity, ndims - 1, downward_faces);
-        for (int down = 0; down < ndown; ++down) {
-          apf::MeshEntity* downward_entity = downward_faces[down];
-          for (apf::MeshEntity* side : sides) {
-            if (side == downward_entity) {
-              m_mapping[es][elem] = down;
-            }
-          }
-        }
-      }
-    }
-    is_initd = true;
+    is_initd = this->setup_mapping(m_side_set, disc, m_mapping);
   }
 
 }

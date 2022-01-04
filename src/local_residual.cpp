@@ -44,6 +44,7 @@ void LocalResidual<T>::init_variables(RCP<State> state) {
       this->scatter(pt, xi);
     }
     this->unset_elem();
+    apf::destroyMeshElement(me);
   }
   mesh->end(elems);
 

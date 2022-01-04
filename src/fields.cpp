@@ -54,6 +54,8 @@ Array2D<double> get_nodal_components(
     fail("unsupported field type: %d", type);
   }
 
+  apf::destroyElement(fe);
+
   return comps;
 
 }

@@ -281,7 +281,7 @@ void Calibration<double>::evaluate(
   if (facet_id_disp < 0) return;
 
   this->value_pt =
-    compute_surface_mismatch(elem_set, elem, global, local, iota_input);
+      compute_surface_mismatch(elem_set, elem, global, local, iota_input);
 
 }
 
