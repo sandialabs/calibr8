@@ -159,7 +159,11 @@ template <typename T>
 void LoadMismatch<T>::preprocess_finalize(int step) {
   if (m_write_load) {
     std::ofstream out_file;
-    out_file.open(m_load_out_file, std::ios::app | std::ios::out);
+    if (step == 1) {
+      out_file.open(m_load_out_file);
+    } else {
+      out_file.open(m_load_out_file, std::ios::app | std::ios::out);
+    }
     out_file << std::scientific << std::setprecision(17);
     out_file << m_total_load << "\n";
     out_file.close();
