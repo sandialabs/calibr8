@@ -2,6 +2,7 @@ set(CALIBR8_SOURCES
   adjoint.cpp
   adjoint_objective.cpp
   avg_disp.cpp
+  avg_stress.cpp
   calibration.cpp
   control.cpp
   dbcs.cpp

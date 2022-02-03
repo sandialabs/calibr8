@@ -1,4 +1,5 @@
 #include "avg_disp.hpp"
+#include "avg_stress.hpp"
 #include "calibration.hpp"
 #include "disc.hpp"
 #include "fad.hpp"
@@ -118,6 +119,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
   if (type == "average displacement") {
     return rcp(new AvgDisp<T>());
+  } else if (type == "average stress") {
+    return rcp(new AvgStress<T>(params));
   } else if (type == "surface mismatch") {
     return rcp(new SurfaceMismatch<T>(params));
   } else if (type == "load mismatch") {
