@@ -12,13 +12,13 @@ class LinearAlg {
   public:
 
     //! \brief Global matrices
-    Array2D<RCP<MatrixT>> A[NUM_DISTRIB];
+    RCP<MatrixT> A[NUM_DISTRIB];
 
     //! \brief Global solution vectors
-    Array1D<RCP<VectorT>> x[NUM_DISTRIB];
+    RCP<VectorT> x[NUM_DISTRIB];
 
     //! \brief Global right hand side vectors
-    Array1D<RCP<VectorT>> b[NUM_DISTRIB];
+    RCP<VectorT> b[NUM_DISTRIB];
 
   public:
 

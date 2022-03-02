@@ -22,8 +22,8 @@ class Disc;
 void solve(
     ParameterList& params,
     RCP<Disc> disc,
-    Array2D<RCP<MatrixT>>& A,
-    Array1D<RCP<VectorT>>& x,
-    Array1D<RCP<VectorT>>& b);
+    RCP<MatrixT>& A,
+    RCP<VectorT>& x,
+    RCP<VectorT>& b);
 
 }

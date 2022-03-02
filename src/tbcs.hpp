@@ -30,7 +30,7 @@ class Disc;
 void apply_primal_tbcs(
     ParameterList const& tbcs,
     RCP<Disc> disc,
-    Array1D<RCP<VectorT>>& R,
+    RCP<VectorT>& R,
     double t);
 
 //! \brief Apply adjoint-weighted residual traction BCs to the error

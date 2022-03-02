@@ -249,105 +249,68 @@ static GO get_gdof(GO nid, int eq, int neq) {
   return nid * neq + eq;
 }
 
+LO Disc::get_offset_dof(LO nid, int eq, int res_idx) const {
+  return nid * m_num_dofs + eq + m_dof_offsets[res_idx];
+}
+
 void Disc::compute_owned_maps() {
   ALWAYS_ASSERT(m_num_residuals > 0);
-  resize(m_maps[OWNED], m_num_residuals);
   apf::DynamicArray<apf::Node> owned;
   apf::getNodes(m_global_nmbr, owned);
   size_t const num_owned = owned.size();
   Teuchos::Array<GO> indices;
-  for (int i = 0; i < m_num_residuals; ++i) {
-    int const neqs = num_eqs(i);
-    ALWAYS_ASSERT(neqs > 0);
-    indices.resize(neqs * num_owned);
-    for (size_t node = 0; node < num_owned; ++node) {
-      GO gid = apf::getNumber(m_global_nmbr, owned[node]);
-      for (int eq = 0; eq < neqs; ++eq) {
-        indices[get_dof(node, eq, neqs)] = get_gdof(gid, eq, neqs);
-      }
+  for (size_t node = 0; node < num_owned; ++node) {
+    GO gid = apf::getNumber(m_global_nmbr, owned[node]);
+    indices.resize(m_num_dofs * num_owned);
+    int eq_idx = 0;
+    for (int dof = 0; dof < m_num_dofs; ++dof) {
+      indices[get_dof(node, dof, m_num_dofs)] = get_gdof(gid, dof, m_num_dofs);
     }
-    m_maps[OWNED][i] = Tpetra::createNonContigMap<LO, GO>(indices, m_comm);
   }
+  m_maps[OWNED] = Tpetra::createNonContigMap<LO, GO>(indices, m_comm);
   apf::synchronize(m_global_nmbr);
 }
 
 void Disc::compute_ghost_maps() {
   ALWAYS_ASSERT(m_num_residuals > 0);
   ALWAYS_ASSERT(! m_ghost_nmbr);
-  resize(m_maps[GHOST], m_num_residuals);
   m_ghost_nmbr = apf::numberOverlapNodes(m_mesh, "ghost");
   apf::DynamicArray<apf::Node> ghost;
   apf::getNodes(m_ghost_nmbr, ghost);
   size_t const num_ghost = ghost.size();
   Teuchos::Array<GO> indices;
-  for (int i = 0; i < m_num_residuals; ++i) {
-    int const neqs = num_eqs(i);
-    ALWAYS_ASSERT(neqs > 0);
-    indices.resize(neqs * num_ghost);
-    for (size_t node = 0; node < num_ghost; ++node) {
-      GO gid = apf::getNumber(m_global_nmbr, ghost[node]);
-      for (int eq = 0; eq < neqs; ++eq) {
-        indices[get_dof(node, eq, neqs)] = get_gdof(gid, eq, neqs);
-      }
+  for (size_t node = 0; node < num_ghost; ++node) {
+    GO gid = apf::getNumber(m_global_nmbr, ghost[node]);
+    indices.resize(m_num_dofs * num_ghost);
+    for (int dof = 0; dof < m_num_dofs; ++dof) {
+      indices[get_dof(node, dof, m_num_dofs)] = get_gdof(gid, dof, m_num_dofs);
     }
-    m_maps[GHOST][i] = Tpetra::createNonContigMap<LO, GO>(indices, m_comm);
   }
+  m_maps[GHOST] = Tpetra::createNonContigMap<LO, GO>(indices, m_comm);
 }
 
 void Disc::compute_exporters() {
-  resize(m_exporters, m_num_residuals);
-  for (int i = 0; i < m_num_residuals; ++i) {
-    RCP<const MapT> ghost_map = m_maps[GHOST][i];
-    RCP<const MapT> owned_map = m_maps[OWNED][i];
-    m_exporters[i] = rcp(new ExportT(ghost_map, owned_map));
-  }
+  RCP<const MapT> ghost_map = m_maps[GHOST];
+  RCP<const MapT> owned_map = m_maps[OWNED];
+  m_exporter = rcp(new ExportT(ghost_map, owned_map));
 }
 
-Array1D<size_t> Disc::compute_nentries(int i, int j) {
-  int const num_i_eqs = num_eqs(i);
-  int const num_j_eqs = num_eqs(j);
-  RCP<const MapT> map_i = m_maps[GHOST][i];
-  RCP<const MapT> map_j = m_maps[GHOST][j];
-  Array1D<size_t> num_entries_per_row(map_i->getNodeNumElements(), 0);
-  apf::MeshEntity* elem;
-  apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
-  while ((elem = m_mesh->iterate(elems))) {
-    apf::NewArray<int> lids;
-    int const num_nodes = apf::getElementNumbers(m_ghost_nmbr, elem, lids);
-    for (int n = 0; n < num_nodes; ++n) {
-      for (int eq = 0; eq < num_i_eqs; ++eq) {
-        int lid = get_dof(lids[n], eq, num_i_eqs);
-        num_entries_per_row[lid] += num_nodes * num_j_eqs;
-      }
-    }
-  }
-  m_mesh->end(elems);
-  return num_entries_per_row;
-}
-
-void Disc::compute_ghost_graph(int i, int j) {
-  ALWAYS_ASSERT(i < m_num_residuals);
-  ALWAYS_ASSERT(j < m_num_residuals);
-  int const num_i_eqs = num_eqs(i);
-  int const num_j_eqs = num_eqs(j);
-  RCP<const MapT> map_i = m_maps[GHOST][i];
-  RCP<const MapT> map_j = m_maps[GHOST][j];
-  Array1D<size_t> nentries = compute_nentries(i, j);
-  Teuchos::ArrayView<const size_t> nentries_per_row(nentries);
-  m_graphs[GHOST][i][j] = rcp(new GraphT(
-        map_i, map_j, nentries_per_row, Tpetra::StaticProfile));
-  RCP<GraphT> graph = m_graphs[GHOST][i][j];
+void Disc::compute_ghost_graph() {
+  int const est = 300;
+  RCP<const MapT> map = m_maps[GHOST];
+  m_graphs[GHOST] = rcp(new GraphT(map, est));
+  RCP<GraphT> graph = m_graphs[GHOST];
   apf::MeshEntity* elem;
   apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
   while ((elem = m_mesh->iterate(elems))) {
     apf::NewArray<long> gids;
     int num_nodes = apf::getElementNumbers(m_global_nmbr, elem, gids);
     for (int node_i = 0; node_i < num_nodes; ++node_i) {
-      for (int eq_i = 0; eq_i < num_i_eqs; ++eq_i) {
-        GO row = get_gdof(gids[node_i], eq_i, num_i_eqs);
+      for (int dof_i = 0; dof_i < m_num_dofs; ++dof_i) {
+        GO row = get_gdof(gids[node_i], dof_i, m_num_dofs);
         for (int node_j = 0; node_j < num_nodes; ++node_j) {
-          for (int eq_j = 0; eq_j < num_j_eqs; ++eq_j) {
-            GO col = get_gdof(gids[node_j], eq_j, num_j_eqs);
+          for (int dof_j = 0; dof_j < m_num_dofs; ++dof_j) {
+            GO col = get_gdof(gids[node_j], dof_j, m_num_dofs);
             Teuchos::ArrayView<GO> tcol = Teuchos::arrayView(&col, 1);
             graph->insertGlobalIndices(row, tcol);
           }
@@ -356,30 +319,23 @@ void Disc::compute_ghost_graph(int i, int j) {
     }
   }
   m_mesh->end(elems);
-  graph->fillComplete(m_maps[OWNED][j], m_maps[OWNED][i]);
+  graph->fillComplete(m_maps[OWNED], m_maps[OWNED]);
 }
 
-void Disc::compute_owned_graph(int i, int j) {
-  RCP<const MapT> owned_map_i = m_maps[OWNED][i];
-  RCP<const MapT> owned_map_j = m_maps[OWNED][j];
-  RCP<const ExportT> exporter = m_exporters[i];
-  RCP<const GraphT> ghost_graph = m_graphs[GHOST][i][j];
-  m_graphs[OWNED][i][j] = rcp(new GraphT(owned_map_i, 0));
-  RCP<GraphT> owned_graph = m_graphs[OWNED][i][j];
+void Disc::compute_owned_graph() {
+  RCP<const MapT> owned_map = m_maps[OWNED];
+  RCP<const ExportT> exporter = m_exporter;
+  RCP<const GraphT> ghost_graph = m_graphs[GHOST];
+  m_graphs[OWNED] = rcp(new GraphT(owned_map, 0));
+  RCP<GraphT> owned_graph = m_graphs[OWNED];
   owned_graph->doExport(*ghost_graph, *exporter, Tpetra::INSERT);
-  owned_graph->fillComplete(owned_map_j, owned_map_i);
+  owned_graph->fillComplete();
 }
 
 void Disc::compute_graphs() {
   ALWAYS_ASSERT(m_num_residuals > 0);
-  resize(m_graphs[OWNED], m_num_residuals, m_num_residuals);
-  resize(m_graphs[GHOST], m_num_residuals, m_num_residuals);
-  for (int i = 0; i < m_num_residuals; ++i) {
-    for (int j = 0; j < m_num_residuals; ++j) { 
-      compute_ghost_graph(i, j);
-      compute_owned_graph(i, j);
-    }
-  }
+  compute_ghost_graph();
+  compute_owned_graph();
   apf::destroyGlobalNumbering(m_global_nmbr);
   m_global_nmbr = 0;
 }
@@ -481,6 +437,17 @@ void Disc::build_data(int num_residuals, Array1D<int> const& num_eqs) {
   destroy_data();
   m_num_residuals = num_residuals;
   m_num_eqs = num_eqs;
+  m_dof_offsets.resize(num_residuals);
+  m_num_dofs = 0;
+  m_dof_offsets[0] = 0;
+  for (int i = 0; i < m_num_residuals; ++i) {
+    int const neqs = num_eqs[i];
+    ALWAYS_ASSERT(neqs > 0);
+    m_num_dofs += neqs;
+    if (i > 0) {
+      m_dof_offsets[i] = num_eqs[i - 1];
+    }
+  }
   compute_node_map();
   compute_coords();
   compute_owned_maps();
@@ -515,16 +482,14 @@ void Disc::destroy_data() {
   for (int i = 0; i < num_node_sets(); ++i) {
     resize(m_node_sets[node_set_name(i)], 0);
   }
-  resize(m_maps[OWNED], 0);
-  resize(m_maps[GHOST], 0);
-  resize(m_graphs[OWNED], 0, 0);
-  resize(m_graphs[GHOST], 0, 0);
   m_node_map = Teuchos::null;
   m_owned_nmbr = nullptr;
   m_ghost_nmbr = nullptr;
   m_global_nmbr = nullptr;
   m_num_residuals = -1;
   m_num_eqs = {};
+  m_dof_offsets = {};
+  m_num_dofs = -1;
 }
 
 Array2D<LO> Disc::get_element_lids(apf::MeshEntity* e, int i) {
@@ -535,7 +500,7 @@ Array2D<LO> Disc::get_element_lids(apf::MeshEntity* e, int i) {
   resize(lids, num_nodes, num_i_eqs);
   for (int n = 0; n < num_nodes; ++n) {
     for (int eq = 0; eq < num_i_eqs; ++eq) {
-      lids[n][eq] = get_dof(node_ids[n], eq, num_i_eqs);
+      lids[n][eq] = get_offset_dof(node_ids[n], eq, i);
     }
   }
   return lids;
@@ -543,15 +508,13 @@ Array2D<LO> Disc::get_element_lids(apf::MeshEntity* e, int i) {
 
 LO Disc::get_lid(apf::Node const& n, int i, int eq) {
   LO const nid = apf::getNumber(m_owned_nmbr, n.entity, n.node, 0);
-  int const num_i_eqs = num_eqs(i);
-  return get_dof(nid, eq, num_i_eqs);
+  return get_dof(nid, eq + m_dof_offsets[i], m_num_dofs);
 }
 
 LO Disc::get_lid(apf::MeshEntity* ent, int i, int n, int eq) {
   apf::NewArray<int> node_ids;
-  int const num_i_eqs = num_eqs(i);
   apf::getElementNumbers(m_ghost_nmbr, ent, node_ids);
-  return get_dof(node_ids[n], eq, num_i_eqs);
+  return get_dof(node_ids[n], eq + m_dof_offsets[i], m_num_dofs);
 }
 
 static int get_value_type(int neqs) {
@@ -652,21 +615,15 @@ void Disc::destroy_adjoint() {
 
 void Disc::add_to_soln(
     Array1D<apf::Field*>& x,
-    Array1D<RCP<VectorT>> const& dx) {
-
-  // sanity check
-  int const num_resids = m_num_residuals;
-  DEBUG_ASSERT(dx.size() == size_t(num_resids));
+    RCP<VectorT> const& dx) {
 
   // get the nodes associated with the nodes in the mesh
   apf::DynamicArray<apf::Node> nodes;
   apf::getNodes(m_owned_nmbr, nodes);
 
   // grab data from the blocked vector
-  Array1D<Teuchos::ArrayRCP<double>> dx_data(m_num_residuals);
-  for (int i = 0; i < num_resids; ++i) {
-    dx_data[i] = dx[i]->get1dViewNonConst();
-  }
+  Teuchos::ArrayRCP<double> dx_data;
+  dx_data = dx->get1dViewNonConst();
 
   // storage used below
   Array1D<double> sol_comps(3);
@@ -680,7 +637,7 @@ void Disc::add_to_soln(
     int const ent_node = node.node;
 
     // loop over the global residuals
-    for (int i = 0; i < num_resids; ++i) {
+    for (int i = 0; i < m_num_residuals; ++i) {
 
       // get the field corresponding to this residual at this ste
       apf::Field* f = x[i];
@@ -689,9 +646,9 @@ void Disc::add_to_soln(
       apf::getComponents(f, ent, ent_node, &(sol_comps[0]));
 
       // add the increment to the current solution
-      for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
+      for (int eq = 0; eq < num_eqs(i); ++eq) {
         LO row = get_lid(node, i, eq);
-        sol_comps[eq] += dx_data[i][row];
+        sol_comps[eq] += dx_data[row];
       }
 
       // set the added solution for the current residual at the node
@@ -701,7 +658,7 @@ void Disc::add_to_soln(
   }
 
   // synchronize the fields in parallel
-  for (int i =0 ; i < num_resids; ++i) {
+  for (int i = 0 ; i < m_num_residuals; ++i) {
     apf::synchronize(x[i]);
   }
 

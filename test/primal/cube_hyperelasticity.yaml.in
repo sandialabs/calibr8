@@ -44,47 +44,11 @@ cube hyperelasticity:
     relative error tol: 1.e-4
 
   linear algebra:
-    Linear Solver Type: "Belos"
-    Preconditioner Type: "Teko"
-    Linear Solver Types:
-      Belos:
-        Solver Type: "Block GMRES"
-        Solver Types:
-          Block GMRES:
-            Convergence Tolerance: 1.e-12
-            Output Frequency: 10
-            Output Style: 1
-            Verbosity: 33
-            Maximum Iterations: 200
-            Block Size: 1
-            Num Blocks: 200
-            Flexibile Gmres: false
-        VerboseObject:
-          Output File: "none"
-          Verbosity Level: "none"
-    Preconditioner Types:
-      Teko:
-        Inverse Type: "BGS2x2"
-        Write Block Operator: false
-        Test Block Operator: false
-        Inverse Factory Library:
-          BGS2x2:
-            Type: "Block Gauss-Seidel"
-            Use Upper Triangle: false
-            Inverse Type 1: "AMG3"
-            Inverse Type 2: "AMG1"
-          AMG3:
-            Type: "MueLu"
-            number of equations: 3
-            verbosity: "none"
-            'problem: symmetric': false
-          AMG1:
-            Type: "MueLu"
-            verbosity: "none"
-            number of equations: 1
-            'problem: symmetric': false
-          GS:
-            Type: "Ifpack2"
-            Overlap: 1
-            Ifpack2 Settings:
-              'relaxation: type': "Gauss-Seidel"
+    krylov size: 1000
+    max iters: 1000
+    tolerance: 1.0e-8
+    output frequency: 0
+    multigrid:
+      verbosity: none
+      number of equations: 4
+      "problem: symmetric": false

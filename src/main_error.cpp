@@ -108,10 +108,10 @@ void Driver::solve_adjoint() {
 void Driver::estimate_error() {
   print("ESTIMATING ERROR");
   apf::Mesh* m = m_nested->apf_mesh();
-  Array1D<RCP<VectorT>>& z = m_state->la->x[OWNED];
-  Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
-  Array1D<RCP<VectorT>>& R_ghost = m_state->la->b[GHOST];
-  Array2D<RCP<MatrixT>>& dR_dx = m_state->la->A[OWNED];
+  RCP<VectorT>& z = m_state->la->x[OWNED];
+  RCP<VectorT>& R = m_state->la->b[OWNED];
+  RCP<VectorT>& R_ghost = m_state->la->b[GHOST];
+  RCP<MatrixT>& dR_dx = m_state->la->A[OWNED];
   apf::Field* R_error = apf::createStepField(m, "R_error", apf::SCALAR);
   apf::Field* C_error = apf::createStepField(m, "C_error", apf::SCALAR);
   apf::zeroField(R_error);
@@ -134,9 +134,7 @@ void Driver::estimate_error() {
     m_state->la->gather_x();
     apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, /*is_adjoint=*/true);
     t += dt;
-    for (int i = 0; i < m_state->residuals->global->num_residuals(); ++i) {
-      e += (R[i]->dot(*(z[i])));
-    }
+    e += (R->dot(*(z)));
   }
   e = PCU_Add_Double(e);
   print("eta ~ %.16e", e);

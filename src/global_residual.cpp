@@ -419,10 +419,10 @@ template <typename T>
 void GlobalResidual<T>::scatter_rhs(
     RCP<Disc> disc,
     EVector const& rhs,
-    Array1D<RCP<VectorT>>& RHS) {
+    RCP<VectorT>& RHS) {
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
+  auto R_data = RHS->get1dViewNonConst();
   for (int i = 0; i < m_num_residuals; ++i) {
-    auto R_data = RHS[i]->get1dViewNonConst();
     Array2D<LO> const rows = disc->get_element_lids(ent, i);
     for (int n = 0; n < m_num_nodes; ++n) {
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
@@ -438,10 +438,10 @@ template <typename T>
 void GlobalResidual<T>::assign_rhs(
     RCP<Disc> disc,
     EVector const& rhs,
-    Array1D<RCP<VectorT>>& RHS) {
+    RCP<VectorT>& RHS) {
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
+  auto R_data = RHS->get1dViewNonConst();
   for (int i = 0; i < m_num_residuals; ++i) {
-    auto R_data = RHS[i]->get1dViewNonConst();
     Array2D<LO> const rows = disc->get_element_lids(ent, i);
     for (int n = 0; n < m_num_nodes; ++n) {
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
@@ -457,13 +457,13 @@ template <>
 void GlobalResidual<double>::scatter_lhs(
     RCP<Disc>,
     EMatrix const&,
-    Array2D<RCP<MatrixT>>&) {}
+    RCP<MatrixT>&) {}
 
 template <>
 void GlobalResidual<FADT>::scatter_lhs(
     RCP<Disc> disc,
     EMatrix const& dtotal,
-    Array2D<RCP<MatrixT>>& dR_dx) {
+    RCP<MatrixT>& dR_dx) {
 
   using Teuchos::arrayView;
 
@@ -486,7 +486,7 @@ void GlobalResidual<FADT>::scatter_lhs(
               int const j_idx = dx_idx(j, j_node, j_eq);
               LO const col = cols[j_node][j_eq];
               double const dx = dtotal(i_idx, j_idx);
-              dR_dx[i][j]->sumIntoLocalValues(
+              dR_dx->sumIntoLocalValues(
                   row, arrayView(&col, 1), arrayView(&dx, 1), 1);
             }
           }

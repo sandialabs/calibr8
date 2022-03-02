@@ -15,7 +15,7 @@ using Teuchos::getValue;
 static void apply_primal_tbc(
     Array<std::string> const& a,
     RCP<Disc> disc,
-    Array1D<RCP<VectorT>>& R,
+    RCP<VectorT>& R,
     double t) {
 
   // variables to set BC
@@ -39,7 +39,7 @@ static void apply_primal_tbc(
   apf::FieldShape* lv_shape = disc->lv_shape();
   int const q_order = lv_shape->getOrder();
   SideSet const& sides = disc->sides(set);
-  Teuchos::ArrayRCP<double> R_data = R[i]->get1dViewNonConst();
+  Teuchos::ArrayRCP<double> R_data = R->get1dViewNonConst();
 
   // loop over all faces for this BC
   for (size_t s = 0; s < sides.size(); ++s) {
@@ -86,7 +86,7 @@ static void apply_primal_tbc(
 void apply_primal_tbcs(
     ParameterList const& tbcs,
     RCP<Disc> disc,
-    Array1D<RCP<VectorT>>& R,
+    RCP<VectorT>& R,
     double t) {
   for (auto it = tbcs.begin(); it != tbcs.end(); ++it) {
     auto entry = tbcs.entry(it);

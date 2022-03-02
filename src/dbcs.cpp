@@ -25,8 +25,8 @@ static double get_val(
 void apply_primal_dbcs(
     ParameterList const& dbcs,
     RCP<Disc> disc,
-    Array2D<RCP<MatrixT>>& dR_dx,
-    Array1D<RCP<VectorT>>& R,
+    RCP<MatrixT>& dR_dx,
+    RCP<VectorT>& R,
     Array1D<apf::Field*>& x,
     double t,
     bool is_adjoint) {
@@ -34,15 +34,11 @@ void apply_primal_dbcs(
   int const num_resids = disc->num_residuals();
 
   // sanity check
-  DEBUG_ASSERT(dR_dx.size() == size_t(num_resids));
-  DEBUG_ASSERT(R.size() == size_t(num_resids));
   DEBUG_ASSERT(x.size() == size_t(num_resids));
 
   // grab data from the blocked vectors
-  Array1D<Teuchos::ArrayRCP<double>> R_data(num_resids);
-  for (int i = 0; i < num_resids; ++i) {
-    R_data[i] = R[i]->get1dViewNonConst();
-  }
+  Teuchos::ArrayRCP<double> R_data;
+  R_data = R->get1dViewNonConst();
 
   // storage used below
   Teuchos::Array<double> entries;
@@ -72,41 +68,27 @@ void apply_primal_dbcs(
       double const sol = sol_comps[eq];
       double const v = get_val(disc, val, n, t);
 
-      // loop over the blocks in the column direction
-      for (int j = 0; j < num_resids; ++j) {
+      // get the local row in the matrix
+      size_t num_cols = dR_dx->getNumEntriesInLocalRow(row);
+      indices.resize(num_cols);
+      entries.resize(num_cols);
+      dR_dx->getLocalRowCopy(row, indices(), entries(), num_cols);
 
-        // get the local row in the matrix
-        size_t num_cols = dR_dx[i][j]->getNumEntriesInLocalRow(row);
-        indices.resize(num_cols);
-        entries.resize(num_cols);
-        dR_dx[i][j]->getLocalRowCopy(row, indices(), entries(), num_cols);
-
-        // if we are at the diagonal block
-        if (i == j) {
-          double diag = 0.;
-          for (size_t col = 0; col < num_cols; ++col) {
-            if (indices[col] == row) {
-              diag = entries[col];
-            } else {
-              entries[col] = 0.;
-            }
-          }
-          dR_dx[i][j]->replaceLocalValues(row, indices(), entries());
-          if (!is_adjoint) {
-            R_data[i][row] = diag * (sol - v);
-          } else {
-            R_data[i][row] = 0.;
-          }
+      double diag = 0.;
+      for (size_t col = 0; col < num_cols; ++col) {
+        if (indices[col] == row) {
+          diag = entries[col];
+        } else {
+          entries[col] = 0.;
         }
+      }
 
-        // if we are on an off-diagonal block
-        else {
-          for (size_t col = 0; col < num_cols; ++col) {
-            entries[col] = 0;
-            dR_dx[i][j]->replaceLocalValues(row, indices(), entries());
-          }
-        }
+      dR_dx->replaceLocalValues(row, indices(), entries());
 
+      if (!is_adjoint) {
+        R_data[row] = diag * (sol - v);
+      } else {
+        R_data[row] = 0.;
       }
 
     }

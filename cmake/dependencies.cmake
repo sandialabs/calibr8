@@ -15,7 +15,6 @@ assert_trilinos_pkg(MueLu)
 assert_trilinos_pkg(Pamgen)
 assert_trilinos_pkg(Sacado)
 assert_trilinos_pkg(MiniTensor)
-assert_trilinos_pkg(Teko)
 
 list(REVERSE Trilinos_INCLUDE_DIRS)
 list(REVERSE Trilinos_TPL_INCLUDE_DIRS)
