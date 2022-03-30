@@ -30,8 +30,8 @@ class Disc;
 void apply_primal_dbcs(
     ParameterList const& dbcs,
     RCP<Disc> disc,
-    RCP<MatrixT>& dR_dx,
-    RCP<VectorT>& R,
+    Array2D<RCP<MatrixT>>& dR_dx,
+    Array1D<RCP<VectorT>>& R,
     Array1D<apf::Field*>& x,
     double t,
     bool is_adjoint = false);

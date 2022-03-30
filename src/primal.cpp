@@ -27,10 +27,10 @@ Primal::Primal(
 void Primal::solve_at_step(int step, double t, double) {
 
   // gather data needed to solve the problem
-  RCP<MatrixT>& dR_dx = m_state->la->A[OWNED];
-  RCP<VectorT>& dx = m_state->la->x[OWNED];
-  RCP<VectorT>& R = m_state->la->b[OWNED];
-  RCP<VectorT>& R_ghost = m_state->la->b[GHOST];
+  Array2D<RCP<MatrixT>>& dR_dx = m_state->la->A[OWNED];
+  Array1D<RCP<VectorT>>& dx = m_state->la->x[OWNED];
+  Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
+  Array1D<RCP<VectorT>>& R_ghost = m_state->la->b[GHOST];
   ParameterList& dbcs = m_params->sublist("dirichlet bcs", true);
   ParameterList& lin_alg = m_params->sublist("linear algebra", true);
   ParameterList& resids = m_params->sublist("residuals", true);

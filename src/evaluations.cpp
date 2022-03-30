@@ -18,8 +18,8 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
   // gather information from the state object
   RCP<LocalResidual<FADT>> local = state->d_residuals->local;
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
-  RCP<VectorT>& RHS = state->la->b[GHOST];
-  RCP<MatrixT>& LHS = state->la->A[GHOST];
+  Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
+  Array2D<RCP<MatrixT>>& LHS = state->la->A[GHOST];
   Array1D<apf::Field*> x = disc->primal(step).global;
   Array1D<apf::Field*> xi = disc->primal(step).local;
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
@@ -252,8 +252,8 @@ void eval_adjoint_jacobian(
   preprocess_qoi(qoi, local, global, state, disc, step);
 
   // gather information from the state object
-  RCP<MatrixT>& LHS = state->la->A[GHOST];
-  RCP<VectorT>& RHS = state->la->b[GHOST];
+  Array2D<RCP<MatrixT>>& LHS = state->la->A[GHOST];
+  Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
   Array1D<apf::Field*> x = disc->primal(step).global;
   Array1D<apf::Field*> xi = disc->primal(step).local;
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
@@ -768,8 +768,8 @@ void eval_error_contributions(
   // gather the residuals from the state object
   RCP<LocalResidual<double>> local = state->residuals->local;
   RCP<GlobalResidual<double>> global = state->residuals->global;
-  RCP<VectorT>& resid_vec = state->la->b[GHOST];
-  RCP<VectorT>& z_vec = state->la->x[GHOST];
+  Array1D<RCP<VectorT>>& resid_vec = state->la->b[GHOST];
+  Array1D<RCP<VectorT>>& z_vec = state->la->x[GHOST];
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();

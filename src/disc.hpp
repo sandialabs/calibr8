@@ -161,19 +161,22 @@ class Disc {
 
     //! \brief Get the map for a given residual
     //! \param distrib The parallel distribution type (OWNED/GHOST)
-    RCP<const MapT> map(int distrib) const {
-      return m_maps[distrib];
+    //! \param i The residual index of interest
+    RCP<const MapT> map(int distrib, int i) const {
+      return m_maps[distrib][i];
     }
 
     //! \brief Get the graph for a residual pair
     //! \param distrib The parallel distribution type (OWNED/GHOST)
-    RCP<const GraphT> graph(int distrib) {
-      return m_graphs[distrib];
+    //! \param i The first residual index
+    //! \param j The second residual index
+    RCP<const GraphT> graph(int distrib, int i, int j) {
+      return m_graphs[distrib][i][j];
     }
 
     //! \brief Get the exporter for a given residual
     //! \param i The residual index of interest
-    RCP<const ExportT> exporter() const { return m_exporter; }
+    RCP<const ExportT> exporter(int i) const { return m_exporters[i]; }
 
     //! \brief Get the number of PDE residuals associated with this disc
     //! \details Only available after build_data has been called
@@ -183,9 +186,6 @@ class Disc {
     //! \param residual The PDE residual index
     //! \details Only available after build_data has been called
     int num_eqs(int residual) const { return m_num_eqs[residual]; }
-
-    //! \brief Get the coordinates
-    RCP<MultiVectorT> coords() { return m_coords; }
 
     //! \brief Get the local IDs associated with a PDE residual
     //! \param elem The mesh entity corresponding to an element
@@ -249,7 +249,7 @@ class Disc {
     //! \param dx The solution increment (of global variables)
     void add_to_soln(
         Array1D<apf::Field*>& x,
-        RCP<VectorT> const& dx);
+        Array1D<RCP<VectorT>> const& dx);
 
     //! \brief Is the geometric model '.null'
     bool is_null() { return m_is_null_model; }
@@ -281,16 +281,14 @@ class Disc {
 
     int m_num_residuals = -1;
     Array1D<int> m_num_eqs;
-    Array1D<int> m_dof_offsets;
-    int m_num_dofs= -1;
 
     RCP<const Comm> m_comm;
     RCP<const MapT> m_node_map;
     RCP<MultiVectorT> m_coords;
 
-    RCP<const MapT> m_maps[NUM_DISTRIB];
-    RCP<GraphT> m_graphs[NUM_DISTRIB];
-    RCP<const ExportT> m_exporter;
+    Array1D<RCP<const MapT>> m_maps[NUM_DISTRIB];
+    Array2D<RCP<GraphT>> m_graphs[NUM_DISTRIB];
+    Array1D<RCP<const ExportT>> m_exporters;
 
     ElemSets m_elem_sets;
     SideSets m_side_sets;
@@ -317,10 +315,9 @@ class Disc {
     void compute_node_sets();
     void compute_derived_node_sets();
 
-    void compute_ghost_graph();
-    void compute_owned_graph();
-
-    LO get_offset_dof(LO nid, int eq, int res_idx) const;
+    Array1D<size_t> compute_nentries(int i, int j);
+    void compute_ghost_graph(int i, int j);
+    void compute_owned_graph(int i, int j);
 
 
 };

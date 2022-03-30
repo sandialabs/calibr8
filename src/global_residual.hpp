@@ -124,7 +124,7 @@ class GlobalResidual {
     void scatter_rhs(
         RCP<Disc> disc,
         EVector const& rhs,
-        RCP<VectorT>& RHS);
+        Array1D<RCP<VectorT>>& RHS);
 
     //! \brief Assign a value into a global vector
     //! \param disc The discretization object
@@ -133,7 +133,7 @@ class GlobalResidual {
     void assign_rhs(
         RCP<Disc> disc,
         EVector const& rhs,
-        RCP<VectorT>& RHS);
+        Array1D<RCP<VectorT>>& RHS);
 
     //! \brief Scatter the residual into the global Jacobian matrix
     //! \param disc The discretization object
@@ -144,7 +144,7 @@ class GlobalResidual {
     void scatter_lhs(
         RCP<Disc> disc,
         EMatrix const& dtotal,
-        RCP<MatrixT>& LHS);
+        Array2D<RCP<MatrixT>>& LHS);
 
     //! \brief Reset element-specific data after processing an element
     void unset_elem();

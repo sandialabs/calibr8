@@ -62,9 +62,9 @@ void Adjoint::initialize_history_vectors() {
 void Adjoint::solve_at_step(int step) {
 
   // gather data needed to solve the problem
-  RCP<MatrixT>& dR_dxT = m_state->la->A[OWNED];
-  RCP<VectorT>& dx = m_state->la->x[OWNED];
-  RCP<VectorT>& rhs = m_state->la->b[OWNED];
+  Array2D<RCP<MatrixT>>& dR_dxT = m_state->la->A[OWNED];
+  Array1D<RCP<VectorT>>& dx = m_state->la->x[OWNED];
+  Array1D<RCP<VectorT>>& rhs = m_state->la->b[OWNED];
   ParameterList& dbcs = m_params->sublist("dirichlet bcs", true);
   ParameterList& lin_alg = m_params->sublist("linear algebra", true);
   ParameterList& resids = m_params->sublist("residuals", true);
@@ -132,10 +132,16 @@ void Adjoint::solve_at_step(int step) {
     m_disc->add_to_soln(eta, dx);
 
     // check if the residual has converged
-    dR_dxT->apply(*dx, *rhs, Teuchos::NO_TRANS, -1., 1.);
+    for (int i = 0; i < num_global_resids; ++i) {
+      for (int j = 0; j < num_global_resids; ++j) {
+        dR_dxT[i][j]->apply(*dx[j], *rhs[i], Teuchos::NO_TRANS, -1., 1.);
+      }
+    }
 
     // zero the solution vectors for the next go
-    dx->putScalar(0.);
+    for (int i = 0; i < num_global_resids; ++i) {
+      dx[i]->putScalar(0.);
+    }
 
     double const abs_resid_norm = m_state->la->norm_b();
     if (iter == 1) resid_norm_0 = abs_resid_norm;
