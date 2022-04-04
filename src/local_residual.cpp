@@ -4,7 +4,6 @@
 #include "J2.hpp"
 #include "J2_plane_strain.hpp"
 #include "J2_small_strain.hpp"
-#include "global_residual.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
 #include "state.hpp"
@@ -574,22 +573,22 @@ void LocalResidual<FADT>::resize_residual_derivs(int nderivs) {
 }
 
 template <>
-void LocalResidual<double>::seed_wrt_xi(RCP<GlobalResidual<double>>) {}
+void LocalResidual<double>::seed_wrt_xi() {
+}
 
 template <>
-void LocalResidual<FADT>::seed_wrt_xi(RCP<GlobalResidual<FADT>> global) {
+void LocalResidual<FADT>::seed_wrt_xi() {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
       int const dof = dxi_idx(i, eq);
       m_xi[i][eq].diff(dof, m_num_dofs);
     }
   }
-  resize_residual_derivs(m_num_dofs);
-  global->resize_residual_derivs(m_num_dofs);
 }
 
 template <>
-void LocalResidual<double>::unseed_wrt_xi() {}
+void LocalResidual<double>::unseed_wrt_xi() {
+}
 
 template <>
 void LocalResidual<FADT>::unseed_wrt_xi() {
@@ -605,22 +604,22 @@ void LocalResidual<FADT>::unseed_wrt_xi() {
 }
 
 template <>
-void LocalResidual<double>::seed_wrt_xi_prev(RCP<GlobalResidual<double>>) {}
+void LocalResidual<double>::seed_wrt_xi_prev() {
+}
 
 template <>
-void LocalResidual<FADT>::seed_wrt_xi_prev(RCP<GlobalResidual<FADT>> global) {
+void LocalResidual<FADT>::seed_wrt_xi_prev() {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
       int const dof = dxi_idx(i, eq);
       m_xi_prev[i][eq].diff(dof, m_num_dofs);
     }
   }
-  resize_residual_derivs(m_num_dofs);
-  global->resize_residual_derivs(m_num_dofs);
 }
 
 template <>
-void LocalResidual<double>::unseed_wrt_xi_prev() {}
+void LocalResidual<double>::unseed_wrt_xi_prev() {
+}
 
 template <>
 void LocalResidual<FADT>::unseed_wrt_xi_prev() {
@@ -636,12 +635,11 @@ void LocalResidual<FADT>::unseed_wrt_xi_prev() {
 }
 
 template <>
-void LocalResidual<double>::seed_wrt_x(EMatrix const&, RCP<GlobalResidual<double>>) {}
+void LocalResidual<double>::seed_wrt_x(EMatrix const&) {
+}
 
 template <>
-void LocalResidual<FADT>::seed_wrt_x(
-    EMatrix const& dxi_dx,
-    RCP<GlobalResidual<FADT>> global) {
+void LocalResidual<FADT>::seed_wrt_x(EMatrix const& dxi_dx) {
   DEBUG_ASSERT(dxi_dx.rows() == m_num_dofs);
   int const nglobal_dofs = dxi_dx.cols();
   for (int i = 0; i < m_num_residuals; ++i) {
@@ -655,28 +653,24 @@ void LocalResidual<FADT>::seed_wrt_x(
       }
     }
   }
-  resize_residual_derivs(nglobal_dofs);
-  global->resize_residual_derivs(nglobal_dofs);
 }
 
 template <>
-void LocalResidual<double>::seed_wrt_params(
-    int const es, RCP<GlobalResidual<double>>) {}
+void LocalResidual<double>::seed_wrt_params(int const es) {
+}
 
 template <>
-void LocalResidual<FADT>::seed_wrt_params(
-    int const es, RCP<GlobalResidual<FADT>> global) {
+void LocalResidual<FADT>::seed_wrt_params(int const es) {
   int const num_es_active_params = m_active_indices[es].size();
   for (int p = 0; p < num_es_active_params; ++p) {
     int const active_idx = m_active_indices[es][p];
     m_params[active_idx].diff(p, num_es_active_params);
   }
-  resize_residual_derivs(num_es_active_params);
-  global->resize_residual_derivs(num_es_active_params);
 }
 
 template <>
-void LocalResidual<double>::unseed_wrt_params(int const es) {}
+void LocalResidual<double>::unseed_wrt_params(int const es) {
+}
 
 template <>
 void LocalResidual<FADT>::unseed_wrt_params(int const es) {
