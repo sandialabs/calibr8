@@ -88,7 +88,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
             // and store the resultant local residual and its derivatives (dC_dxi)
             global->interpolate(iota);
             local->gather(pt, xi, xi_prev);
-            local->seed_wrt_xi();
+            local->seed_wrt_xi(global);
             int path = local->solve_nonlinear(global);
             if (is_verification) {
               nested->branch_paths()[step][es][elem] = path;
@@ -107,7 +107,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
             EMatrix const dxi_dx = dC_dxi.fullPivLu().solve(-dC_dx);
 
             // evaluate and scatter point contributions to the global residual
-            local->seed_wrt_x(dxi_dx);
+            local->seed_wrt_x(dxi_dx, global);
 
           }
 
@@ -327,7 +327,7 @@ void eval_adjoint_jacobian(
             // and store the resultant local residual and its derivatives (dC_dxi)
             global->interpolate(iota);
             local->gather(pt, xi, xi_prev);
-            local->seed_wrt_xi();
+            local->seed_wrt_xi(global);
             local->evaluate(global, force_path, path);
             EMatrix const dC_dxi = local->eigen_jacobian();
 
@@ -342,7 +342,7 @@ void eval_adjoint_jacobian(
             EMatrix const dxi_dx = dC_dxi.fullPivLu().solve(-dC_dx);
 
             // evaluate and scatter point contributions to the global LHS
-            local->seed_wrt_x(dxi_dx);
+            local->seed_wrt_x(dxi_dx, global);
 
             global->zero_residual();
             global->evaluate(local, iota, w, dv, ip_set);
@@ -357,7 +357,7 @@ void eval_adjoint_jacobian(
             global->unseed_wrt_x();
 
             // evaluate the QoI derivatives to obtain dJ_dxi
-            local->seed_wrt_xi();
+            local->seed_wrt_xi(global);
             global->interpolate(iota);
             qoi->evaluate(es, elem, global, local, iota, w, dv);
             EVector const dJ_dxi = qoi->eigen_dvector();
@@ -486,7 +486,7 @@ void solve_adjoint_local(
         // their transpose Jacobians, and grab g at the integration point
         global->interpolate(iota);
         local->gather(pt, xi, xi_prev);
-        local->seed_wrt_xi();
+        local->seed_wrt_xi(global);
         global->zero_residual();
         global->evaluate(local, iota, w, dv, 0);
         local->evaluate(global, force_path, path);
@@ -509,7 +509,7 @@ void solve_adjoint_local(
         // Solve for the local history vector
         global->unseed_wrt_x_prev();
         global->interpolate(iota);
-        local->seed_wrt_xi_prev();
+        local->seed_wrt_xi_prev(global);
         local->evaluate(global, force_path, path);
         EMatrix const dC_dxi_prevT = local->eigen_jacobian().transpose();
         g[es][elem][pt] = -dC_dxi_prevT * phi_pt;
@@ -710,7 +710,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
           // compute gradient contributions
           global->interpolate(iota);
           global->zero_residual();
-          local->seed_wrt_params(es);
+          local->seed_wrt_params(es, global);
 
           if (ip_set == 0) {
             local->gather(pt, xi, xi_prev);
@@ -1019,7 +1019,7 @@ void eval_linearization_errors(
             // evaluate derivatives wrt xi
             global->unseed_wrt_x();
             global->zero_residual();
-            local->seed_wrt_xi();
+            local->seed_wrt_xi(global);
             global->interpolate(iota);
             global->evaluate(local, iota, w, dv, ip_set);
             local->evaluate(global, force_path, path);
@@ -1036,7 +1036,7 @@ void eval_linearization_errors(
             // evaluate derivatives wrt xi_prev
             global->unseed_wrt_x_prev();
             global->interpolate(iota);
-            local->seed_wrt_xi_prev();
+            local->seed_wrt_xi_prev(global);
             local->evaluate(global, force_path, path);
             EMatrix const dC_dxi_prev = local->eigen_jacobian();
 

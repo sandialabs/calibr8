@@ -86,14 +86,16 @@ class LocalResidual {
     void resize_residual_derivs(int nderivs);
 
     //! \brief Seed the local variables as derivative quantities
-    void seed_wrt_xi();
+    //! \param global The global residual object
+    void seed_wrt_xi(RCP<GlobalResidual<T>> global);
 
     //! \brief Unseed the local variables as derivative quantities
     //! \details This will set the value of m_xi to m_xi.val()
     void unseed_wrt_xi();
 
     //! \brief Seed the local variables from the previous step as derivative quantities
-    void seed_wrt_xi_prev();
+    //! \param global The global residual object
+    void seed_wrt_xi_prev(RCP<GlobalResidual<T>> global);
 
     //! \brief Unseed the local variables from the previous step as derivative quantities
     //! \details This will set the value of m_xi to m_xi.val()
@@ -101,11 +103,13 @@ class LocalResidual {
 
     //! \brief Seed the local variable derivatives wrt the global variables
     //! \param dxi_dx The matrix containing the derivative data
-    void seed_wrt_x(EMatrix const& dxi_dx);
+    //! \param global The global residual object
+    void seed_wrt_x(EMatrix const& dxi_dx, RCP<GlobalResidual<T>> global);
 
     //! \brief Seed the parameters as derivative quantities
     //! \param es The element set index
-    void seed_wrt_params(int const es);
+    //! \param global The global residual object
+    void seed_wrt_params(int const es, RCP<GlobalResidual<T>> global);
 
     //! \brief Unseed the parameters as derivative quantities
     //! \param es The element set index
