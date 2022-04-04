@@ -3,6 +3,7 @@
 #include "disc.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
+#include "local_residual.hpp"
 #include "macros.hpp"
 #include "mechanics.hpp"
 
@@ -136,6 +137,26 @@ void GlobalResidual<T>::set_elem(apf::MeshElement* mesh_elem) {
   m_mesh_elem = mesh_elem;
 }
 
+template <typename T>
+void GlobalResidual<T>::gather(
+    Array1D<apf::Field*> const& x,
+    Array1D<apf::Field*> const& x_prev) {
+  for (int i = 0; i < m_num_residuals; ++i) {
+    int const neqs = m_num_eqs[i];
+    int const type = m_var_types[i];
+    Array2D<double> const x_vals =
+      get_nodal_components(x[i], m_mesh_elem, type, m_num_nodes);
+    Array2D<double> const x_prev_vals =
+      get_nodal_components(x_prev[i], m_mesh_elem, type, m_num_nodes);
+    for (int n = 0; n < m_num_nodes; ++n) {
+      for (int eq = 0; eq < neqs; ++eq) {
+        m_x_nodal[i][n][eq] = x_vals[n][eq];
+        m_x_prev_nodal[i][n][eq] = x_prev_vals[n][eq];
+      }
+    }
+  }
+}
+
 template <>
 void GlobalResidual<double>::zero_residual() {
   for (int i = 0; i < m_num_residuals; ++i) {
@@ -163,31 +184,26 @@ void GlobalResidual<FADT>::zero_residual() {
   }
 }
 
-template <typename T>
-void GlobalResidual<T>::gather(
-    Array1D<apf::Field*> const& x,
-    Array1D<apf::Field*> const& x_prev) {
+template <>
+void GlobalResidual<double>::resize_residual_derivs(int) {}
+
+template <>
+void GlobalResidual<FADT>::resize_residual_derivs(int nderivs) {
   for (int i = 0; i < m_num_residuals; ++i) {
-    int const neqs = m_num_eqs[i];
-    int const type = m_var_types[i];
-    Array2D<double> const x_vals =
-      get_nodal_components(x[i], m_mesh_elem, type, m_num_nodes);
-    Array2D<double> const x_prev_vals =
-      get_nodal_components(x_prev[i], m_mesh_elem, type, m_num_nodes);
     for (int n = 0; n < m_num_nodes; ++n) {
-      for (int eq = 0; eq < neqs; ++eq) {
-        m_x_nodal[i][n][eq] = x_vals[n][eq];
-        m_x_prev_nodal[i][n][eq] = x_prev_vals[n][eq];
+      for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
+        m_R_nodal[i][n][eq].diff(0, nderivs);
+        m_R_nodal[i][n][eq].fastAccessDx(0) = 0.;
       }
     }
   }
 }
 
 template <>
-void GlobalResidual<double>::seed_wrt_x() {}
+void GlobalResidual<double>::seed_wrt_x(RCP<LocalResidual<double>>) {}
 
 template <>
-void GlobalResidual<FADT>::seed_wrt_x() {
+void GlobalResidual<FADT>::seed_wrt_x(RCP<LocalResidual<FADT>> local) {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int n = 0; n < m_num_nodes; ++n) {
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
@@ -196,6 +212,8 @@ void GlobalResidual<FADT>::seed_wrt_x() {
       }
     }
   }
+  resize_residual_derivs(m_num_dofs);
+  local->resize_residual_derivs(m_num_dofs);
 }
 
 template <>
@@ -217,10 +235,10 @@ void GlobalResidual<FADT>::unseed_wrt_x() {
 }
 
 template <>
-void GlobalResidual<double>::seed_wrt_x_prev() {}
+void GlobalResidual<double>::seed_wrt_x_prev(RCP<LocalResidual<double>>) {}
 
 template <>
-void GlobalResidual<FADT>::seed_wrt_x_prev() {
+void GlobalResidual<FADT>::seed_wrt_x_prev(RCP<LocalResidual<FADT>> local) {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int n = 0; n < m_num_nodes; ++n) {
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
@@ -229,6 +247,8 @@ void GlobalResidual<FADT>::seed_wrt_x_prev() {
       }
     }
   }
+  resize_residual_derivs(m_num_dofs);
+  local->resize_residual_derivs(m_num_dofs);
 }
 
 template <>

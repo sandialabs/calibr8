@@ -560,6 +560,19 @@ EVector LocalResidual<T>::gather_difference(
 }
 
 template <>
+void LocalResidual<double>::resize_residual_derivs(int nderivs) {}
+
+template <>
+void LocalResidual<FADT>::resize_residual_derivs(int nderivs) {
+  for (int i = 0; i < m_num_residuals; ++i) {
+    for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
+      m_R[i][eq].diff(0, nderivs);
+      m_R[i][eq].fastAccessDx(0) = 0.;
+    }
+  }
+}
+
+template <>
 void LocalResidual<double>::seed_wrt_xi() {
 }
 

@@ -82,6 +82,9 @@ class LocalResidual {
         Array1D<apf::Field*> const& xi,
         Array1D<apf::Field*> const& xi_prev);
 
+    //! \brief Resize the residual derivative array apropriately
+    void resize_residual_derivs(int nderivs);
+
     //! \brief Seed the local variables as derivative quantities
     void seed_wrt_xi();
 

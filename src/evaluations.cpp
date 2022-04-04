@@ -98,7 +98,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
 
             // re-evaluate the constitutive equations to obtain dC_dx
             local->unseed_wrt_xi();
-            global->seed_wrt_x();
+            global->seed_wrt_x(local);
             global->interpolate(iota);
             local->evaluate(global);
             EMatrix const dC_dx = local->eigen_jacobian();
@@ -113,7 +113,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
 
           else {
 
-            global->seed_wrt_x();
+            global->seed_wrt_x(local);
             global->interpolate(iota);
 
           }
@@ -333,7 +333,7 @@ void eval_adjoint_jacobian(
 
             // re-evaluate the constitutive equations to obtain dC_dx
             local->unseed_wrt_xi();
-            global->seed_wrt_x();
+            global->seed_wrt_x(local);
             global->interpolate(iota);
             local->evaluate(global, force_path, path);
             EMatrix const dC_dx = local->eigen_jacobian();
@@ -377,7 +377,7 @@ void eval_adjoint_jacobian(
 
           else {
 
-            global->seed_wrt_x();
+            global->seed_wrt_x(local);
             global->interpolate(iota);
             global->zero_residual();
             global->evaluate(local, iota, w, dv, ip_set);
@@ -500,7 +500,7 @@ void solve_adjoint_local(
 
         // Solve for the global history vector
         local->unseed_wrt_xi();
-        global->seed_wrt_x_prev();
+        global->seed_wrt_x_prev(local);
         global->interpolate(iota);
         local->evaluate(global, force_path, path);
         EMatrix const dC_dx_prevT = local->eigen_jacobian().transpose();
@@ -1006,7 +1006,7 @@ void eval_linearization_errors(
 
             // evaluate derivatives wrt x
             global->zero_residual();
-            global->seed_wrt_x();
+            global->seed_wrt_x(local);
             global->interpolate(iota);
             local->gather(pt, xi, xi_prev);
             global->evaluate(local, iota, w, dv, ip_set);
@@ -1028,7 +1028,7 @@ void eval_linearization_errors(
 
             // evaluate derivatives wrt x_prev
             local->unseed_wrt_xi();
-            global->seed_wrt_x_prev();
+            global->seed_wrt_x_prev(local);
             global->interpolate(iota);
             local->evaluate(global, force_path, path);
             EMatrix const dC_dx_prev = local->eigen_jacobian();
@@ -1059,7 +1059,7 @@ void eval_linearization_errors(
 
             // evaluate the global residual linearization error contributions
             global->zero_residual();
-            global->seed_wrt_x();
+            global->seed_wrt_x(local);
             global->interpolate(iota);
             global->evaluate(local, iota, w, dv, ip_set);
             EVector const R = global->eigen_residual();
