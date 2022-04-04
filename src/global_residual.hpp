@@ -77,18 +77,15 @@ class GlobalResidual {
     //! \brief Zero the integration point residual
     void zero_residual();
 
-    //! \brief Resize the residual derivatives appropriately
-    void resize_residual_derivs(int nderivs);
-
     //! \brief Seed the global variables as derivative quantities
-    void seed_wrt_x(RCP<LocalResidual<T>> local);
+    void seed_wrt_x();
 
     //! \brief Unseed the local variables as derivative quantities
     //! \details This will set the value of m_x to m_x.val()
     void unseed_wrt_x();
 
     //! \brief Seed the global variables from the previous step as derivative quantities
-    void seed_wrt_x_prev(RCP<LocalResidual<T>> local);
+    void seed_wrt_x_prev();
 
     //! \brief Unseed the local variables as derivative quantities
     //! \details This will set the value of m_x_prev to m_x_prev.val()
