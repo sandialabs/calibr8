@@ -101,6 +101,9 @@ class QoI {
         RCP<Disc> disc,
         Array2D<int>& mapping);
 
+    //! \brief Zero out the value (and derivatives) of the QoI at a point
+    void initialize_value_pt();
+
     int m_num_dims = -1;
     int m_step = -1;
     apf::Mesh* m_mesh = nullptr;

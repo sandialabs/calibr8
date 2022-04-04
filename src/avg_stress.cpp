@@ -33,12 +33,7 @@ void AvgStress<T>::evaluate(
     double w,
     double dv) {
 
-  // initialize the QoI contribution to 0
-  T const dummy1 = global->vector_x(0)[0];
-  T const dummy2 = local->first_value();
-  Array2D<int> const& active_indices = local->active_indices();
-  T const dummy3 = local->params(active_indices[0][0]);
-  this->value_pt = 0. * (dummy1 + dummy2 + dummy3);
+  this->initialize_value_pt();
 
   // do some stuff if we are in the subdomain of interest
   std::string const es_name = m_elem_set_names[elem_set];

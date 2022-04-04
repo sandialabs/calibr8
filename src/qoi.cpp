@@ -114,6 +114,19 @@ void QoI<T>::after_elems() {
   m_shape = nullptr;
 }
 
+template <>
+void QoI<double>::initialize_value_pt() {
+  value_pt = 0.;
+}
+
+template <>
+void QoI<FADT>::initialize_value_pt() {
+  value_pt = 0.;
+  for (int idx = 0.; idx < nmax_derivs; ++idx) {
+    value_pt.fastAccessDx(idx) = 0.;
+  }
+}
+
 template <typename T>
 RCP<QoI<T>> create_qoi(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
