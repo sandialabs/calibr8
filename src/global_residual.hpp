@@ -54,7 +54,7 @@ class GlobalResidual {
     int num_dims() const { return m_num_dims; }
 
     //! \brief The number of nodes in an element
-    int num_nodes() { return m_num_nodes; }
+    int num_nodes() const { return m_num_nodes; }
 
     //! \brief Perform initializations before the loop over elements
     //! \param disc The discretization object
@@ -78,14 +78,16 @@ class GlobalResidual {
     void zero_residual();
 
     //! \brief Seed the global variables as derivative quantities
-    void seed_wrt_x();
+    //! \details Returns the total number of seeded variables
+    int seed_wrt_x();
 
     //! \brief Unseed the local variables as derivative quantities
     //! \details This will set the value of m_x to m_x.val()
     void unseed_wrt_x();
 
     //! \brief Seed the global variables from the previous step as derivative quantities
-    void seed_wrt_x_prev();
+    //! \details Returns the total number of seeded variables
+    int seed_wrt_x_prev();
 
     //! \brief Unseed the local variables as derivative quantities
     //! \details This will set the value of m_x_prev to m_x_prev.val()
@@ -246,7 +248,7 @@ class GlobalResidual {
     EVector eigen_residual() const;
 
     //! \brief Gather the Jacobian matrix dR / d (seeded_vars)
-    EMatrix eigen_jacobian() const;
+    EMatrix eigen_jacobian(int nderivs) const;
 
     //! \brief Gather the nodal global DOF values
     //! \param z The global adjoint fields

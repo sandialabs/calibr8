@@ -80,7 +80,7 @@ class QoI {
     virtual void postprocess(double& J);
 
     //! \brief Gather the derivative vector dJ / d(seeded_vars)
-    EVector eigen_dvector() const;
+    EVector eigen_dvector(int nderivs) const;
 
     //! \brief Reset element-specific data after processing an element
     void unset_elem();

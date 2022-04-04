@@ -210,7 +210,7 @@ int J2_plane_strain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
       break;
     }
 
-    EMatrix const J = this->eigen_jacobian();
+    EMatrix const J = this->eigen_jacobian(this->m_num_dofs);
     EVector const R = this->eigen_residual();
     EVector const dxi = J.fullPivLu().solve(-R);
 
@@ -314,10 +314,10 @@ int J2_plane_strain<T>::evaluate(
     }
     // elastic step
     else {
-      R_zeta = (0. * mu + 1.) * zeta - zeta_trial;
-      R_Ie = Ie - Ie_trial + 0. * mu;
-      R_alpha = alpha - alpha_old + 0. * mu;
-      R_zeta_zz = zeta_zz - zeta_zz_trial + 0. * mu;
+      R_zeta = zeta - zeta_trial;
+      R_Ie = Ie - Ie_trial;
+      R_alpha = alpha - alpha_old;
+      R_zeta_zz = zeta_zz - zeta_zz_trial;
     }
   }
 

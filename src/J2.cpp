@@ -179,7 +179,7 @@ int J2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
       break;
     }
 
-    EMatrix const J = this->eigen_jacobian();
+    EMatrix const J = this->eigen_jacobian(this->m_num_dofs);
     EVector const R = this->eigen_residual();
     EVector const dxi = J.fullPivLu().solve(-R);
 
@@ -248,9 +248,9 @@ int J2<T>::evaluate(
     }
     // elastic step
     else {
-      R_zeta = (0. * mu + 1.) * zeta - minitensor::dev(be_bar_trial);
-      R_Ie = Ie - minitensor::trace(be_bar_trial) / 3. + 0. * mu;
-      R_alpha = alpha - alpha_old + 0. * mu;
+      R_zeta = zeta - minitensor::dev(be_bar_trial);
+      R_Ie = Ie - minitensor::trace(be_bar_trial) / 3.;
+      R_alpha = alpha - alpha_old;
       path = ELASTIC;
     }
   }
@@ -267,9 +267,9 @@ int J2<T>::evaluate(
     }
     // elastic step
     else {
-      R_zeta = (0. * mu + 1.) * zeta - minitensor::dev(be_bar_trial);
-      R_Ie = Ie - minitensor::trace(be_bar_trial) / 3. + 0. * mu;
-      R_alpha = alpha - alpha_old + 0. * mu;
+      R_zeta = zeta - minitensor::dev(be_bar_trial);
+      R_Ie = Ie - minitensor::trace(be_bar_trial) / 3.;
+      R_alpha = alpha - alpha_old;
     }
   }
 

@@ -86,15 +86,15 @@ template <typename T>
 void QoI<T>::postprocess(double& J) {}
 
 template <>
-EVector QoI<double>::eigen_dvector() const {
+EVector QoI<double>::eigen_dvector(int) const {
   EVector empty;
   return empty;
 }
 
 template <>
-EVector QoI<FADT>::eigen_dvector() const {
-  int const nderivs = value_pt.size();
+EVector QoI<FADT>::eigen_dvector(int nderivs) const {
   EVector dJ(nderivs);
+  dJ.setZero();
   for (int i = 0; i < nderivs; ++i) {
     dJ[i] = value_pt.fastAccessDx(i);
   }

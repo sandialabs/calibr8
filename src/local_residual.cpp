@@ -97,15 +97,15 @@ double LocalResidual<T>::norm_residual() const {
 }
 
 template <>
-EMatrix LocalResidual<double>::eigen_jacobian() const {
+EMatrix LocalResidual<double>::eigen_jacobian(int) const {
   EMatrix empty;
   return empty;
 }
 
 template <>
-EMatrix LocalResidual<FADT>::eigen_jacobian() const {
-  int const nderivs = m_R[0][0].size();
+EMatrix LocalResidual<FADT>::eigen_jacobian(int nderivs) const {
   EMatrix J(m_num_dofs, nderivs);
+  J.setZero();
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int i_eq = 0; i_eq < m_num_eqs[i]; ++i_eq) {
       int const i_idx = dxi_idx(i, i_eq);
@@ -560,17 +560,19 @@ EVector LocalResidual<T>::gather_difference(
 }
 
 template <>
-void LocalResidual<double>::seed_wrt_xi() {
+int LocalResidual<double>::seed_wrt_xi() {
+  return -1;
 }
 
 template <>
-void LocalResidual<FADT>::seed_wrt_xi() {
+int LocalResidual<FADT>::seed_wrt_xi() {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
       int const dof = dxi_idx(i, eq);
       m_xi[i][eq].diff(dof, m_num_dofs);
     }
   }
+  return m_num_dofs;
 }
 
 template <>
@@ -591,17 +593,19 @@ void LocalResidual<FADT>::unseed_wrt_xi() {
 }
 
 template <>
-void LocalResidual<double>::seed_wrt_xi_prev() {
+int LocalResidual<double>::seed_wrt_xi_prev() {
+  return -1;
 }
 
 template <>
-void LocalResidual<FADT>::seed_wrt_xi_prev() {
+int LocalResidual<FADT>::seed_wrt_xi_prev() {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
       int const dof = dxi_idx(i, eq);
       m_xi_prev[i][eq].diff(dof, m_num_dofs);
     }
   }
+  return m_num_dofs;
 }
 
 template <>
@@ -643,16 +647,18 @@ void LocalResidual<FADT>::seed_wrt_x(EMatrix const& dxi_dx) {
 }
 
 template <>
-void LocalResidual<double>::seed_wrt_params(int const es) {
+int LocalResidual<double>::seed_wrt_params(int const es) {
+  return -1;
 }
 
 template <>
-void LocalResidual<FADT>::seed_wrt_params(int const es) {
+int LocalResidual<FADT>::seed_wrt_params(int const es) {
   int const num_es_active_params = m_active_indices[es].size();
   for (int p = 0; p < num_es_active_params; ++p) {
     int const active_idx = m_active_indices[es][p];
     m_params[active_idx].diff(p, num_es_active_params);
   }
+  return num_es_active_params;
 }
 
 template <>

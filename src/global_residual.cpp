@@ -184,10 +184,12 @@ void GlobalResidual<T>::gather(
 }
 
 template <>
-void GlobalResidual<double>::seed_wrt_x() {}
+int GlobalResidual<double>::seed_wrt_x() {
+  return -1;
+}
 
 template <>
-void GlobalResidual<FADT>::seed_wrt_x() {
+int GlobalResidual<FADT>::seed_wrt_x() {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int n = 0; n < m_num_nodes; ++n) {
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
@@ -196,6 +198,7 @@ void GlobalResidual<FADT>::seed_wrt_x() {
       }
     }
   }
+  return m_num_dofs;
 }
 
 template <>
@@ -217,10 +220,12 @@ void GlobalResidual<FADT>::unseed_wrt_x() {
 }
 
 template <>
-void GlobalResidual<double>::seed_wrt_x_prev() {}
+int GlobalResidual<double>::seed_wrt_x_prev() {
+  return -1;
+}
 
 template <>
-void GlobalResidual<FADT>::seed_wrt_x_prev() {
+int GlobalResidual<FADT>::seed_wrt_x_prev() {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int n = 0; n < m_num_nodes; ++n) {
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
@@ -229,6 +234,7 @@ void GlobalResidual<FADT>::seed_wrt_x_prev() {
       }
     }
   }
+  return m_num_dofs;
 }
 
 template <>
@@ -345,23 +351,15 @@ EVector GlobalResidual<T>::eigen_residual() const {
 }
 
 template <>
-EMatrix GlobalResidual<double>::eigen_jacobian() const {
+EMatrix GlobalResidual<double>::eigen_jacobian(int) const {
   EMatrix empty;
   return empty;
 }
 
 template <>
-EMatrix GlobalResidual<FADT>::eigen_jacobian() const {
-  int nderivs = 0;
-  for (int i = 0; i < m_num_residuals; ++i) {
-    for (int n = 0; n < m_num_nodes; ++n) {
-      for (int i_eq = 0; i_eq < m_num_eqs[i]; ++i_eq) {
-        nderivs = std::max(nderivs, m_R_nodal[i][n][i_eq].size());
-      }
-    }
-  }
-
+EMatrix GlobalResidual<FADT>::eigen_jacobian(int nderivs) const {
   EMatrix J(m_num_dofs, nderivs);
+  J.setZero();
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int n = 0; n < m_num_nodes; ++n) {
       for (int i_eq = 0; i_eq < m_num_eqs[i]; ++i_eq) {

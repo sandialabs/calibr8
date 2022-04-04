@@ -83,14 +83,16 @@ class LocalResidual {
         Array1D<apf::Field*> const& xi_prev);
 
     //! \brief Seed the local variables as derivative quantities
-    void seed_wrt_xi();
+    //! \details Returns the total number of seeded variables
+    int seed_wrt_xi();
 
     //! \brief Unseed the local variables as derivative quantities
     //! \details This will set the value of m_xi to m_xi.val()
     void unseed_wrt_xi();
 
     //! \brief Seed the local variables from the previous step as derivative quantities
-    void seed_wrt_xi_prev();
+    //! \details Returns the total number of seeded variables
+    int seed_wrt_xi_prev();
 
     //! \brief Unseed the local variables from the previous step as derivative quantities
     //! \details This will set the value of m_xi to m_xi.val()
@@ -102,7 +104,8 @@ class LocalResidual {
 
     //! \brief Seed the parameters as derivative quantities
     //! \param es The element set index
-    void seed_wrt_params(int const es);
+    //! \details Returns the total number of seeded variables
+    int seed_wrt_params(int const es);
 
     //! \brief Unseed the parameters as derivative quantities
     //! \param es The element set index
@@ -290,7 +293,7 @@ class LocalResidual {
     double norm_residual() const;
 
     //! \brief Gather the Jacobian matrix dC / d(seeded_vars)
-    EMatrix eigen_jacobian() const;
+    EMatrix eigen_jacobian(int nderivs) const;
 
     //! \brief Gather the residual vector as an Eigen vector
     EVector eigen_residual() const;

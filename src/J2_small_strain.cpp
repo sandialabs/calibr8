@@ -152,7 +152,7 @@ int J2_small_strain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
       break;
     }
 
-    EMatrix const J = this->eigen_jacobian();
+    EMatrix const J = this->eigen_jacobian(this->m_num_dofs);
     EVector const R = this->eigen_residual();
     EVector const dxi = J.fullPivLu().solve(-R);
 
@@ -213,14 +213,14 @@ int J2_small_strain<T>::evaluate(
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_pstrain = (0. * dummy3 + 1.) * pstrain - pstrain_old - dgam * n + 0. * grad_u_prev;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu) + 0. * dummy3;
+      R_pstrain = pstrain - pstrain_old - dgam * n;
+      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
       path = PLASTIC;
     }
     // elastic step
     else {
-      R_pstrain = (0. * dummy3 + 1.) * pstrain - pstrain_old + 0. * s + 0. * grad_u_prev;
-      R_alpha = alpha - alpha_old + 0. * dummy3 + 0. * s_mag;
+      R_pstrain = pstrain - pstrain_old;
+      R_alpha = alpha - alpha_old;
       path = ELASTIC;
     }
   }
@@ -231,13 +231,13 @@ int J2_small_strain<T>::evaluate(
     // plastic step
     if (path == PLASTIC) {
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_pstrain = (0. * dummy3 + 1.) * pstrain - pstrain_old - dgam * n + 0. * grad_u_prev;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu) + 0. * dummy3;
+      R_pstrain = pstrain - pstrain_old - dgam * n;
+      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
     }
     // elastic step
     else {
-      R_pstrain = (0. * dummy3 + 1.) * pstrain - pstrain_old + 0. * s + 0. * grad_u_prev;
-      R_alpha = alpha - alpha_old + 0. * dummy3 + 0. * s_mag;
+      R_pstrain = pstrain - pstrain_old;
+      R_alpha = alpha - alpha_old;
     }
   }
 
