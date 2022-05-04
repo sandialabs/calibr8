@@ -9,9 +9,6 @@ template <typename T>
 DispComp<T>::DispComp(ParameterList const& params) {
   m_elem_set = params.get<std::string>("elem set");
   m_component = params.get<int>("component");
-
-  std::cout << "m_elem_set: !!!! " << m_elem_set << "\n";
-  std::cout << "component: !!!! " << m_component << "\n";
 }
 
 template <typename T>
