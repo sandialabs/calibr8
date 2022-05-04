@@ -2,12 +2,12 @@ set(CALIBR8_SOURCES
   adjoint.cpp
   adjoint_objective.cpp
   avg_disp.cpp
-  avg_disp_subdomain.cpp
   avg_stress.cpp
   calibration.cpp
   control.cpp
   dbcs.cpp
   disc.cpp
+  disp_comp.cpp
   error_weight.cpp
   evaluations.cpp
   femu_objective.cpp

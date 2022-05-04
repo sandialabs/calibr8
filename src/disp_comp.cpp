@@ -1,4 +1,4 @@
-#include "avg_disp_subdomain.hpp"
+#include "disp_comp.hpp"
 #include "disc.hpp"
 #include "global_residual.hpp"
 #include "local_residual.hpp"
@@ -6,17 +6,21 @@
 namespace calibr8 {
 
 template <typename T>
-AvgDispSubdomain<T>::AvgDispSubdomain(ParameterList const& params) {
+DispComp<T>::DispComp(ParameterList const& params) {
   m_elem_set = params.get<std::string>("elem set");
+  m_component = params.get<int>("component");
+
+  std::cout << "m_elem_set: !!!! " << m_elem_set << "\n";
+  std::cout << "component: !!!! " << m_component << "\n";
 }
 
 template <typename T>
-AvgDispSubdomain<T>::~AvgDispSubdomain() {
+DispComp<T>::~DispComp() {
 }
 
-
 template <typename T>
-void AvgDispSubdomain<T>::before_elems(RCP<Disc> disc, int step) {
+void DispComp<T>::before_elems(RCP<Disc> disc, int step) {
+  this->m_num_dims = disc->num_dims();
   int const nsets = disc->num_elem_sets();
   m_elem_set_names.resize(nsets);
   for (int i = 0; i < nsets; ++i) {
@@ -25,7 +29,7 @@ void AvgDispSubdomain<T>::before_elems(RCP<Disc> disc, int step) {
 }
 
 template <typename T>
-void AvgDispSubdomain<T>::evaluate(
+void DispComp<T>::evaluate(
     int elem_set,
     int,
     RCP<GlobalResidual<T>> global,
@@ -41,15 +45,12 @@ void AvgDispSubdomain<T>::evaluate(
   if (es_name == m_elem_set) {
     static constexpr int disp_idx = 0;
     Vector<T> const u = global->vector_x(disp_idx);
-    for (int i = 0; i < this->m_num_dims; ++i) {
-      this->value_pt += u[i] * w * dv;
-    }
-    this->value_pt /= this->m_num_dims;
+    this->value_pt = u[m_component] * w * dv;
   }
 
 }
 
-template class AvgDispSubdomain<double>;
-template class AvgDispSubdomain<FADT>;
+template class DispComp<double>;
+template class DispComp<FADT>;
 
 }

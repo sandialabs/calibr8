@@ -1,6 +1,6 @@
 #pragma once
 
-//! \file avg_disp_subdomain.hpp
+//! \file disp_comp.hpp
 //! \brief The interface for average displacement QoIs over
 //!  a subdomain
 
@@ -10,20 +10,21 @@ namespace calibr8 {
 
 //! \brief The evalaution of an average displacement QoI
 template <typename T>
-class AvgDispSubdomain : public QoI<T> {
+class DispComp : public QoI<T> {
 
   private:
-    
+
+    int m_component;
     std::string m_elem_set;
     std::vector<std::string> m_elem_set_names;
 
   public:
 
     //! \brief The average displacement constructor
-    AvgDispSubdomain(ParameterList const& params);
+    DispComp(ParameterList const& params);
 
     //! \brief The average displacement destructor
-    ~AvgDispSubdomain();
+    ~DispComp();
 
     //! \brief Perform initializations before the loop over elements
     //! \param disc The discretization object
