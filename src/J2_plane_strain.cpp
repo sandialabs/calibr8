@@ -24,6 +24,8 @@ static ParameterList get_valid_material_params() {
   p.set<double>("nu", 0.);
   p.set<double>("K", 0.);
   p.set<double>("Y", 0.);
+  p.set<double>("Y_inf", 0.);
+  p.set<double>("delta", 0.);
   return p;
 }
 
@@ -65,7 +67,7 @@ J2_plane_strain<T>::J2_plane_strain(ParameterList const& inputs, int ndims) {
 template <typename T>
 void J2_plane_strain<T>::init_params() {
 
-  int const num_params = 4;
+  int const num_params = 6;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
 
@@ -74,6 +76,8 @@ void J2_plane_strain<T>::init_params() {
   this->m_param_names[1] = "nu";
   this->m_param_names[2] = "K";
   this->m_param_names[3] = "Y";
+  this->m_param_names[4] = "Y_inf";
+  this->m_param_names[5] = "delta";
 
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
@@ -90,6 +94,8 @@ void J2_plane_strain<T>::init_params() {
     this->m_param_values[es][1] = material_params.get<double>("nu");
     this->m_param_values[es][2] = material_params.get<double>("K");
     this->m_param_values[es][3] = material_params.get<double>("Y");
+    this->m_param_values[es][4] = material_params.get<double>("Y_inf");
+    this->m_param_values[es][5] = material_params.get<double>("delta");
   }
 
   this->m_active_indices.resize(1);
@@ -247,6 +253,8 @@ int J2_plane_strain<T>::evaluate(
   T const nu = this->m_params[1];
   T const K = this->m_params[2];
   T const Y = this->m_params[3];
+  T const Y_inf = this->m_params[4];
+  T const delta = this->m_params[5];
   T const mu = compute_mu(E, nu);
 
   Tensor<T> const zeta_old = this->sym_tensor_xi_prev(0);
@@ -273,7 +281,8 @@ int J2_plane_strain<T>::evaluate(
   T const s_mag = norm_s_3D(s_2D, s_zz);
   Tensor<T> const n_2D = s_2D / s_mag;
   T const n_zz = s_zz / s_mag;
-  T const sigma_yield = Y + K * alpha;
+  T const sigma_yield = Y + K * alpha + (Y_inf - Y)
+      * (1. - std::exp(-delta * alpha));
   T const f = s_mag - sqrt_23 * sigma_yield;
 
   Tensor<T> R_zeta;
@@ -287,7 +296,7 @@ int J2_plane_strain<T>::evaluate(
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
       R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
+      R_alpha = (s_mag - sqrt_23 * sigma_yield);
       R_zeta_zz = zeta_zz - zeta_zz_trial + 2. * dgam * Ie * n_zz;
       path = PLASTIC;
     }
@@ -309,7 +318,7 @@ int J2_plane_strain<T>::evaluate(
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
       R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
+      R_alpha = (s_mag - sqrt_23 * sigma_yield);
       R_zeta_zz = zeta_zz - zeta_zz_trial + 2. * dgam * Ie * n_zz;
     }
     // elastic step
