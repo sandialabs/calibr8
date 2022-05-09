@@ -101,6 +101,31 @@ void Primal::solve_at_step(int step, double t, double) {
 
     // add the increment to the current solution fields
     m_disc->add_to_soln(x, dx);
+
+    { // check the current resiudal value
+      // this is not optimized in any sense
+      m_state->la->resume_fill_A();
+      m_state->la->zero_all();
+      eval_forward_jacobian(m_state, m_disc, step);
+      apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
+      m_state->la->gather_A();
+      m_state->la->gather_b();
+      apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t);
+      double const R0 = abs_resid_norm;
+      double const R1 = m_state->la->norm_b();
+      double const psi0 = 0.5*R0*R0;
+      double const psi1 = 0.5*R1*R1;
+      if (R1 >= R0) {
+        print("newton increase, cutting alpha");
+        double const alpha = psi0/(psi0 + psi1);
+        // subtract dx and add alpha*dx to the solution
+        for (int i = 0 ; i < dx.size(); ++i) {
+          dx[i]->scale(alpha - 1.);
+        }
+        m_disc->add_to_soln(x, dx);
+      }
+    }
+
     iter++;
 
   }
