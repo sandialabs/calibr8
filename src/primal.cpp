@@ -105,7 +105,8 @@ void Primal::solve_at_step(int step, double t, double) {
     { // check the current resiudal value
       // this is not optimized in any sense
       m_state->la->resume_fill_A();
-      m_state->la->zero_all();
+      m_state->la->zero_A();
+      m_state->la->zero_b();
       eval_forward_jacobian(m_state, m_disc, step);
       apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
       m_state->la->gather_A();
@@ -116,11 +117,14 @@ void Primal::solve_at_step(int step, double t, double) {
       double const psi0 = 0.5*R0*R0;
       double const psi1 = 0.5*R1*R1;
       if (R1 >= R0) {
-        print("newton increase, cutting alpha");
         double const alpha = psi0/(psi0 + psi1);
+        if (do_print) {
+          print(" > residual increase, cutting by alpha=%.12e",alpha);
+        }
         // subtract dx and add alpha*dx to the solution
+        // (because dx was already added to the solution from the 'full' Newton step)
         for (int i = 0 ; i < dx.size(); ++i) {
-          dx[i]->scale(alpha - 1.);
+          dx[i]->scale(alpha-1.);
         }
         m_disc->add_to_soln(x, dx);
       }

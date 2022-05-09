@@ -92,6 +92,26 @@ void LinearAlg::assign_b() {
   }
 }
 
+void LinearAlg::zero_A() {
+  int const ngr = A[OWNED].size();
+  for (int distrib = 0; distrib < NUM_DISTRIB; ++distrib) {
+    for (int i = 0; i < ngr; ++i) {
+      for (int j = 0; j < ngr; ++j) {
+        A[distrib][i][j]->setAllToScalar(0.);
+      }
+    }
+  }
+}
+
+void LinearAlg::zero_b() {
+  int const ngr = b[OWNED].size();
+  for (int distrib = 0; distrib < NUM_DISTRIB; ++distrib) {
+    for (int i = 0; i < ngr; ++i) {
+      b[distrib][i]->putScalar(0.);
+    }
+  }
+}
+
 void LinearAlg::zero_all() {
   int const ngr = A[OWNED].size();
   for (int distrib = 0; distrib < NUM_DISTRIB; ++distrib) {
