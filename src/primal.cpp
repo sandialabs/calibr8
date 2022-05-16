@@ -102,7 +102,13 @@ void Primal::solve_at_step(int step, double t, double) {
     // add the increment to the current solution fields
     m_disc->add_to_soln(x, dx);
 
-    { // check the current residual value
+    {
+      // backtracking line search parameters
+      int const max_line_search_evals = 5;
+      double const beta = 1.0e-4;
+      double const eta = 0.1;
+
+      // check the current residual value
       // this is not optimized in any sense
       m_state->la->resume_fill_A();
       m_state->la->zero_A();
@@ -117,21 +123,14 @@ void Primal::solve_at_step(int step, double t, double) {
       double const psi_0 = 0.5 * R_0 * R_0;
       double const psi_0_deriv = -2. * psi_0;
 
+      int j = 1;
       double alpha_prev = 1.;
       double alpha_j = 1.;
       double R_j = m_state->la->norm_b();
       double psi_j = 0.5 * R_j * R_j;
 
+      while (psi_j >= ((1. - 2. * beta * alpha_j) * psi_0)) {
 
-      // Backtracking line search parameters
-      double const beta = 1.0e-4;
-      double const eta = 0.1;
-      int const max_line_search_evals = 5;
-      int j = 0;
-
-      if (psi_j >= (1. - 2. * beta * alpha_j) * psi_0) {
-
-        ++j;
         alpha_prev = alpha_j;
         alpha_j  = std::max(eta * alpha_j,
             -(std::pow(alpha_j, 2) * psi_0_deriv) /
@@ -149,8 +148,10 @@ void Primal::solve_at_step(int step, double t, double) {
         m_disc->add_to_soln(x, dx);
 
         if (j == max_line_search_evals) {
-            break;
+          break;
         }
+
+        ++j;
 
         m_state->la->resume_fill_A();
         m_state->la->zero_A();
