@@ -40,8 +40,9 @@ class LinearAlg {
     void gather_A();
 
     //! \brief Perform an MPI reduction of the vectors b
-    //! \details Used with the directive ADD
-    void gather_x();
+    //! \details If sum = true, then the directive ADD is used,
+    //! if it is false, then the directive INSERT is used
+    void gather_x(bool sum = true);
 
     //! \brief Perform an MPI reduction of the vectors b
     //! \details Used with the directive ADD
