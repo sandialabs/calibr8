@@ -12,7 +12,7 @@ int get_num_eqs(int type, int ndims) {
   int neqs = -1;
   if (type == SCALAR) neqs = 1;
   if (type == VECTOR) neqs = ndims;
-  if (type == SYM_TENSOR) neqs = 2 * ndims;
+  if (type == SYM_TENSOR) neqs = (ndims+1)*(ndims)/2;
   if (type == TENSOR) neqs = ndims * ndims;
   return neqs;
 }

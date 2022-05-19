@@ -40,8 +40,9 @@ class LinearAlg {
     void gather_A();
 
     //! \brief Perform an MPI reduction of the vectors b
-    //! \details Used with the directive ADD
-    void gather_x();
+    //! \details If sum = true, then the directive ADD is used,
+    //! if it is false, then the directive INSERT is used
+    void gather_x(bool sum = true);
 
     //! \brief Perform an MPI reduction of the vectors b
     //! \details Used with the directive ADD
@@ -51,7 +52,13 @@ class LinearAlg {
     //! \details Used with the directive
     void assign_b();
 
-    //! \brief Zero the solution vector
+    //! \brief Zero the matrices
+    void zero_A();
+
+    //! \brief Zero the right hand side vvectors b
+    void zero_b();
+
+    //! \brief Zero all linear algebra containers
     void zero_all();
 
     //! \brief Scale the b vectors by a value

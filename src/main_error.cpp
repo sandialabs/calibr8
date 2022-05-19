@@ -27,7 +27,7 @@ class Driver {
     double solve_primal();
     void prepare_fine_space(bool truth);
     void solve_adjoint();
-    void estimate_error();
+    double estimate_error();
     double sum_error_estimate();
     void set_error();
     void clean_up_fine_space();
@@ -105,7 +105,7 @@ void Driver::solve_adjoint() {
   m_adjoint = Teuchos::null;
 }
 
-void Driver::estimate_error() {
+double Driver::estimate_error() {
   print("ESTIMATING ERROR");
   apf::Mesh* m = m_nested->apf_mesh();
   Array1D<RCP<VectorT>>& z = m_state->la->x[OWNED];
@@ -131,15 +131,15 @@ void Driver::estimate_error() {
     eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
     apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
     m_state->la->gather_b();
-    m_state->la->gather_x();
+    m_state->la->gather_x(/*sum=*/false);
     apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, /*is_adjoint=*/true);
     t += dt;
     for (int i = 0; i < m_state->residuals->global->num_residuals(); ++i) {
-      e += (R[i]->dot(*(z[i])));
+      e += R[i]->dot(*(z[i]));
     }
   }
-  e = PCU_Add_Double(e);
   print("eta ~ %.16e", e);
+  return e;
 }
 
 double Driver::sum_error_estimate() {
@@ -294,16 +294,17 @@ void Driver::drive() {
   for (int cycle = 0; cycle < m_ncycles; ++cycle) {
     print("****** solve-adapt cycle: %d", cycle);
     double const J = solve_primal();
-    double nnodes = m_state->disc->apf_mesh()->count(0);
+    double nnodes = apf::countOwned(m_state->disc->apf_mesh(), 0);
     nnodes = PCU_Add_Double(nnodes);
     m_J_H.push_back(J);
     m_nnodes.push_back(nnodes);
     write_primal_files(m_state, cycle, m_params);
     prepare_fine_space();
     solve_adjoint();
-    estimate_error();
-    double const eta = sum_error_estimate();
-    m_eta.push_back(eta);
+    double const eta1 = estimate_error();
+    double const eta2 = sum_error_estimate();
+    (void)eta2;
+    m_eta.push_back(eta1);
     write_nested_files(m_nested, cycle, m_params);
     set_error();
     clean_up_fine_space();

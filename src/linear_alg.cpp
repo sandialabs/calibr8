@@ -62,13 +62,16 @@ void LinearAlg::gather_A() {
   }
 }
 
-void LinearAlg::gather_x() {
+void LinearAlg::gather_x(bool sum) {
+  Tpetra::CombineMode mode;
+  if (sum) mode = Tpetra::ADD;
+  else mode = Tpetra::INSERT;
   int const ngr = x[OWNED].size();
   for (int i = 0; i < ngr; ++i) {
     RCP<VectorT> x_i_owned = x[OWNED][i];
     RCP<VectorT> x_i_ghost = x[GHOST][i];
     RCP<const ExportT> exporter = m_disc->exporter(i);
-    x_i_owned->doExport(*x_i_ghost, *exporter, Tpetra::ADD);
+    x_i_owned->doExport(*x_i_ghost, *exporter, mode);
   }
 }
 
@@ -89,6 +92,26 @@ void LinearAlg::assign_b() {
     RCP<VectorT> b_i_ghost = b[GHOST][i];
     RCP<const ExportT> exporter = m_disc->exporter(i);
     b_i_owned->doExport(*b_i_ghost, *exporter, Tpetra::INSERT);
+  }
+}
+
+void LinearAlg::zero_A() {
+  int const ngr = A[OWNED].size();
+  for (int distrib = 0; distrib < NUM_DISTRIB; ++distrib) {
+    for (int i = 0; i < ngr; ++i) {
+      for (int j = 0; j < ngr; ++j) {
+        A[distrib][i][j]->setAllToScalar(0.);
+      }
+    }
+  }
+}
+
+void LinearAlg::zero_b() {
+  int const ngr = b[OWNED].size();
+  for (int distrib = 0; distrib < NUM_DISTRIB; ++distrib) {
+    for (int i = 0; i < ngr; ++i) {
+      b[distrib][i]->putScalar(0.);
+    }
   }
 }
 

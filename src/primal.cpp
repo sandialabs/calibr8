@@ -101,6 +101,73 @@ void Primal::solve_at_step(int step, double t, double) {
 
     // add the increment to the current solution fields
     m_disc->add_to_soln(x, dx);
+
+    {
+      // backtracking line search parameters
+      int const max_line_search_evals = 5;
+      double const beta = 1.0e-4;
+      double const eta = 0.1;
+
+      // check the current residual value
+      // this is not optimized in any sense
+      m_state->la->resume_fill_A();
+      m_state->la->zero_A();
+      m_state->la->zero_b();
+      eval_forward_jacobian(m_state, m_disc, step);
+      apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
+      m_state->la->gather_A();
+      m_state->la->gather_b();
+      apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t);
+
+      double const R_0 = abs_resid_norm;
+      double const psi_0 = 0.5 * R_0 * R_0;
+      double const psi_0_deriv = -2. * psi_0;
+
+      int j = 1;
+      double alpha_prev = 1.;
+      double alpha_j = 1.;
+      double R_j = m_state->la->norm_b();
+      double psi_j = 0.5 * R_j * R_j;
+
+      while (psi_j >= ((1. - 2. * beta * alpha_j) * psi_0)) {
+
+        alpha_prev = alpha_j;
+        alpha_j  = std::max(eta * alpha_j,
+            -(std::pow(alpha_j, 2) * psi_0_deriv) /
+             (2. * (psi_j - psi_0 - alpha_j * psi_0_deriv)));
+
+        if (do_print) {
+          print(" > residual increase -- line search alpha_%d = %.2e",
+              j, alpha_j);
+        }
+
+        for (int i = 0 ; i < dx.size(); ++i) {
+          dx[i]->scale(alpha_j - alpha_prev);
+        }
+
+        m_disc->add_to_soln(x, dx);
+
+        if (j == max_line_search_evals) {
+          break;
+        }
+
+        ++j;
+
+        m_state->la->resume_fill_A();
+        m_state->la->zero_A();
+        m_state->la->zero_b();
+        eval_forward_jacobian(m_state, m_disc, step);
+        apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
+        m_state->la->gather_A();
+        m_state->la->gather_b();
+        apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t);
+
+        R_j = m_state->la->norm_b();
+        psi_j = 0.5 * R_j * R_j;
+
+      }
+    }
+
     iter++;
 
   }
