@@ -77,7 +77,7 @@ void Primal::solve_at_step(int step, double t, double) {
     m_state->la->gather_b();  // gather the residual R
 
     // apply Dirichlet boundary conditions
-    apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t);
+    apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t, step);
 
     // check if the residual has converged
     double const abs_resid_norm = m_state->la->norm_b();
@@ -117,7 +117,7 @@ void Primal::solve_at_step(int step, double t, double) {
       apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
       m_state->la->gather_A();
       m_state->la->gather_b();
-      apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t);
+      apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t, step);
 
       double const R_0 = abs_resid_norm;
       double const psi_0 = 0.5 * R_0 * R_0;
@@ -160,7 +160,7 @@ void Primal::solve_at_step(int step, double t, double) {
         apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
         m_state->la->gather_A();
         m_state->la->gather_b();
-        apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t);
+        apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t, step);
 
         R_j = m_state->la->norm_b();
         psi_j = 0.5 * R_j * R_j;

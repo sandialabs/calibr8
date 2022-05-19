@@ -132,7 +132,8 @@ double Driver::estimate_error() {
     apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
     m_state->la->gather_b();
     m_state->la->gather_x(/*sum=*/false);
-    apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, /*is_adjoint=*/true);
+    apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, step,
+        /*is_adjoint=*/true);
     t += dt;
     for (int i = 0; i < m_state->residuals->global->num_residuals(); ++i) {
       e += R[i]->dot(*(z[i]));
