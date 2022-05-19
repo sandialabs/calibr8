@@ -31,10 +31,11 @@ cube hyperelasticity:
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
-    bc 1: [0, 0, xmin, 0.0]
-    bc 2: [0, 1, ymin, 0.0]
-    bc 3: [0, 2, zmin, 0.0]
-    bc 4: [0, 1, ymax, 0.001 * t]
+    expression:
+      bc 1: [0, 0, xmin, 0.0]
+      bc 2: [0, 1, ymin, 0.0]
+      bc 3: [0, 2, zmin, 0.0]
+      bc 4: [0, 1, ymax, 0.001 * t]
 
   quantity of interest:
     type: 'average displacement'
