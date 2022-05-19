@@ -99,10 +99,9 @@ Disc::Disc(ParameterList const& params) {
   m_is_null_model = is_null_model(params);
   destroy_existing_numberings(m_mesh);
   m_sets = read_sets(m_mesh, params);
-  //TODO: this should really be called, maybe make an optional
-  // input so that it doesn't screw with calibration workflows
+  // lol - be aware that this is called
+  apf::reorderMdsMesh(m_mesh);
   if (!m_is_null_model) {
-    apf::reorderMdsMesh(m_mesh);
     m_mesh->verify();
   }
   initialize();

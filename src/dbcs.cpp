@@ -144,8 +144,6 @@ void apply_field_primal_dbcs(
   Teuchos::Array<LO> indices;
   Array1D<double> sol_comps(3);
 
-  // grab the field (0-based indexing)
-  Array1D<std::string> const comp_strings = {"x", "y", "z"};
   apf::Mesh* m = disc->apf_mesh();
 
   // loop through all the dirichlet boundary conditions
@@ -159,7 +157,7 @@ void apply_field_primal_dbcs(
     std::string const set = a[2];
     NodeSet const& nodes = disc->nodes(set);
 
-    std::string name = prefix + comp_strings[eq] + "_" + std::to_string(step - 1);
+    std::string name = prefix + "_" + std::to_string(step);
     apf::Field* u_meas = m->findField(name.c_str());
     ALWAYS_ASSERT(u_meas);
 
@@ -177,7 +175,9 @@ void apply_field_primal_dbcs(
       apf::MeshEntity* e = n.entity;
       m->getPoint(e, 0, x);
 
-      double const v = apf::getScalar(u_meas, n.entity, n.node);
+      apf::Vector3 uval;
+      apf::getVector(u_meas, n.entity, n.node, uval);
+      double const v = uval[eq];
 
       // loop over the blocks in the column direction
       for (int j = 0; j < num_resids; ++j) {
@@ -238,7 +238,7 @@ void apply_primal_dbcs(
 
   if (dbcs.isSublist("field")) {
     auto field_dbcs = dbcs.sublist("field");
-    apply_field_primal_dbcs(field_dbcs, disc, dR_dx, R, x, t, step, "u",
+    apply_field_primal_dbcs(field_dbcs, disc, dR_dx, R, x, t, step, "measured",
         is_adjoint);
   }
 }
