@@ -1,3 +1,4 @@
+#include <PCU.h>
 #include "adjoint.hpp"
 #include "adjoint_objective.hpp"
 #include "control.hpp"
@@ -32,7 +33,7 @@ double Adjoint_Objective::value(ROL::Vector<double> const& p, double&) {
     J += eval_qoi(m_state, m_state->disc, step);
   }
   m_state->disc->destroy_primal();
-
+  J = PCU_Add_Double(J);
   return J;
 }
 
@@ -75,6 +76,8 @@ void Adjoint_Objective::gradient(
       grad[i] += grad_at_step[i];
     }
   }
+
+  PCU_Add_Doubles(grad.data(), m_num_opt_params);
 
   Array1D<double> const canonical_grad = transform_gradient(grad);
 

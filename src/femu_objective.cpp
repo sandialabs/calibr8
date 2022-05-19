@@ -1,3 +1,4 @@
+#include <PCU.h>
 #include "control.hpp"
 #include "evaluations.hpp"
 #include "femu_objective.hpp"
@@ -28,6 +29,7 @@ double FEMU_Objective::value(ROL::Vector<double> const& p, double&) {
     J += eval_qoi(m_state, m_state->disc, step);
   }
   m_state->disc->destroy_primal();
+  PCU_Add_Double(J);
   return J;
 }
 
