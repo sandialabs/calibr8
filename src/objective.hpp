@@ -43,9 +43,15 @@ class Objective : public ROL::Objective<double> {
     RCP<State> m_state;
     RCP<Primal> m_primal;
 
+    bool param_diff(std::vector<double> const&);
+
     Array1D<double> m_lower_bounds;
     Array1D<double> m_upper_bounds;
     int m_num_opt_params;
+
+    double m_J_old = 0.;
+    std::vector<double> m_p_old;
+    double const m_difftol = 1.0e-15;
 
 };
 

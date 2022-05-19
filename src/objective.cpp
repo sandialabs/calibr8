@@ -14,7 +14,9 @@ Objective::Objective(RCP<ParameterList> params) {
   setup_opt_params(params->sublist("inverse", true));
 }
 
-Objective::~Objective() {}
+Objective::~Objective() {
+  m_state->disc->destroy_primal();
+}
 
 Array1D<double> Objective::transform_params(Array1D<double> const& params,
     bool scale_to_canonical) const {
@@ -84,6 +86,13 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
   }
   m_state->residuals->local->set_active_indices(active_indices);
   m_state->d_residuals->local->set_active_indices(active_indices);
+
+  // initialize p_old
+  m_p_old.resize(m_num_opt_params);
+  for (int i = 0; i < m_num_opt_params; ++i) {
+    m_p_old[i] = 2.;
+  }
+
 }
 
 Array1D<double> Objective::transform_gradient(
@@ -106,6 +115,19 @@ ROL::Ptr<Array1D<double> const> Objective::getVector(V const& vec) {
 
 ROL::Ptr<Array1D<double>> Objective::getVector(V& vec) {
   return dynamic_cast<SV&>(vec).getVector();
+}
+
+bool Objective::param_diff(std::vector<double> const& p_new) {
+  double diffnorm = 0.0;
+  for (int i = 0; i < m_num_opt_params; ++i) {
+    diffnorm += pow(p_new[i] - m_p_old[i] , 2);
+    m_p_old[i] = p_new[i];
+  }
+  diffnorm = sqrt(diffnorm);
+  if (diffnorm < m_difftol)
+    return false;
+  else
+    return true;
 }
 
 }
