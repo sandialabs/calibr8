@@ -100,8 +100,8 @@ Disc::Disc(ParameterList const& params) {
   destroy_existing_numberings(m_mesh);
   m_sets = read_sets(m_mesh, params);
   // lol - be aware that this is called
-  apf::reorderMdsMesh(m_mesh);
   if (!m_is_null_model) {
+    apf::reorderMdsMesh(m_mesh);
     m_mesh->verify();
   }
   initialize();
@@ -464,12 +464,18 @@ void Disc::compute_derived_node_sets() {
   for (int i = 0; i < m_num_node_sets; ++i) {
     std::string const name = node_set_name(i);
     lists[name].unique();
-    int const num_nodes = lists[name].size();
     auto const& list = lists[name];
+    std::vector<apf::MeshEntity*> owned_verts;
+    for (auto vert : list) {
+      if (m_mesh->isOwned(vert)) {
+        owned_verts.push_back(vert);
+      }
+    }
+    int const num_nodes = owned_verts.size();
     auto& node_set = m_node_sets[name];
     node_set.resize(num_nodes);
     int n = 0;
-    for (apf::MeshEntity* vert : list) {
+    for (apf::MeshEntity* vert : owned_verts) {
       node_set[n] = apf::Node(vert, 0);
       ++n;
     }
