@@ -463,8 +463,9 @@ void Disc::compute_derived_node_sets() {
 
   for (int i = 0; i < m_num_node_sets; ++i) {
     std::string const name = node_set_name(i);
-    lists[name].unique();
-    auto const& list = lists[name];
+    auto& list = lists[name];
+    list.sort();
+    list.unique();
     std::vector<apf::MeshEntity*> owned_verts;
     for (auto vert : list) {
       if (m_mesh->isOwned(vert)) {
