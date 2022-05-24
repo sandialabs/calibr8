@@ -5,6 +5,7 @@
 #include "disp_comp.hpp"
 #include "fad.hpp"
 #include "load_mismatch.hpp"
+#include "normal_traction.hpp"
 #include "qoi.hpp"
 #include "surface_mismatch.hpp"
 
@@ -143,6 +144,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
     return rcp(new LoadMismatch<T>(params));
   } else if (type == "calibration") {
     return rcp(new Calibration<T>(params));
+  } else if (type == "normal traction") {
+    return rcp(new NormalTraction<T>(params));
   } else {
     return Teuchos::null;
   }

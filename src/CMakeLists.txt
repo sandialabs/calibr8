@@ -24,6 +24,7 @@ set(CALIBR8_SOURCES
   mechanics.cpp
   mesh_size.cpp
   nested.cpp
+  normal_traction.cpp
   objective.cpp
   primal.cpp
   qoi.cpp
