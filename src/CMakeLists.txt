@@ -8,6 +8,7 @@ set(CALIBR8_SOURCES
   dbcs.cpp
   disc.cpp
   disp_comp.cpp
+  elastic.cpp
   error_weight.cpp
   evaluations.cpp
   femu_objective.cpp

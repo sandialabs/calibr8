@@ -21,4 +21,12 @@ T compute_kappa(T const& E, T const& nu) {
   return E / (3. * (1. - 2. * ( nu)));
 }
 
+//! \brief Compute lmabda
+//! \param E The elastic modulus
+//! \param nu Poisson's ratio
+template <typename T>
+T compute_lambda(T const& E, T const& nu) {
+  return E*nu/((1.+nu)*(1.-2.*nu));
+}
+
 }

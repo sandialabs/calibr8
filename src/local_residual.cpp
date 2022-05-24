@@ -1,5 +1,6 @@
 #include "defines.hpp"
 #include "disc.hpp"
+#include "elastic.hpp"
 #include "fad.hpp"
 #include "J2.hpp"
 #include "J2_plane_strain.hpp"
@@ -702,7 +703,9 @@ RCP<LocalResidual<T>> create_local_residual(
     ParameterList const& params,
     int ndims) {
   std::string const type = params.get<std::string>("type");
-  if (type == "J2") {
+  if (type == "elastic") {
+    return rcp(new Elastic<T>(params, ndims));
+  } else if (type == "J2") {
     return rcp(new J2<T>(params, ndims));
   } else if (type == "J2_plane_strain") {
     return rcp(new J2_plane_strain<T>(params, ndims));
