@@ -47,11 +47,17 @@ class Solver {
     bool m_eval_qoi = false;
     bool m_eval_regression = false;
     bool m_write_synthetic = true;
+    bool m_write_measured = false;
 };
 
 static bool should_write_synthetic(RCP<ParameterList> params) {
   ParameterList problem_params = params->sublist("problem", true);
   return problem_params.get<bool>("write synthetic", false);
+}
+
+static bool should_write_measured(RCP<ParameterList> params) {
+  ParameterList problem_params = params->sublist("problem", true);
+  return problem_params.get<bool>("write measured", false);
 }
 
 Solver::Solver(std::string const& input_file) {
@@ -64,6 +70,7 @@ Solver::Solver(std::string const& input_file) {
   if (m_state->qoi != Teuchos::null) m_eval_qoi = true;
   if (m_params->isSublist("regression")) m_eval_regression = true;
   m_write_synthetic = should_write_synthetic(m_params);
+  m_write_measured = should_write_measured(m_params);
 }
 
 std::string Solver::base_name() {
@@ -121,9 +128,23 @@ void Solver::write_at_step(int step, bool has_adjoint) {
   // some mechanics specific stuff below
   apf::Field* sigma = eval_cauchy(m_state, step);
   names.push_back("sigma");
+  if (m_write_measured) {
+    std::string const meas_name = "measured";
+    std::string const name_step = meas_name + "_" + std::to_string(step);
+    apf::Field* f = mesh->findField(name_step.c_str());
+    apf::renameField(f, meas_name.c_str());
+    names.push_back(meas_name);
+  }
   apf::writeVtkFiles(out_name.c_str(), mesh, names);
   names.pop_back();
   apf::destroyField(sigma);
+  if (m_write_measured) {
+    std::string const meas_name = "measured";
+    std::string const name_step = meas_name + "_" + std::to_string(step);
+    apf::Field* f = mesh->findField(meas_name.c_str());
+    apf::renameField(f, name_step.c_str());
+    names.pop_back();
+  }
   for (std::string const& name : names) {
     std::string const name_step = name + "_" + std::to_string(step);
     apf::Field* f = mesh->findField(name.c_str());

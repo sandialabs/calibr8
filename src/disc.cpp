@@ -100,8 +100,9 @@ Disc::Disc(ParameterList const& params) {
   destroy_existing_numberings(m_mesh);
   m_sets = read_sets(m_mesh, params);
   // lol - be aware that this is called
+  apf::reorderMdsMesh(m_mesh);
+  // skip because of problems with non-manifold geometries
   if (!m_is_null_model) {
-    apf::reorderMdsMesh(m_mesh);
     m_mesh->verify();
   }
   initialize();

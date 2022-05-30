@@ -119,7 +119,7 @@ void Adjoint::solve_at_step(int step) {
 
       // apply Dirichlet boundary conditions
       // DTS: should be renamed to apply dbcs?
-      apply_primal_dbcs(dbcs, m_disc, dR_dxT, rhs, eta, 0., is_adjoint);
+      apply_primal_dbcs(dbcs, m_disc, dR_dxT, rhs, eta, 0., step, is_adjoint);
 
       // prepare the linear system for solving
       m_state->la->complete_fill_A(); // complete filling dR_dx
