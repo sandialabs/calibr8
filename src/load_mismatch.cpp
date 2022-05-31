@@ -172,6 +172,7 @@ void LoadMismatch<T>::preprocess_finalize(int step) {
   if (m_read_load) {
     load_meas = m_load_data[step - 1];
   }
+  m_total_load = PCU_Add_Double(m_total_load);
   m_load_mismatch = m_total_load - load_meas;
   // reset the total load
   m_total_load = 0.;
@@ -179,7 +180,7 @@ void LoadMismatch<T>::preprocess_finalize(int step) {
 
 template <typename T>
 void LoadMismatch<T>::postprocess(double& J) {
-  J += 0.5 * std::pow(m_load_mismatch, 2);
+  J += 0.5 * std::pow(m_load_mismatch, 2) / PCU_Comm_Peers();
 }
 
 template <typename T>
