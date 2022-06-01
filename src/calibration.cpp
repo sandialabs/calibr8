@@ -230,7 +230,7 @@ void Calibration<T>::preprocess_finalize(int step) {
   if (m_read_load) {
     load_meas = m_load_data[step - 1];
   }
-  //print("meas load at step %d = %.16e", step, load_meas);
+  m_total_load = PCU_Add_Double(m_total_load);
   m_load_mismatch = m_total_load - load_meas;
   // reset the total load
   m_total_load = 0.;
@@ -238,10 +238,8 @@ void Calibration<T>::preprocess_finalize(int step) {
 
 template <typename T>
 void Calibration<T>::postprocess(double& J) {
-  //print("J_disp = %.16e", J);
   double J_forc = 0.5 * m_balance_factor * std::pow(m_load_mismatch, 2);
-  //print("J_forc = %.16e", J_forc);
-  J += J_forc;
+  J += J_forc / PCU_Comm_Peers();
 }
 
 template <typename T>
