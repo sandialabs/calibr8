@@ -126,11 +126,7 @@ void Disc::initialize() {
   m_num_elems = m_mesh->count(m_num_dims);
   m_num_elem_sets = m_sets->models[m_num_dims].size();
   m_num_side_sets = m_sets->models[m_num_dims-1].size();
-  if (!m_is_null_model) {
-    m_num_node_sets = m_sets->models[0].size();
-  } else {
-    m_num_node_sets = m_num_side_sets;
-  }
+  m_num_node_sets = m_sets->models[0].size();
   m_gv_shape = apf::getLagrange(1);
   m_lv_shape = apf::getIPFitShape(m_num_dims, 1);
   m_elem_type = (m_num_dims == 3) ? apf::Mesh::TET : apf::Mesh::TRIANGLE;
@@ -151,11 +147,7 @@ std::string Disc::side_set_name(int ss_idx) const {
 
 std::string Disc::node_set_name(int ns_idx) const {
   DEBUG_ASSERT(ns_idx < m_num_node_sets);
-  if (!m_is_null_model) {
-    return m_sets->models[0][ns_idx]->stkName;
-  } else {
-    return side_set_name(ns_idx);
-  }
+  return m_sets->models[0][ns_idx]->stkName;
 }
 
 int Disc::elem_set_idx(std::string const& esn) const {
@@ -181,19 +173,14 @@ int Disc::side_set_idx(std::string const& ssn) const {
 }
 
 int Disc::node_set_idx(std::string const& nsn) const {
-  if (!m_is_null_model) {
-    int idx = -1;
-    for (int i = 0; i < m_num_node_sets; ++i) {
-      if (nsn == m_sets->models[0][i]->stkName) {
-        idx = i;
-      }
+  int idx = -1;
+  for (int i = 0; i < m_num_node_sets; ++i) {
+    if (nsn == m_sets->models[0][i]->stkName) {
+      idx = i;
     }
-    DEBUG_ASSERT(idx > -1);
-    return idx;
   }
-  else {
-    return side_set_idx(nsn);
-  }
+  DEBUG_ASSERT(idx > -1);
+  return idx;
 }
 
 ElemSet const& Disc::elems(std::string const& name) {
@@ -437,49 +424,25 @@ void Disc::compute_node_sets() {
   }
 }
 
-void Disc::compute_derived_node_sets() {
-  std::map<std::string, std::list<apf::MeshEntity*>> lists;
+void Disc::compute_field_node_sets() {
   for (int i = 0; i < m_num_node_sets; ++i) {
     resize(m_node_sets[ node_set_name(i) ], 0);
-    lists[node_set_name(i)].resize(0);
   }
-  apf::Downward verts;
-  apf::MeshEntity* side;
-  apf::MeshIterator* sides = m_mesh->begin(m_num_dims - 1);
-  while ((side = m_mesh->iterate(sides))) {
-    apf::ModelEntity* me = m_mesh->toModel(side);
-    if (!m_sets->invMaps[m_num_dims - 1].count(me)) {
-      continue;
-    }
-    apf::StkModel* stkm = m_sets->invMaps[m_num_dims - 1][me];
-    std::string const name = stkm->stkName;
-    int nverts = m_mesh->getDownward(side, 0, verts);
-    for (int v = 0; v < nverts; ++v) {
-      lists[name].push_back(verts[v]);
-    }
-  }
-
-  m_mesh->end(sides);
-
   for (int i = 0; i < m_num_node_sets; ++i) {
     std::string const name = node_set_name(i);
-    auto& list = lists[name];
-    list.sort();
-    list.unique();
-    std::vector<apf::MeshEntity*> owned_verts;
-    for (auto vert : list) {
-      if (m_mesh->isOwned(vert)) {
-        owned_verts.push_back(vert);
+    std::string const fname = name + "_0";
+    apf::Field* ns_field = m_mesh->findField(fname.c_str());
+    apf::DynamicArray<apf::Node> owned;
+    apf::getNodes(m_owned_nmbr, owned);
+    for (size_t n = 0; n < owned.size(); ++n) {
+      apf::Node const node = owned[n];
+      apf::MeshEntity* ent = node.entity;
+      double const val = apf::getScalar(ns_field, ent, 0);
+      if (val > 0.) {
+        m_node_sets[name].push_back(node);
       }
     }
-    int const num_nodes = owned_verts.size();
-    auto& node_set = m_node_sets[name];
-    node_set.resize(num_nodes);
-    int n = 0;
-    for (apf::MeshEntity* vert : owned_verts) {
-      node_set[n] = apf::Node(vert, 0);
-      ++n;
-    }
+    apf::destroyField(ns_field);
   }
 }
 
@@ -498,7 +461,7 @@ void Disc::build_data(int num_residuals, Array1D<int> const& num_eqs) {
   if (!m_is_null_model) {
     compute_node_sets();
   } else {
-    compute_derived_node_sets();
+    compute_field_node_sets();
   }
 }
 

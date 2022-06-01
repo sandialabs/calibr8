@@ -6,7 +6,7 @@ cube hyperelasticity:
     step size: 1.
 
   discretization:
-    geom file: '.null'
+    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.dmg'
     mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.smb'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.txt'
 

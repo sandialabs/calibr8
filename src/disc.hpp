@@ -313,7 +313,7 @@ class Disc {
     void compute_elem_sets();
     void compute_side_sets();
     void compute_node_sets();
-    void compute_derived_node_sets();
+    void compute_field_node_sets();
 
     Array1D<size_t> compute_nentries(int i, int j);
     void compute_ghost_graph(int i, int j);
