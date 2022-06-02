@@ -7,30 +7,32 @@
 #include <lionPrint.h>
 #include <parma.h>
 #include <pcu_util.h>
+#include <sstream>
 #include <cstdlib>
 
 const char* modelFile = 0;
 const char* meshFile = 0;
+const char* nodeSets = 0;
+int numVectorFields = 0;
 const char* outFile = 0;
 
 void getConfig(int argc, char** argv) {
-  if (argc != 4) {
+  if (argc != 6) {
     if (!PCU_Comm_Self()) {
-      printf("Usage: %s <model> <mesh> <outMesh>\n", argv[0]);
+      printf("Usage: %s <model> <mesh> <nodeset1,nodeset2,...,nodesetN> <outMesh>\n", argv[0]);
     }
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
   modelFile = argv[1];
   meshFile = argv[2];
-  outFile = argv[3];
+  nodeSets = argv[3];
+  numVectorFields = atoi(argv[4]);
+  outFile = argv[5];
 }
 
 void vectorize_scalar_fields(apf::Mesh2* m) {
-  int const nscalar_fields = m->countFields();
-  PCU_ALWAYS_ASSERT((nscalar_fields % 3) == 0);
-  int const nvector_fields = nscalar_fields / 3;
-  for (int step = 0; step < nvector_fields; ++step) {
+  for (int step = 0; step < numVectorFields; ++step) {
     std::string const ux_name = "ux_" + std::to_string(step);
     std::string const uy_name = "uy_" + std::to_string(step);
     std::string const uz_name = "uz_" + std::to_string(step);
@@ -57,6 +59,22 @@ void vectorize_scalar_fields(apf::Mesh2* m) {
     std::string const u_name = "measured_0";
     apf::Field* u = apf::createFieldOn(m, u_name.c_str(), apf::VECTOR);
     apf::zeroField(u);
+  }
+  std::string const comma_delimited_node_sets(nodeSets);
+  std::stringstream ss(comma_delimited_node_sets);
+  std::vector<std::string> node_set_names;
+  std::string node_set_name;
+  while (std::getline(ss, node_set_name, ',')) {
+    node_set_names.push_back(node_set_name);
+  }
+  printf("Removing extraneous node set fields:\n");
+  for (auto node_set_name : node_set_names) {
+    printf("  %s\n", node_set_name.c_str());
+    for (int step = 1; step < numVectorFields; ++step) {
+      std::string const fname = node_set_name + "_" + std::to_string(step);
+      apf::Field* node_set_field = m->findField(fname.c_str());
+      apf::destroyField(node_set_field);
+    }
   }
 }
 
