@@ -238,8 +238,10 @@ void Calibration<T>::preprocess_finalize(int step) {
 
 template <typename T>
 void Calibration<T>::postprocess(double& J) {
+  J = PCU_Add_Double(J);
   double J_forc = 0.5 * m_balance_factor * std::pow(m_load_mismatch, 2);
-  J += J_forc / PCU_Comm_Peers();
+  J += J_forc;
+  J /= PCU_Comm_Peers();
 }
 
 template <typename T>
@@ -270,6 +272,8 @@ void Calibration<double>::evaluate(
     apf::Vector3 const& iota_input,
     double,
     double) {
+
+  this->initialize_value_pt();
 
   // get the id of the facet wrt element if this facet is on the QoI side
   // do not evaluate if the facet is not adjacent to the QoI side
