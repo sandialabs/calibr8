@@ -114,7 +114,7 @@ Tensor<T> Elastic<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   T const kappa = compute_kappa(E, nu);
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const dev_sigma = this->dev_cauchy(global);
-  Tensor<T> const sigma = dev_sigma - p*I - 3.*kappa*cte*delta_T*I;
+  Tensor<T> const sigma = dev_sigma - p*I;
   return sigma;
 }
 

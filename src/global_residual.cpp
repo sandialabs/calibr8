@@ -5,6 +5,7 @@
 #include "global_residual.hpp"
 #include "macros.hpp"
 #include "mechanics.hpp"
+#include "thermoelastic.hpp"
 
 namespace calibr8 {
 
@@ -528,6 +529,9 @@ RCP<GlobalResidual<T>> create_global_residual(
   std::string const type = params.get<std::string>("type");
   if (type == "mechanics") {
     return rcp(new Mechanics<T>(params, ndims));
+  }
+  else if (type == "thermoelastic") {
+    return rcp(new Thermoelastic<T>(params, ndims));
   } else {
     return Teuchos::null;
   }
