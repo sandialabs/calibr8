@@ -17,6 +17,12 @@ Calibration<T>::Calibration(ParameterList const& params) {
   m_side_set_load = params.get<std::string>("load side set");
   m_write_load = params.isParameter("load out file");
   m_read_load = params.isParameter("load input file");
+  m_has_weights = params.isParameter("displacement weights");
+  if (m_has_weights) {
+    m_weights =
+        params.get<Teuchos::Array<double>>("displacement weights").toVector();
+    ALWAYS_ASSERT(m_weights.size() == 3);
+  }
   if (m_write_load) m_load_out_file = params.get<std::string>("load out file");
   if (m_read_load) m_load_in_file = params.get<std::string>("load input file");
   ALWAYS_ASSERT((m_write_load + m_read_load) == 1);
@@ -111,9 +117,9 @@ T Calibration<T>::compute_surface_mismatch(
 
     // compute the QoI contribution at the point
     T const qoi =
-      (u_fem[0] - u_meas[0]) * (u_fem[0] - u_meas[0]) +
-      (u_fem[1] - u_meas[1]) * (u_fem[1] - u_meas[1]) +
-      (u_fem[2] - u_meas[2]) * (u_fem[2] - u_meas[2]);
+      m_weights[0] * (u_fem[0] - u_meas[0]) * (u_fem[0] - u_meas[0]) +
+      m_weights[1] * (u_fem[1] - u_meas[1]) * (u_fem[1] - u_meas[1]) +
+      m_weights[2] * (u_fem[2] - u_meas[2]) * (u_fem[2] - u_meas[2]);
 
     // compute the difference between the FEM displacement and
     // the measured input displacement data

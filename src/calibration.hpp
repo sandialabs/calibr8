@@ -94,6 +94,8 @@ class Calibration : public QoI<T> {
     double m_total_load = 0.;
     double m_load_mismatch = 0.;
     Array1D<double> m_load_data;
+    Array1D<double> m_weights {1., 1., 1.};
+    bool m_has_weights = false;
 
 
 };

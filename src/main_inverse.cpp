@@ -22,9 +22,6 @@ void set_default_rol_params(Teuchos::RCP<ParameterList> rol_params) {
   rol_params->sublist("General")
     .sublist("Secant")
     .set("Maximum Storage", 20);
-  rol_params->sublist("Step")
-      .sublist("Line Search")
-      .set("Function Evaluation Limit", 5);
 }
 
 static ParameterList get_valid_params() {
@@ -77,10 +74,15 @@ int main(int argc, char** argv) {
     double const gradient_tol =
         inverse_params.get<double>("gradient tolerance", 1e-12);
     double const step_tol = inverse_params.get<double>("step tolerance", 1e-12);
+    int const max_line_search_evals =
+        inverse_params.get<int>("max line search evals", 5);
 
     rol_params->sublist("Status Test").set("Iteration Limit", iteration_limit);
     rol_params->sublist("Status Test").set("Gradient Tolerance", gradient_tol);
     rol_params->sublist("Status Test").set("Step Tolerance", step_tol);
+    rol_params->sublist("Step")
+      .sublist("Line Search")
+      .set("Function Evaluation Limit", max_line_search_evals);
 
     auto rol_objective = create_rol_objective(params, grad_type);
 

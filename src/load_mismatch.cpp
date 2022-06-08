@@ -157,7 +157,13 @@ T LoadMismatch<T>::compute_load(
 
 template <typename T>
 void LoadMismatch<T>::preprocess_finalize(int step) {
-  if (m_write_load) {
+  double load_meas = 0.;
+  if (m_read_load) {
+    load_meas = m_load_data[step - 1];
+  }
+  m_total_load = PCU_Add_Double(m_total_load);
+
+  if (m_write_load && PCU_Comm_Self() == 0) {
     std::ofstream out_file;
     if (step == 1) {
       out_file.open(m_load_out_file);
@@ -168,11 +174,7 @@ void LoadMismatch<T>::preprocess_finalize(int step) {
     out_file << m_total_load << "\n";
     out_file.close();
   }
-  double load_meas = 0.;
-  if (m_read_load) {
-    load_meas = m_load_data[step - 1];
-  }
-  m_total_load = PCU_Add_Double(m_total_load);
+
   m_load_mismatch = m_total_load - load_meas;
   // reset the total load
   m_total_load = 0.;
