@@ -431,19 +431,20 @@ void Disc::compute_field_node_sets() {
   }
   for (int i = 0; i < m_num_node_sets; ++i) {
     std::string const name = node_set_name(i);
-    std::string const fname = name + "_0";
+    std::string const fname = name;
     apf::Field* ns_field = m_mesh->findField(fname.c_str());
+    ALWAYS_ASSERT(ns_field);
     apf::DynamicArray<apf::Node> owned;
     apf::getNodes(m_owned_nmbr, owned);
     for (size_t n = 0; n < owned.size(); ++n) {
       apf::Node const node = owned[n];
       apf::MeshEntity* ent = node.entity;
       double const val = apf::getScalar(ns_field, ent, 0);
-      if (val > 0.) {
+      if (std::abs(val - 1.0) < 1.0e-12) {
         m_node_sets[name].push_back(node);
       }
     }
-    apf::destroyField(ns_field);
+    //apf::destroyField(ns_field);
   }
 }
 
