@@ -100,8 +100,7 @@ Tensor<T> Elastic<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const grad_u_T = minitensor::transpose(grad_u);
   Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-  Tensor<T> const sigma = 2.*mu*eps + lambda*minitensor::trace(eps)*I;
-  return  minitensor::dev(sigma);
+  return 2.*mu* minitensor::dev(eps);
 }
 
 template <typename T>
