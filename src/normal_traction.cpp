@@ -24,9 +24,7 @@ void NormalTraction<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_num_dims = disc->num_dims();
   this->m_shape = disc->gv_shape();
   this->m_step = step;
-  if (!is_initd) {
-    is_initd = this->setup_mapping(m_side_set, disc, m_mapping);
-  }
+  this->setup_mapping(m_side_set, disc, m_mapping);
   m_elem_set_idx = disc->elem_set_idx(m_elem_set);
 }
 
@@ -87,7 +85,7 @@ void NormalTraction<T>::evaluate(
   T load = T(0.);
   for (int i = 0; i < ndims; ++i) {
     for (int j = 0; j < ndims; ++j) {
-      load += std::abs(n[i] * sigma(i,j) * n[j]);
+      load += n[i] * sigma(i,j) * n[j];
     }
   }
 

@@ -20,7 +20,6 @@ class NormalTraction : public QoI<T> {
         double,
         double);
   private:
-    bool is_initd = false;
     std::string m_side_set = "";
     std::string m_elem_set = "";
     int m_elem_set_idx = -1;
