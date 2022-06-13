@@ -1,4 +1,5 @@
 #include <PCU.h>
+#include <lionPrint.h>
 #include <Teuchos_YamlParameterListHelpers.hpp>
 #include "adjoint.hpp"
 #include "control.hpp"
@@ -159,6 +160,8 @@ void Driver::print_error_estimate() {
     eta_bound += std::abs(val);
   }
   m->end(elems);
+  eta = PCU_Add_Double(eta);
+  eta_bound = PCU_Add_Double(eta_bound);
   print("eta ~ %.16e", eta);
   print("|eta| < %.16e", eta_bound);
   ParameterList qoi_params = m_params->sublist("quantity of interest", true);
@@ -201,6 +204,7 @@ int main(int argc, char** argv) {
   initialize();
   ALWAYS_ASSERT(argc == 2);
   {
+    lion_set_verbosity(1);
     std::string const yaml_input = argv[1];
     Driver driver(yaml_input);
     driver.drive();
