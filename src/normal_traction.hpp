@@ -23,6 +23,7 @@ class NormalTraction : public QoI<T> {
     std::string m_side_set = "";
     std::string m_elem_set = "";
     int m_elem_set_idx = -1;
+    double m_area = 0.;
     Array2D<int> m_mapping; // m_mapping[es_idx][elem_idx]
 };
 

@@ -26,6 +26,19 @@ void NormalTraction<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_step = step;
   this->setup_mapping(m_side_set, disc, m_mapping);
   m_elem_set_idx = disc->elem_set_idx(m_elem_set);
+  m_area = 0.;
+  SideSet const& sides = disc->sides(m_side_set);
+  for (auto side : sides) {
+    apf::MeshElement* me = apf::createMeshElement(this->m_mesh, side);
+    apf::Vector3 iota;
+    apf::getIntPoint(me, 1, 0, iota);
+    double const w = apf::getIntWeight(me, 1, 0);
+    double const dv = apf::getDV(me, iota);
+    m_area += w * dv;
+    apf::destroyMeshElement(me);
+  }
+  m_area = PCU_Add_Double(m_area);
+  print(" > qoi area: %.15e", m_area);
 }
 
 template <typename T>
@@ -90,7 +103,7 @@ void NormalTraction<T>::evaluate(
   }
 
   // contribute to the point value
-  this->value_pt += load * w * dv;
+  this->value_pt += load * w * dv / m_area;
 
   // clean up allocated memory
   apf::destroyMeshElement(me);
