@@ -230,17 +230,23 @@ void apply_primal_dbcs(
     double t,
     int step,
     bool is_adjoint) {
+
   if (dbcs.isSublist("expression")) {
     auto expression_dbcs = dbcs.sublist("expression");
     apply_expression_primal_dbcs(expression_dbcs, disc, dR_dx, R, x, t,
         is_adjoint);
   }
 
-  if (dbcs.isSublist("field")) {
+  else if (dbcs.isSublist("field")) {
     auto field_dbcs = dbcs.sublist("field");
     apply_field_primal_dbcs(field_dbcs, disc, dR_dx, R, x, t, step, "measured",
         is_adjoint);
   }
+
+  else {
+    throw std::runtime_error("apply_primal dbcs: no dbcs specified!");
+  }
+
 }
 
 }
