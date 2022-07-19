@@ -42,7 +42,7 @@ notch hyperJ2:
     type: 'average displacement'
 
   regression:
-    QoI: 4.94437787426146858e-03
+    QoI: 6.5626182813091150e-03
     relative error tol: 1.0e-4
 
   linear algebra:

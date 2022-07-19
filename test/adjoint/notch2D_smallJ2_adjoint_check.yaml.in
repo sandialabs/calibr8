@@ -27,7 +27,7 @@ cube hyperJ2:
           E: 1000.
           nu: 0.25
           K: 100.
-          Y: 10.
+          Y: 2.
           cte: 0.
           delta_T: 0.
 
@@ -43,7 +43,7 @@ cube hyperJ2:
         E: [800., 1000.]
         nu: [0.2, 0.3]
         K: [90., 110.]
-        Y: [9., 11.]
+        Y: [1., 3.]
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:

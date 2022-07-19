@@ -525,10 +525,16 @@ LO Disc::get_lid(apf::MeshEntity* ent, int i, int n, int eq) {
   return get_dof(node_ids[n], eq, num_i_eqs);
 }
 
-static int get_value_type(int neqs) {
-  if (neqs == 1) return apf::SCALAR;
-  if (neqs == 2 || neqs == 3) return apf::VECTOR;
-  else return apf::MATRIX;
+static int get_value_type(int neqs, int ndims) {
+  if (neqs == 1) {
+    return apf::SCALAR;
+  } else if ((neqs == 2) && (ndims == 2)) {
+    return apf::VECTOR;
+  } else if ((neqs == 3) && (ndims == 3)) {
+    return apf::VECTOR;
+  } else {
+    return apf::MATRIX;
+  }
 }
 
 void Disc::create_primal(
@@ -543,7 +549,7 @@ void Disc::create_primal(
   for (int i = 0; i < ngr; ++i) {
     std::string const name = R->global->resid_name(i);
     std::string const fname = name + "_" + std::to_string(step);
-    int const vtype = get_value_type(R->global->num_eqs(i));
+    int const vtype = get_value_type(R->global->num_eqs(i), m_num_dims);
     fields.global[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_gv_shape);
     if (step == 0) {
       apf::zeroField(fields.global[i]);
@@ -554,7 +560,7 @@ void Disc::create_primal(
   for (int i = 0; i < nlr; ++i) {
     std::string const name = R->local->resid_name(i);
     std::string const fname = name + "_" + std::to_string(step);
-    int const vtype = get_value_type(R->local->num_eqs(i));
+    int const vtype = get_value_type(R->local->num_eqs(i), m_num_dims);
     fields.local[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
     apf::zeroField(fields.local[i]);
     if (step == 0) {
@@ -598,14 +604,14 @@ void Disc::create_adjoint(
     for (int i = 0; i < ngr; ++i) {
       std::string const name = R->global->resid_name(i);
       std::string const fname = "adjoint_" + name + "_" + std::to_string(step);
-      int const vtype = get_value_type(R->global->num_eqs(i));
+      int const vtype = get_value_type(R->global->num_eqs(i), m_num_dims);
       fields.global[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_gv_shape);
       apf::zeroField(fields.global[i]);
     }
     for (int i = 0; i < nlr; ++i) {
       std::string const name = R->local->resid_name(i);
       std::string const fname = "adjoint_" + name + "_" + std::to_string(step);
-      int const vtype = get_value_type(R->local->num_eqs(i));
+      int const vtype = get_value_type(R->local->num_eqs(i), m_num_dims);
       fields.local[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
       apf::zeroField(fields.local[i]);
     }
