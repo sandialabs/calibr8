@@ -6,6 +6,7 @@
 #include "fad.hpp"
 #include "load_mismatch.hpp"
 #include "normal_traction.hpp"
+#include "point_wise.hpp"
 #include "qoi.hpp"
 #include "surface_mismatch.hpp"
 
@@ -87,6 +88,9 @@ void QoI<T>::preprocess_finalize(int step) {}
 template <typename T>
 void QoI<T>::postprocess(double& J) {}
 
+template <typename T>
+void QoI<T>::modify_state(RCP<State>) {}
+
 template <>
 EVector QoI<double>::eigen_dvector(int) const {
   EVector empty;
@@ -146,6 +150,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
     return rcp(new Calibration<T>(params));
   } else if (type == "normal traction") {
     return rcp(new NormalTraction<T>(params));
+  } else if (type == "point displacement") {
+    return rcp(new PointWise<T>(params));
   } else {
     return Teuchos::null;
   }

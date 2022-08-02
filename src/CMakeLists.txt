@@ -26,6 +26,7 @@ set(CALIBR8_SOURCES
   nested.cpp
   normal_traction.cpp
   objective.cpp
+  point_wise.cpp
   primal.cpp
   qoi.cpp
   state.cpp

@@ -407,6 +407,8 @@ void eval_adjoint_jacobian(
 
   }
 
+  qoi->modify_state(state);
+
   // perform clean-ups of the residual objects
   local->after_elems();
   global->after_elems();
@@ -559,7 +561,6 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
   Array1D<apf::Field*> xi = disc->primal(step).local;
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
-
 
   RCP<NestedDisc> nested;
   if (disc->type() == VERIFICATION) {

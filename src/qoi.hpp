@@ -10,6 +10,7 @@ namespace calibr8 {
 //! \cond
 // forward declarations
 class Disc;
+class State;
 template <typename T> class GlobalResidual;
 template <typename T> class LocalResidual;
 //! \endcond
@@ -84,6 +85,9 @@ class QoI {
 
     //! \brief Reset element-specific data after processing an element
     void unset_elem();
+
+    //! \brief Do some post-processing of the linear systems
+    virtual void modify_state(RCP<State> state);
 
     //! \brief Reset the class after processing all elements
     void after_elems();
