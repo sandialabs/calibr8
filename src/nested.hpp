@@ -29,6 +29,13 @@ class NestedDisc : public Disc {
     //! \param E_local The local residual error contribs
     void set_error(apf::Field* E_global, apf::Field* E_local);
 
+    //! \brief Set the primal fine fields to the values at the previous step
+    //! \param R The global/local residuals defining the problem
+    //! \param step The current load/time step
+    void initialize_primal_fine(
+        RCP<Residuals<double>> R,
+        int step);
+
     //! \brief Get a coarse nodal representation of a fine field
     apf::Field* get_coarse(apf::Field* f);
 
