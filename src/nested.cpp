@@ -4,8 +4,11 @@
 #include <apfShape.h>
 #include <ma.h>
 #include <PCU.h>
+#include "global_residual.hpp"
+#include "local_residual.hpp"
 #include "nested.hpp"
 #include "macros.hpp"
+#include "state.hpp"
 
 namespace calibr8 {
 
@@ -169,7 +172,7 @@ void NestedDisc::create_verification_data() {
       name = "fine_" + name;
       int const vtype = apf::getValueType(coarse);
       apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_gv_shape);
-      apf::copyData(fine, coarse);
+      apf::zeroField(fine);
       fields.global.push_back(fine);
     }
     for (int i = 0; i < nlr; ++i) {
@@ -178,7 +181,15 @@ void NestedDisc::create_verification_data() {
       name = "fine_" + name;
       int const vtype = apf::getValueType(coarse);
       apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_lv_shape);
-      apf::copyData(fine, coarse);
+      apf::zeroField(fine);
+      if (name == "fine_Ie_0") {
+        apf::MeshEntity* elem;
+        apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
+        while ((elem = m_mesh->iterate(elems))) {
+          apf::setScalar(fine, elem, 0, 1.);
+        }
+        m_mesh->end(elems);
+      }
       fields.local.push_back(fine);
     }
     m_primal_fine.push_back(fields);
@@ -223,6 +234,23 @@ apf::Field* NestedDisc::get_coarse(apf::Field* f) {
     apf::setComponents(coarse, vtx, 0, &(new_comps[0]));
   }
   return coarse;
+}
+
+void NestedDisc::initialize_primal_fine(
+    RCP<Residuals<double>> R,
+    int step) {
+  int const ngr = R->global->num_residuals();
+  int const nlr = R->local->num_residuals();
+  for (int i = 0; i < ngr; ++i) {
+    std::string const name = R->global->resid_name(i);
+    std::string const fname = "fine_" + name + "_" + std::to_string(step);
+    apf::copyData(m_primal_fine[step].global[i], m_primal_fine[step - 1].global[i]);
+  }
+  for (int i = 0; i < nlr; ++i) {
+    std::string const name = R->local->resid_name(i);
+    std::string const fname = name + "_" + std::to_string(step);
+    apf::copyData(m_primal_fine[step].local[i], m_primal_fine[step - 1].local[i]);
+  }
 }
 
 void NestedDisc::set_error(
