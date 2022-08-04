@@ -95,6 +95,20 @@ void eval_linearization_errors(
     double& E_lin_R,
     double& E_lin_C);
 
+//! \brief Evalaute exact contributions to the error at a step
+//! \param state The application state object
+//! \param disc The (nested) discretization object
+//! \param R_error The global residual element-wise error field
+//! \param C_error The local residual element-wise error field
+//! \param step The current load/time step
+void eval_exact_errors(
+    RCP<State> state,
+    RCP<Disc> disc,
+    apf::Field* R_error_field,
+    apf::Field* C_error_field,
+    int step) {
+}
+
 //! \brief Evaluate and store the Cauchy stress tensor in a field
 //! \param state The application state object
 //! \param step The current load/time step

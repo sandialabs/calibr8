@@ -1108,6 +1108,203 @@ void eval_linearization_errors(
 
 }
 
+void eval_exact_errors(
+    RCP<State> state,
+    RCP<Disc> disc,
+    apf::Field* R_error_field,
+    apf::Field* C_error_field,
+    int step) {
+
+  // we must be a verification mesh to do this evaluation
+  ALWAYS_ASSERT(disc->type() == VERIFICATION);
+  RCP<NestedDisc> nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
+  bool force_path = true;
+
+  // gather the residuals from the state object
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local;
+  RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+
+  // gather discretization information
+  apf::Mesh* mesh = disc->apf_mesh();
+
+  // gather the prolonged forward state variables
+  Array1D<apf::Field*> x = disc->primal(step).global;
+  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+
+  // gather the enriched forward state variables
+  Array1D<apf::Field*> x_fine = nested->primal_fine(step).global;
+  Array1D<apf::Field*> xi_fine = nested->primal_fine(step).local;
+  Array1D<apf::Field*> x_prev_fine = nested->primal_fine(step - 1).global;
+  Array1D<apf::Field*> xi_prev_fine = nested->primal_fine(step - 1).local;
+
+  // gather the enriched adjoint state variables
+  Array1D<apf::Field*> z = disc->adjoint(step).global;
+  Array1D<apf::Field*> phi = disc->adjoint(step).local;
+
+  // perform initializations of the residual objects
+  global->before_elems(disc);
+
+  // variable telling us the current number of derivatives
+  int nderivs = -1;
+
+  // loop over all element sets in the discretization
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
+
+    // gather the elements in the current element set
+    std::string const& es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+
+    // loop over all elements in the element set
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+
+      // get the current mesh element
+      apf::MeshEntity* e = elems[elem];
+      apf::MeshElement* me = apf::createMeshElement(mesh, e);
+
+      // peform operations on element input
+      global->set_elem(me);
+      local->set_elem(me);
+      global->gather(x, x_prev);
+
+      // grab some nodal solution information at the element
+      EVector const z_nodes = global->gather_adjoint(z);
+      EVector const x_diff = global->gather_difference(x_fine, x);
+      EVector const x_prev_diff =
+          global->gather_difference(x_prev_fine, x_prev);
+
+      // initialize the element level global linearization error
+      EVector ELR_e = EVector::Zero(x_diff.size());
+      EVector 
+
+      // grab the forced path
+      int const path = nested->branch_paths()[step][es][elem];
+
+      // loop over domain ip sets
+      // ip_set = 0 -> coupled
+      // ip_set > 0 -> global only
+      Array1D<int> ip_sets = global->ip_sets();
+      int const num_ip_sets = ip_sets.size();
+
+      // the values that contribute to the error
+      double E_R = 0.;
+      double E_C = 0.;
+
+      for (int ip_set = 0; ip_set < num_ip_sets; ++ip_set) {
+
+        // get the quadrature order for the ip set
+        int const q_order = ip_sets[ip_set];
+        // loop over all integration points in the current element
+        int const npts = apf::countIntPoints(me, q_order);
+
+        for (int pt = 0; pt < npts; ++pt) {
+
+          // get integration point specific information
+          apf::Vector3 iota;
+          apf::getIntPoint(me, q_order, pt, iota);
+          double const w = apf::getIntWeight(me, q_order, pt);
+          double const dv = apf::getDV(me, iota);
+
+          if (ip_set == 0) {
+
+            // grab local state variable data at the point
+            EVector const phi_pt = local->gather_adjoint(pt, phi);
+            EVector const xi_diff = local->gather_difference(pt, xi_fine, xi);
+            EVector const xi_prev_diff =
+                local->gather_difference(pt, xi_prev_fine, xi_prev);
+
+            // evaluate derivatives wrt x
+            global->zero_residual();
+            nderivs = global->seed_wrt_x();
+            global->interpolate(iota);
+            local->gather(pt, xi, xi_prev);
+            global->evaluate(local, iota, w, dv, ip_set);
+            local->evaluate(global, force_path, path);
+            EMatrix const dR_dx = global->eigen_jacobian(nderivs);
+            EMatrix const dC_dx = local->eigen_jacobian(nderivs);
+
+            // evaluate derivatives wrt xi
+            global->unseed_wrt_x();
+            global->zero_residual();
+            nderivs = local->seed_wrt_xi();
+            global->interpolate(iota);
+            global->evaluate(local, iota, w, dv, ip_set);
+            local->evaluate(global, force_path, path);
+            EMatrix const dR_dxi = global->eigen_jacobian(nderivs);
+            EMatrix const dC_dxi = local->eigen_jacobian(nderivs);
+
+            // evaluate derivatives wrt x_prev
+            local->unseed_wrt_xi();
+            nderivs = global->seed_wrt_x_prev();
+            global->interpolate(iota);
+            local->evaluate(global, force_path, path);
+            EMatrix const dC_dx_prev = local->eigen_jacobian(nderivs);
+
+            // evaluate derivatives wrt xi_prev
+            global->unseed_wrt_x_prev();
+            global->interpolate(iota);
+            nderivs = local->seed_wrt_xi_prev();
+            local->evaluate(global, force_path, path);
+            EMatrix const dC_dxi_prev = local->eigen_jacobian(nderivs);
+
+            // evaluate the point level local linearization error
+            EVector const C_contrib =
+              - (dC_dx * x_diff) - (dC_dxi * xi_diff) -
+              (dC_dx_prev * x_prev_diff) - (dC_dxi_prev * xi_prev_diff);
+            E_C += phi_pt.dot(C_contrib);
+
+            // evaluate point contribs to the global linearization error
+            EVector const R_contrib = - (dR_dx * x_diff) - (dR_dxi * xi_diff);
+            E_R += z_nodes.dot(ELR_e);
+
+            // unseed on output
+            local->unseed_wrt_xi_prev();
+
+          }
+
+          else {
+
+            // evaluate the global residual linearization error contributions
+            global->zero_residual();
+            nderivs = global->seed_wrt_x();
+            global->interpolate(iota);
+            global->evaluate(local, iota, w, dv, ip_set);
+            EMatrix const dR_dx = global->eigen_jacobian(nderivs);
+
+            // evaluate point contribs to the global linearization error
+            EVector const R_contrib = - (dR_dx * x_diff);
+            E_R += z_nodes.dot(R_contrib);
+
+            // unseed on output
+            global->unseed_wrt_x();
+
+          }
+
+        }
+
+      }
+
+      apf::setScalar(R_error_field, e, 0, E_R + apf::getScalar(R_error_field, e, 0));
+      apf::setScalar(C_error_field, e, 0, E_C + apf::getScalar(C_error_field, e, 0));
+
+      // perform operations on element output
+      apf::destroyMeshElement(me);
+      global->unset_elem();
+      local->unset_elem();
+
+    }
+
+  }
+
+  // perform clean-ups of the residual objects
+  local->after_elems();
+  global->after_elems();
+
+}
+
 // TODO: Cauchy stress can have contributions from fields
 // with different polynomials orders (e.g. constant + linear).
 // Generalize to handle such cases.

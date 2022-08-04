@@ -73,3 +73,7 @@ set_code_standards(perturber)
 add_executable(verify main_verify.cpp)
 target_link_libraries(verify PRIVATE calibr8)
 set_code_standards(verify)
+
+add_executable(exact_error main_exact_error.cpp)
+target_link_libraries(exact_error PRIVATE calibr8)
+set_code_standards(exact_error)
