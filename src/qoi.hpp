@@ -90,7 +90,7 @@ class QoI {
     virtual void modify_state(RCP<State> state);
 
     //! \brief Reset the class after processing all elements
-    void after_elems();
+    virtual void after_elems();
 
   protected:
 

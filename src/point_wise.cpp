@@ -83,6 +83,11 @@ void PointWise<T>::modify_state(RCP<State> state) {
   dJdx[row] = -1.;
 }
 
+template <typename T>
+void PointWise<T>::after_elems() {
+  m_disc = Teuchos::null;
+}
+
 template class PointWise<double>;
 template class PointWise<FADT>;
 

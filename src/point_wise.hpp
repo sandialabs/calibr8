@@ -21,6 +21,7 @@ class PointWise : public QoI<T> {
         double);
     void postprocess(double& J);
     void modify_state(RCP<State> state);
+    void after_elems();
   private:
     int m_component = -1;
     int m_step = -1;
