@@ -106,8 +106,7 @@ void eval_exact_errors(
     RCP<Disc> disc,
     apf::Field* R_error_field,
     apf::Field* C_error_field,
-    int step) {
-}
+    int step);
 
 //! \brief Evaluate and store the Cauchy stress tensor in a field
 //! \param state The application state object

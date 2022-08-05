@@ -1176,10 +1176,6 @@ void eval_exact_errors(
       EVector const x_prev_diff =
           global->gather_difference(x_prev_fine, x_prev);
 
-      // initialize the element level global linearization error
-      EVector ELR_e = EVector::Zero(x_diff.size());
-      EVector 
-
       // grab the forced path
       int const path = nested->branch_paths()[step][es][elem];
 
@@ -1258,7 +1254,7 @@ void eval_exact_errors(
 
             // evaluate point contribs to the global linearization error
             EVector const R_contrib = - (dR_dx * x_diff) - (dR_dxi * xi_diff);
-            E_R += z_nodes.dot(ELR_e);
+            E_R += z_nodes.dot(R_contrib);
 
             // unseed on output
             local->unseed_wrt_xi_prev();
