@@ -172,7 +172,7 @@ void NestedDisc::create_verification_data() {
       name = "fine_" + name;
       int const vtype = apf::getValueType(coarse);
       apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_gv_shape);
-      apf::zeroField(fine);
+      apf::copyData(fine, coarse);
       fields.global.push_back(fine);
     }
     for (int i = 0; i < nlr; ++i) {
@@ -181,15 +181,7 @@ void NestedDisc::create_verification_data() {
       name = "fine_" + name;
       int const vtype = apf::getValueType(coarse);
       apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_lv_shape);
-      apf::zeroField(fine);
-      if (name == "fine_Ie_0") {
-        apf::MeshEntity* elem;
-        apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
-        while ((elem = m_mesh->iterate(elems))) {
-          apf::setScalar(fine, elem, 0, 1.);
-        }
-        m_mesh->end(elems);
-      }
+      apf::copyData(fine, coarse);
       fields.local.push_back(fine);
     }
     m_primal_fine.push_back(fields);

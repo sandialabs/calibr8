@@ -247,9 +247,11 @@ class Disc {
     //! \brief Add a solution increment at the current step
     //! \param x The solution fields (of global variables)
     //! \param dx The solution increment (of global variables)
+    //! \param alpha Scaling to apply
     void add_to_soln(
         Array1D<apf::Field*>& x,
-        Array1D<RCP<VectorT>> const& dx);
+        Array1D<RCP<VectorT>> const& dx,
+        double const alpha = 1.);
 
     //! \brief Is the geometric model '.null'
     bool is_null() { return m_is_null_model; }

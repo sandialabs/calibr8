@@ -629,7 +629,8 @@ void Disc::destroy_adjoint() {
 
 void Disc::add_to_soln(
     Array1D<apf::Field*>& x,
-    Array1D<RCP<VectorT>> const& dx) {
+    Array1D<RCP<VectorT>> const& dx,
+    double const alpha) {
 
   // sanity check
   int const num_resids = m_num_residuals;
@@ -668,7 +669,7 @@ void Disc::add_to_soln(
       // add the increment to the current solution
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
         LO row = get_lid(node, i, eq);
-        sol_comps[eq] += dx_data[i][row];
+        sol_comps[eq] += alpha * dx_data[i][row];
       }
 
       // set the added solution for the current residual at the node
