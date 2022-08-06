@@ -107,7 +107,7 @@ void Primal::solve_at_step(int step, double t, double) {
     {
       // backtracking line search parameters
       double const beta = 1.0e-4;
-      double const eta = 0.1;
+      double const eta = 0.5;
 
       // check the current residual value
       // this is not optimized in any sense
