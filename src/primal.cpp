@@ -52,6 +52,7 @@ void Primal::solve_at_step(int step, double t, double) {
   Array1D<apf::Field*> x = m_disc->primal(step).global;
   if (m_disc->type() == VERIFICATION) {
     RCP<NestedDisc> nested = Teuchos::rcp_static_cast<NestedDisc>(m_disc);
+    nested->initialize_primal_fine(m_state->residuals, step);
     x = nested->primal_fine(step).global;
   }
 
