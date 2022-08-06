@@ -107,8 +107,8 @@ void Disc::build_data(int neqs) {
     compute_owned_map(space);
     compute_ghost_map(space);
     compute_exporter(space);
-    compute_owned_graph(space);
     compute_ghost_graph(space);
+    compute_owned_graph(space);
     compute_node_sets(space);
   }
   compute_elem_sets();
@@ -242,11 +242,18 @@ LO Disc::get_lid(int space, apf::MeshEntity* ent, int n, int eq) {
   return get_dof(node_ids[n], eq, m_num_eqs);
 }
 
+static std::string space_name(int space) {
+  if (space == COARSE) return "coarse";
+  if (space == FINE) return "fine";
+  return "";
+}
+
 void Disc::compute_node_map(int space) {
   ALWAYS_ASSERT(!m_owned_nmbr[space]);
   ALWAYS_ASSERT(!m_global_nmbr[space]);
   apf::FieldShape* shape = m_shape[space];
-  m_owned_nmbr[space] = apf::numberOwnedNodes(m_mesh, "owned", shape);
+  std::string const name = "owned_" + space_name(space);
+  m_owned_nmbr[space] = apf::numberOwnedNodes(m_mesh, name.c_str(), shape);
   m_global_nmbr[space] = apf::makeGlobal(m_owned_nmbr[space], false);
   apf::DynamicArray<apf::Node> owned;
   apf::getNodes(m_global_nmbr[space], owned);
@@ -296,7 +303,8 @@ void Disc::compute_ghost_map(int space) {
   ALWAYS_ASSERT(m_num_eqs > 0);
   ALWAYS_ASSERT(!m_ghost_nmbr[space]);
   apf::FieldShape* shape = m_shape[space];
-  m_ghost_nmbr[space] = apf::numberOverlapNodes(m_mesh, "ghost", shape);
+  std::string const name = "ghost_" + space_name(space);
+  m_ghost_nmbr[space] = apf::numberOverlapNodes(m_mesh, name.c_str(), shape);
   apf::DynamicArray<apf::Node> ghost;
   apf::getNodes(m_ghost_nmbr[space], ghost);
   size_t const num_ghost = ghost.size();
