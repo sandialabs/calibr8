@@ -11,9 +11,6 @@
 
 namespace calibr8 {
 
-enum {OWNED=0, GHOST=1, NUM_DISTRIB=2};
-enum {COARSE=0, FINE=1, NUM_SPACE=2};
-
 using ElemSet = std::vector<apf::MeshEntity*>;
 using SideSet = std::vector<apf::MeshEntity*>;
 using NodeSet = std::vector<apf::Node>;

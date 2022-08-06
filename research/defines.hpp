@@ -29,4 +29,7 @@ using Teuchos::ParameterList;
 
 using Comm = Teuchos::Comm<int>;
 
+enum {OWNED=0, GHOST=1, NUM_DISTRIB=2};
+enum {COARSE=0, FINE=1, NUM_SPACE=2};
+
 }

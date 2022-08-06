@@ -1,7 +1,9 @@
 set(RESEARCH_SOURCES
-control.cpp
-disc.cpp
-research.cpp
+  control.cpp
+  disc.cpp
+  residual.cpp
+  system.cpp
+  research.cpp
 )
 
 add_executable(research ${RESEARCH_SOURCES})

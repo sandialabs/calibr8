@@ -2,22 +2,48 @@
 #include <lionPrint.h>
 #include "control.hpp"
 #include "disc.hpp"
+#include "system.hpp"
 
 using namespace calibr8;
+
+class Driver {
+  public:
+    Driver(std::string const& input_file);
+    ~Driver();
+    void drive();
+  private:
+    RCP<ParameterList> m_params;
+    RCP<Disc> m_disc;
+    RCP<System> m_system;
+};
+
+Driver::Driver(std::string const& in) {
+  print("reading input: %s", in.c_str());
+  m_params = rcp(new ParameterList);
+  Teuchos::updateParametersFromYamlFile(in, m_params.ptr());
+  ParameterList const resid_params = m_params->sublist("residual");
+  ParameterList const disc_params = m_params->sublist("discretization");
+  m_disc = rcp(new Disc(disc_params));
+  m_system = rcp(new System());
+}
+
+Driver::~Driver() {
+  m_system->destroy_data();
+  m_disc->destroy_data();
+}
+
+void Driver::drive() {
+  m_disc->build_data(/*neqs=*/1);
+  m_system->build_data(m_disc);
+}
 
 int main(int argc, char** argv) {
   initialize();
   ALWAYS_ASSERT(argc == 2);
   {
     lion_set_verbosity(1);
-    std::string const yaml_input = argv[1];
-    print("reading input: %s", yaml_input.c_str());
-    RCP<ParameterList> params = rcp(new ParameterList);
-    Teuchos::updateParametersFromYamlFile(yaml_input, params.ptr());
-    ParameterList const disc_params = params->sublist("discretization");
-    RCP<Disc> disc = rcp(new Disc(disc_params));
-    disc->build_data(1);
-    disc->destroy_data();
+    Driver driver(argv[1]);
+    driver.drive();
   }
   finalize();
 }
