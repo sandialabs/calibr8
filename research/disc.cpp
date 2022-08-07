@@ -229,7 +229,7 @@ std::vector<LO> Disc::get_elem_lids(int space, apf::MeshEntity* e) {
   apf::NewArray<int> node_ids;
   apf::Numbering* nmbr = m_ghost_nmbr[space];
   int const num_nodes = apf::getElementNumbers(nmbr, e, node_ids);
-  ASSERT(num_nodes = get_num_nodes(space, e));
+  ALWAYS_ASSERT(num_nodes == get_num_nodes(space, e));
   std::vector<LO> lids(num_nodes*m_num_eqs);
   for (int n = 0; n < num_nodes; ++n) {
     for (int eq = 0; eq < m_num_eqs; ++eq) {
