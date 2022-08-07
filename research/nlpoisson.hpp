@@ -7,7 +7,7 @@ namespace calibr8 {
 template <typename T>
 class NLPoisson : public Residual<T> {
   public:
-    NLPoisson(ParameterList const& params, int ndims) {
+    NLPoisson(ParameterList const& params, int ndims) : Residual<T>(ndims) {
       m_nims = ndims;
       this->m_neqs = 1;
     }

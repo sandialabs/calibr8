@@ -35,14 +35,12 @@ class Disc {
     int num_side_sets() const { return m_num_side_sets; }
     int num_node_sets() const { return m_num_node_sets; }
 
-    static int order(int space) {
-      if (space == COARSE) return 1;
-      if (space == FINE) return 2;
-      else return -1;
-    }
-
     apf::Mesh2* apf_mesh() { return m_mesh; }
     apf::FieldShape* shape(int space) { return m_shape[space]; }
+
+    int order(int space);
+    int get_num_nodes(int space, apf::MeshEntity* e);
+    int get_space(apf::FieldShape* shape);
 
     std::string elem_set_name(int i) const;
     std::string side_set_name(int i) const;

@@ -135,6 +135,24 @@ void Disc::destroy_data() {
   }
 }
 
+int Disc::order(int space) {
+  if (space == COARSE) return 1;
+  if (space == FINE) return 2;
+  return -1;
+}
+
+int Disc::get_num_nodes(int space, apf::MeshEntity* e) {
+  int const type = m_mesh->getType(e);
+  apf::EntityShape* es = m_shape[space]->getEntityShape(type);
+  return es->countNodes();
+}
+
+int Disc::get_space(apf::FieldShape* shape) {
+  if (shape == m_shape[COARSE]) return COARSE;
+  if (shape == m_shape[FINE]) return FINE;
+  return -1;
+}
+
 std::string Disc::elem_set_name(int es_idx) const {
   ALWAYS_ASSERT(es_idx < m_num_elem_sets);
   return m_sets->models[m_num_dims][es_idx]->stkName;
@@ -198,15 +216,6 @@ NodeSet const& Disc::nodes(int space, std::string const& name) {
   return m_node_sets[space][name];
 }
 
-static int get_num_nodes(
-    apf::Mesh2* mesh,
-    apf::FieldShape* shape,
-    apf::MeshEntity* e) {
-  int const type = mesh->getType(e);
-  apf::EntityShape* es = shape->getEntityShape(type);
-  return es->countNodes();
-}
-
 static LO get_dof(LO nid, int eq, int neq) {
   return nid*neq + eq;
 }
@@ -220,6 +229,7 @@ std::vector<LO> Disc::get_elem_lids(int space, apf::MeshEntity* e) {
   apf::NewArray<int> node_ids;
   apf::Numbering* nmbr = m_ghost_nmbr[space];
   int const num_nodes = apf::getElementNumbers(nmbr, e, node_ids);
+  ASSERT(num_nodes = get_num_nodes(space, e));
   std::vector<LO> lids(num_nodes*m_num_eqs);
   for (int n = 0; n < num_nodes; ++n) {
     for (int eq = 0; eq < m_num_eqs; ++eq) {

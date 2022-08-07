@@ -2,6 +2,7 @@
 #include <lionPrint.h>
 #include "control.hpp"
 #include "disc.hpp"
+#include "residual.hpp"
 #include "system.hpp"
 
 using namespace calibr8;
@@ -14,6 +15,8 @@ class Driver {
   private:
     RCP<ParameterList> m_params;
     RCP<Disc> m_disc;
+    RCP<Residual<double>> m_residual;
+    RCP<Residual<FADT>> m_jacobian;
     RCP<System> m_system;
 };
 
@@ -25,6 +28,8 @@ Driver::Driver(std::string const& in) {
   ParameterList const disc_params = m_params->sublist("discretization");
   m_disc = rcp(new Disc(disc_params));
   m_system = rcp(new System());
+  m_residual = create_residual<double>(resid_params, m_disc->num_dims());
+  m_jacobian = create_residual<FADT>(resid_params, m_disc->num_dims());
 }
 
 Driver::~Driver() {
