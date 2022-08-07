@@ -3,6 +3,7 @@ set(RESEARCH_SOURCES
   disc.cpp
   residual.cpp
   system.cpp
+  weights.cpp
   research.cpp
 )
 

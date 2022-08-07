@@ -4,6 +4,7 @@
 #include "disc.hpp"
 #include "residual.hpp"
 #include "system.hpp"
+#include "weights.hpp"
 
 using namespace calibr8;
 
@@ -12,6 +13,8 @@ class Driver {
     Driver(std::string const& input_file);
     ~Driver();
     void drive();
+  private:
+    void solve_primal(int space);
   private:
     RCP<ParameterList> m_params;
     RCP<Disc> m_disc;
@@ -43,7 +46,8 @@ void assemble(
     int mode,
     RCP<Disc> disc,
     RCP<Residual<T>> r,
-    RCP<System> sys) {
+    RCP<System> sys,
+    RCP<Weight> weight) {
   r->set_space(space);
   r->set_mode(mode);
   apf::Mesh2* mesh = disc->apf_mesh();
@@ -61,7 +65,7 @@ void assemble(
         apf::getIntPoint(me, order, pt, xi);
         double const w = apf::getIntWeight(me, order, pt);
         double const dv = apf::getDV(me, xi);
-        r->at_point(xi, w, dv, disc);
+        r->at_point(xi, w, dv, weight, disc);
       }
       r->scatter(disc, sys);
       r->out_elem();
@@ -71,14 +75,21 @@ void assemble(
   r->set_mode(-1);
 }
 
+void Driver::solve_primal(int space) {
+  m_system->zero_A(space);
+  m_system->zero_x(space);
+  m_system->zero_b(space);
+  RCP<Weight> weight = rcp(new Weight(m_disc->shape(space)));
+
+
+  assemble(space, RESIDUAL, m_disc, m_residual, m_system, weight);
+}
+
 void Driver::drive() {
   m_disc->build_data(/*neqs=*/1);
   m_system->build_data(m_disc);
 
-  m_system->zero_A(COARSE);
-  m_system->zero_x(COARSE);
-  m_system->zero_b(COARSE);
-  assemble(COARSE, RESIDUAL, m_disc, m_residual, m_system);
+  solve_primal(COARSE);
 }
 
 int main(int argc, char** argv) {

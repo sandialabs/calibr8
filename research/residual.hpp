@@ -2,6 +2,7 @@
 
 #include "disc.hpp"
 #include "system.hpp"
+#include "weights.hpp"
 
 namespace calibr8 {
 
@@ -24,12 +25,16 @@ class Residual {
     int num_eqs() { return m_neqs; }
     void set_space(int space) { m_space = space; }
     void set_mode(int mode) { m_mode = mode; }
-    // put this here... void set_weight();
     void in_elem(apf::MeshElement* me, RCP<Disc> disc);
     void gather(RCP<Disc> disc, RCP<VectorT> u);
     Array1D<T> interp(apf::Vector3 const& xi, RCP<Disc> disc);
     Array2D<T> interp_grad(apf::Vector3 const& xi, RCP<Disc> disc);
-    virtual void at_point(apf::Vector3 const& xi, double w, double dv, RCP<Disc> disc) = 0;
+    virtual void at_point(
+        apf::Vector3 const& xi,
+        double w,
+        double dv,
+        RCP<Weight> weight,
+        RCP<Disc> disc) = 0;
     void scatter(RCP<Disc> disc, RCP<System> sys);
     void out_elem();
   protected:
