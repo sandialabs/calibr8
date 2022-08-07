@@ -44,6 +44,8 @@ void assemble(
     RCP<Disc> disc,
     RCP<Residual<T>> r,
     RCP<System> sys) {
+  r->set_space(space);
+  r->set_mode(mode);
   apf::Mesh2* mesh = disc->apf_mesh();
   int order = disc->order(space);
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
@@ -51,26 +53,31 @@ void assemble(
     ElemSet const& elems = disc->elems(es_name);
     for (size_t elem = 0; elem < elems.size(); ++elem) {
       apf::MeshElement* me = apf::createMeshElement(mesh, elems[elem]);
-      r->gather(me, disc, sys->x[space][GHOST]);
+      r->in_elem(me, disc);
+      r->gather(disc, sys->x[space][GHOST]);
       int const npts = apf::countIntPoints(me, order);
       for (int pt = 0; pt < npts; ++pt) {
         apf::Vector3 xi;
         apf::getIntPoint(me, order, pt, xi);
         double const w = apf::getIntWeight(me, order, pt);
         double const dv = apf::getDV(me, xi);
-        r->interpolate(xi);
-        r->at_point(xi, w, dv);
+        r->at_point(xi, w, dv, disc);
       }
-      r->scatter(me, disc, sys);
+      r->scatter(disc, sys);
+      r->out_elem();
     }
   }
+  r->set_space(-1);
+  r->set_mode(-1);
 }
 
 void Driver::drive() {
   m_disc->build_data(/*neqs=*/1);
   m_system->build_data(m_disc);
 
-
+  m_system->zero_A(COARSE);
+  m_system->zero_x(COARSE);
+  m_system->zero_b(COARSE);
   assemble(COARSE, RESIDUAL, m_disc, m_residual, m_system);
 }
 

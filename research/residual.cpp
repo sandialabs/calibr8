@@ -12,14 +12,20 @@ template <typename T>
 Residual<T>::~Residual() {
 }
 
-template class Residual<double>;
-template class Residual<FADT>;
-
 template <typename T>
 void resize(Array2D<T>& v, int ni, int nj) {
   v.resize(ni);
   for (int i = 0; i < ni; ++i) {
     v[i].resize(nj);
+  }
+}
+
+template <typename T>
+void zero(Array2D<T>& v) {
+  for (size_t i = 0; i < v.size(); ++i) {
+    for (size_t j = 0; j < v[i].size(); ++j) {
+      v[i][j] = 0.;
+    }
   }
 }
 
@@ -31,13 +37,26 @@ template <typename T> double val(T const& in);
 template <> double val<double>(double const& in) { return in; }
 template <> double val<FADT>(FADT const& in) { return in.val(); }
 
-template <>
-void Residual<double>::gather(apf::MeshElement* me, RCP<Disc> disc, RCP<VectorT> u) {
+template <typename T>
+void Residual<T>::in_elem(apf::MeshElement* me, RCP<Disc> disc) {
+  m_mesh_elem = me;
   apf::MeshEntity* ent = apf::getMeshEntity(me);
   m_nnodes = disc->get_num_nodes(m_space, ent);
   m_ndofs = m_nnodes * m_neqs;
   resize(m_vals, m_nnodes, m_neqs);
   resize(m_resid, m_nnodes, m_neqs);
+}
+
+template <typename T>
+void Residual<T>::out_elem() {
+  m_mesh_elem = nullptr;
+  m_nnodes = -1;
+  m_ndofs = -1;
+}
+
+template <>
+void Residual<double>::gather(RCP<Disc> disc, RCP<VectorT> u) {
+  apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
   auto u_data = u->get1dViewNonConst();
   for (int node = 0; node < m_nnodes; ++node) {
     for (int eq = 0; eq < m_neqs; ++eq) {
@@ -49,8 +68,8 @@ void Residual<double>::gather(apf::MeshElement* me, RCP<Disc> disc, RCP<VectorT>
 }
 
 template <>
-void Residual<FADT>::gather(apf::MeshElement* me, RCP<Disc> disc, RCP<VectorT> u) {
-  apf::MeshEntity* ent = apf::getMeshEntity(me);
+void Residual<FADT>::gather(RCP<Disc> disc, RCP<VectorT> u) {
+  apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
   m_nnodes = disc->get_num_nodes(m_space, ent);
   m_ndofs = m_nnodes * m_neqs;
   resize(m_vals, m_nnodes, m_neqs);
@@ -68,8 +87,40 @@ void Residual<FADT>::gather(apf::MeshElement* me, RCP<Disc> disc, RCP<VectorT> u
 }
 
 template <typename T>
-void Residual<T>::scatter_residual(apf::MeshElement* me, RCP<Disc> disc, RCP<VectorT> r) {
-  apf::MeshEntity* ent = apf::getMeshEntity(me);
+Array1D<T> Residual<T>::interp(apf::Vector3 const& xi, RCP<Disc> disc) {
+  Array1D<T> u(m_neqs, 0.);
+  apf::NewArray<double> BF;
+  apf::FieldShape* shape = disc->shape(m_space);
+  apf::getBF(shape, m_mesh_elem, xi, BF);
+  for (int node = 0; node < m_nnodes; ++node) {
+    for (int eq = 0; eq < m_neqs; ++eq) {
+      u[eq] += m_vals[node][eq] * BF[node];
+    }
+  }
+  return u;
+}
+
+template <typename T>
+Array2D<T> Residual<T>::interp_grad(apf::Vector3 const& xi, RCP<Disc> disc) {
+  Array2D<T> grad_u;
+  resize(grad_u, m_neqs, m_ndims);
+  zero(grad_u);
+  apf::NewArray<apf::Vector3> gBF;
+  apf::FieldShape* shape = disc->shape(m_space);
+  apf::getGradBF(shape, m_mesh_elem, xi, gBF);
+  for (int node = 0; node < m_nnodes; ++node) {
+    for (int eq = 0; eq < m_neqs; ++eq) {
+      for (int dim = 0; dim < m_ndims; ++dim) {
+        grad_u[eq][dim] += m_vals[node][eq] * gBF[node][dim];
+      }
+    }
+  }
+  return grad_u;
+}
+
+template <typename T>
+void Residual<T>::scatter_residual(RCP<Disc> disc, RCP<VectorT> r) {
+  apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
   auto r_data = r->get1dViewNonConst();
   for (int node = 0; node < m_nnodes; ++node) {
     for (int eq = 0; eq < m_neqs; ++eq) {
@@ -80,13 +131,13 @@ void Residual<T>::scatter_residual(apf::MeshElement* me, RCP<Disc> disc, RCP<Vec
 }
 
 template <>
-void Residual<double>::scatter_jacobian(apf::MeshElement*, RCP<Disc>, RCP<MatrixT>) {
+void Residual<double>::scatter_jacobian(RCP<Disc>, RCP<MatrixT>) {
 }
 
 template <>
-void Residual<FADT>::scatter_jacobian(apf::MeshElement* me, RCP<Disc> disc, RCP<MatrixT> J) {
+void Residual<FADT>::scatter_jacobian(RCP<Disc> disc, RCP<MatrixT> J) {
   using Teuchos::arrayView;
-  apf::MeshEntity* ent = apf::getMeshEntity(me);
+  apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
   for (int row_node = 0; row_node < m_nnodes; ++row_node) {
     for (int row_eq = 0; row_eq < m_neqs; ++row_eq) {
       LO const row = disc->get_lid(m_space, ent, row_node, row_eq);
@@ -104,13 +155,13 @@ void Residual<FADT>::scatter_jacobian(apf::MeshElement* me, RCP<Disc> disc, RCP<
 }
 
 template <>
-void Residual<double>::scatter_adjoint(apf::MeshElement*, RCP<Disc>, RCP<MatrixT>) {
+void Residual<double>::scatter_adjoint(RCP<Disc>, RCP<MatrixT>) {
 }
 
 template <>
-void Residual<FADT>::scatter_adjoint(apf::MeshElement* me, RCP<Disc> disc, RCP<MatrixT> J) {
+void Residual<FADT>::scatter_adjoint(RCP<Disc> disc, RCP<MatrixT> J) {
   using Teuchos::arrayView;
-  apf::MeshEntity* ent = apf::getMeshEntity(me);
+  apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
   for (int row_node = 0; row_node < m_nnodes; ++row_node) {
     for (int row_eq = 0; row_eq < m_neqs; ++row_eq) {
       LO const row = disc->get_lid(m_space, ent, row_node, row_eq);
@@ -128,21 +179,21 @@ void Residual<FADT>::scatter_adjoint(apf::MeshElement* me, RCP<Disc> disc, RCP<M
 }
 
 template <>
-void Residual<double>::scatter(apf::MeshElement* me, RCP<Disc> disc, RCP<System> sys) {
+void Residual<double>::scatter(RCP<Disc> disc, RCP<System> sys) {
   if (m_mode == RESIDUAL) {
-    scatter_residual(me, disc, sys->b[m_space][GHOST]);
+    scatter_residual(disc, sys->b[m_space][GHOST]);
   } else {
     throw std::runtime_error("invalid mode");
   }
 }
 
 template <>
-void Residual<FADT>::scatter(apf::MeshElement* me, RCP<Disc> disc, RCP<System> sys) {
+void Residual<FADT>::scatter(RCP<Disc> disc, RCP<System> sys) {
   if (m_mode == JACOBIAN) {
-    scatter_residual(me, disc, sys->b[m_space][GHOST]);
-    scatter_jacobian(me, disc, sys->A[m_space][GHOST]);
+    scatter_residual(disc, sys->b[m_space][GHOST]);
+    scatter_jacobian(disc, sys->A[m_space][GHOST]);
   } else if (m_mode == ADJOINT) {
-    scatter_adjoint(me, disc, sys->A[m_space][GHOST]);
+    scatter_adjoint(disc, sys->A[m_space][GHOST]);
   } else {
     throw std::runtime_error("invalid mode");
   }
@@ -157,6 +208,9 @@ RCP<Residual<T>> create_residual(ParameterList const& params, int ndims) {
     return Teuchos::null;
   }
 }
+
+template class Residual<double>;
+template class Residual<FADT>;
 
 template RCP<Residual<double>> create_residual(ParameterList const& params, int ndims);
 template RCP<Residual<FADT>> create_residual(ParameterList const& params, int ndims);

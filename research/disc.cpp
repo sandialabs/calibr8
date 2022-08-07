@@ -89,7 +89,6 @@ Disc::~Disc() {
 
 void Disc::initialize() {
   m_num_dims = m_mesh->getDimension();
-  m_num_dims = m_mesh->getDimension();
   m_num_elem_sets = m_sets->models[m_num_dims].size();
   m_num_side_sets = m_sets->models[m_num_dims-1].size();
   m_num_node_sets = m_sets->models[0].size();
@@ -144,7 +143,8 @@ int Disc::order(int space) {
 int Disc::get_num_nodes(int space, apf::MeshEntity* e) {
   int const type = m_mesh->getType(e);
   apf::EntityShape* es = m_shape[space]->getEntityShape(type);
-  return es->countNodes();
+  int const nnodes = es->countNodes();
+  return nnodes;
 }
 
 int Disc::get_space(apf::FieldShape* shape) {
