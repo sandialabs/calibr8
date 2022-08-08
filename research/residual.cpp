@@ -179,21 +179,21 @@ void Residual<FADT>::scatter_adjoint(RCP<Disc> disc, RCP<MatrixT> J) {
 }
 
 template <>
-void Residual<double>::scatter(RCP<Disc> disc, RCP<System> sys) {
+void Residual<double>::scatter(RCP<Disc> disc, System const& sys) {
   if (m_mode == RESIDUAL) {
-    scatter_residual(disc, sys->b[m_space][GHOST]);
+    scatter_residual(disc, sys.b);
   } else {
     throw std::runtime_error("invalid mode");
   }
 }
 
 template <>
-void Residual<FADT>::scatter(RCP<Disc> disc, RCP<System> sys) {
+void Residual<FADT>::scatter(RCP<Disc> disc, System const& sys) {
   if (m_mode == JACOBIAN) {
-    scatter_residual(disc, sys->b[m_space][GHOST]);
-    scatter_jacobian(disc, sys->A[m_space][GHOST]);
+    scatter_residual(disc, sys.b);
+    scatter_jacobian(disc, sys.A);
   } else if (m_mode == ADJOINT) {
-    scatter_adjoint(disc, sys->A[m_space][GHOST]);
+    scatter_adjoint(disc, sys.A);
   } else {
     throw std::runtime_error("invalid mode");
   }

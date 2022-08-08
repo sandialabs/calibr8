@@ -1,8 +1,8 @@
 set(RESEARCH_SOURCES
   control.cpp
   disc.cpp
+  linalg.cpp
   residual.cpp
-  system.cpp
   weights.cpp
   research.cpp
 )

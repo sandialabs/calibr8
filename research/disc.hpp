@@ -57,6 +57,7 @@ class Disc {
     RCP<const MapT> map(int space, int distrib) const { return m_maps[space][distrib]; }
     RCP<const GraphT> graph(int space, int distrib) const { return m_graphs[space][distrib]; }
     RCP<const ExportT> exporter(int space) const { return m_exporters[space]; }
+    RCP<const ImportT> importer(int space) const { return m_importers[space]; }
     RCP<MultiVectorT> coords(int space) const { return m_coords[space]; }
 
     std::vector<LO> get_elem_lids(int space, apf::MeshEntity* elem);
@@ -72,6 +73,7 @@ class Disc {
     void compute_owned_map(int space);
     void compute_ghost_map(int space);
     void compute_exporter(int space);
+    void compute_importer(int space);
     void compute_owned_graph(int space);
     void compute_ghost_graph(int space);
     void compute_node_sets(int space);
@@ -99,6 +101,7 @@ class Disc {
     RCP<const MapT> m_maps[NUM_SPACE][NUM_DISTRIB];
     RCP<GraphT> m_graphs[NUM_SPACE][NUM_DISTRIB];
     RCP<const ExportT> m_exporters[NUM_SPACE];
+    RCP<const ImportT> m_importers[NUM_SPACE];
     RCP<MultiVectorT> m_coords[NUM_SPACE];
 
     ElemSets m_elem_sets;

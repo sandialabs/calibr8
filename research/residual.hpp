@@ -1,7 +1,7 @@
 #pragma once
 
 #include "disc.hpp"
-#include "system.hpp"
+#include "linalg.hpp"
 #include "weights.hpp"
 
 namespace calibr8 {
@@ -35,7 +35,7 @@ class Residual {
         double dv,
         RCP<Weight> weight,
         RCP<Disc> disc) = 0;
-    void scatter(RCP<Disc> disc, RCP<System> sys);
+    void scatter(RCP<Disc> disc, System const& sys);
     void out_elem();
   protected:
     int m_neqs = -1;

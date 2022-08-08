@@ -335,6 +335,12 @@ void Disc::compute_exporter(int space) {
   m_exporters[space] = rcp(new ExportT(ghost_map, owned_map));
 }
 
+void Disc::compute_importer(int space) {
+  RCP<const MapT> ghost_map = m_maps[space][GHOST];
+  RCP<const MapT> owned_map = m_maps[space][OWNED];
+  m_importers[space] = rcp(new ImportT(owned_map, ghost_map));
+}
+
 void Disc::compute_ghost_graph(int space) {
   int const est = 300;
   RCP<const MapT> ghost_map = m_maps[space][GHOST];
