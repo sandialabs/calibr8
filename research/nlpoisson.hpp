@@ -25,6 +25,7 @@ class NLPoisson : public Residual<T> {
         RCP<Disc> disc) override {
 
       int const eq = 0;
+      double const wdetJ = w*dv;
       weight->evaluate(this->m_mesh_elem, xi);
       Array1D<T> const vals = this->interp(xi, disc);
       Array2D<T> const dvals = this->interp_grad(xi, disc);
@@ -33,7 +34,7 @@ class NLPoisson : public Residual<T> {
           T const u = vals[eq];
           T const grad_u = dvals[eq][dim];
           double const grad_w = weight->grad(node, eq, dim);
-          this->m_resid[node][eq] += (1.0 + m_alpha*u*u)*grad_u*w*dv;
+          this->m_resid[node][eq] += (1.0 + m_alpha*u*u) * grad_u * grad_w * wdetJ;
         }
       }
 

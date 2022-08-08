@@ -31,7 +31,6 @@ class Matrix {
     void end_fill();
 };
 
-
 class System {
   public:
     RCP<MatrixT> A;
@@ -41,5 +40,11 @@ class System {
     System() = default;
     System(int distrib, Matrix& A_in, Vector& x_in, Vector& b_in);
 };
+
+void solve(
+    ParameterList& params,
+    int space,
+    RCP<Disc> disc,
+    System& sys);
 
 }

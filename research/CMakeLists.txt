@@ -1,4 +1,5 @@
 set(RESEARCH_SOURCES
+  bcs.cpp
   control.cpp
   disc.cpp
   linalg.cpp

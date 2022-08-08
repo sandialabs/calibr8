@@ -1,5 +1,6 @@
 #include <Teuchos_YamlParameterListHelpers.hpp>
 #include <lionPrint.h>
+#include "bcs.hpp"
 #include "control.hpp"
 #include "disc.hpp"
 #include "linalg.hpp"
@@ -79,17 +80,23 @@ void Driver::solve_primal(int space) {
   Matrix dR_dU(space, m_disc);
   System ghost_sys(GHOST, dR_dU, U, R);
   System owned_sys(OWNED, dR_dU, U, R);
+  RCP<Weight> weight = rcp(new Weight(m_disc->shape(space)));
 
   dR_dU.begin_fill();
   U.zero();
   R.zero();
   dR_dU.zero();
 
-  RCP<Weight> weight = rcp(new Weight(m_disc->shape(space)));
-  
-  assemble(space, RESIDUAL, m_disc, m_residual, weight, ghost_sys);
+  assemble(space, JACOBIAN, m_disc, m_jacobian, weight, ghost_sys);
+  dR_dU.gather(Tpetra::ADD);
+  R.gather(Tpetra::ADD);
+  ParameterList const dbcs = m_params->sublist("dbcs");
+  apply_jacob_dbcs(dbcs, space, m_disc, owned_sys, false);
 
-  ParameterList const dbc_params = m_params->sublist("dbcs");
+
+  MMWriterT::writeSparseFile("J", owned_sys.A);
+
+
 
 
 }
