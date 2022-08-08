@@ -9,6 +9,7 @@ void apply_jacob_dbcs(
     ParameterList const& dbcs,
     int space,
     RCP<Disc> disc,
+    RCP<VectorT> U,
     System& sys,
     bool adjoint);
 

@@ -136,6 +136,7 @@ void solve(
     RCP<Disc> disc,
     System& sys) {
   in.validateParameters(get_valid_params(), 0);
+  sys.x->putScalar(0.);
   auto solver = build_solver(in, space, disc, sys.A, sys.x, sys.b);
   solver->solve();
   auto dofs = solver->getProblem().getRHS()->getGlobalLength();

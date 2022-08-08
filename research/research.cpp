@@ -75,28 +75,41 @@ void assemble(
 
 void Driver::solve_primal(int space) {
 
+  apf::FieldShape* shape = m_disc->shape(space);
+  m_disc->apf_mesh()->changeShape(shape, true);
+
   Vector U(space, m_disc);
+  Vector dU(space, m_disc);
   Vector R(space, m_disc);
-  Matrix dR_dU(space, m_disc);
-  System ghost_sys(GHOST, dR_dU, U, R);
-  System owned_sys(OWNED, dR_dU, U, R);
+  Matrix dRdU(space, m_disc);
+  System ghost_sys(GHOST, dRdU, dU, R);
+  System owned_sys(OWNED, dRdU, dU, R);
 
   RCP<Weight> weight = rcp(new Weight(m_disc->shape(space)));
   ParameterList const dbcs = m_params->sublist("dbcs");
   ParameterList& linalg = m_params->sublist("linear algebra");
 
-  dR_dU.begin_fill();
   U.zero();
+
+  dRdU.begin_fill();
+  dU.zero();
   R.zero();
-  dR_dU.zero();
+  dRdU.zero();
 
   assemble(space, JACOBIAN, m_disc, m_jacobian, weight, ghost_sys);
-  dR_dU.gather(Tpetra::ADD);
+  dRdU.gather(Tpetra::ADD);
   R.gather(Tpetra::ADD);
-  apply_jacob_dbcs(dbcs, space, m_disc, owned_sys, false);
-  dR_dU.end_fill();
+  R.val[OWNED]->scale(-1.0);
+  apply_jacob_dbcs(dbcs, space, m_disc, U.val[OWNED], owned_sys, false);
+  dRdU.end_fill();
+
+  MMWriterT::writeSparseFile("dRdU.mm", dRdU.val[OWNED]);
+  MMWriterT::writeDenseFile("R.mm", R.val[OWNED]);
 
   solve(linalg, space, m_disc, owned_sys);
+
+  MMWriterT::writeDenseFile("dU.mm", dU.val[OWNED]);
+
 
 }
 

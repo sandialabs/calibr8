@@ -36,10 +36,12 @@ void apply_jacob_dbcs(
     ParameterList const& params,
     int space,
     RCP<Disc> disc,
+    RCP<VectorT> U,
     System& sys,
     bool adjoint) {
   auto x_data = sys.x->get1dViewNonConst();
-  auto b_data = sys.x->get1dViewNonConst();
+  auto b_data = sys.b->get1dViewNonConst();
+  auto U_data = U->get1dViewNonConst();
   Teuchos::Array<double> entries;
   Teuchos::Array<int> indices;
   for (auto it = params.begin(); it != params.end(); ++it) {
@@ -48,7 +50,7 @@ void apply_jacob_dbcs(
     for (size_t node = 0; node < nodes.size(); ++node) {
       apf::Node const n = nodes[node];
       LO const row = disc->get_lid(space, n, dbc.eq);
-      double const sol = x_data[row];
+      double const sol = U_data[row];
       double const v = get_val(disc, dbc.val, n);
       size_t ncols = sys.A->getNumEntriesInLocalRow(row);
       indices.resize(ncols);
