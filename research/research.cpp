@@ -80,7 +80,10 @@ void Driver::solve_primal(int space) {
   Matrix dR_dU(space, m_disc);
   System ghost_sys(GHOST, dR_dU, U, R);
   System owned_sys(OWNED, dR_dU, U, R);
+
   RCP<Weight> weight = rcp(new Weight(m_disc->shape(space)));
+  ParameterList const dbcs = m_params->sublist("dbcs");
+  ParameterList& linalg = m_params->sublist("linear algebra");
 
   dR_dU.begin_fill();
   U.zero();
@@ -90,14 +93,10 @@ void Driver::solve_primal(int space) {
   assemble(space, JACOBIAN, m_disc, m_jacobian, weight, ghost_sys);
   dR_dU.gather(Tpetra::ADD);
   R.gather(Tpetra::ADD);
-  ParameterList const dbcs = m_params->sublist("dbcs");
   apply_jacob_dbcs(dbcs, space, m_disc, owned_sys, false);
+  dR_dU.end_fill();
 
-
-  MMWriterT::writeSparseFile("J", owned_sys.A);
-
-
-
+  solve(linalg, space, m_disc, owned_sys);
 
 }
 

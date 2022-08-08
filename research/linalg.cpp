@@ -56,6 +56,11 @@ void Matrix::begin_fill() {
   val[GHOST]->resumeFill();
 }
 
+void Matrix::end_fill() {
+  val[OWNED]->fillComplete();
+  val[GHOST]->fillComplete();
+}
+
 void Matrix::zero() {
   val[OWNED]->setAllToScalar(0.);
   val[GHOST]->setAllToScalar(0.);
