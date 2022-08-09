@@ -55,7 +55,6 @@ class Disc {
     SideSet const& sides(std::string const& name);
     NodeSet const& nodes(int space, std::string const& name);
 
-
     RCP<const MapT> map(int space, int distrib) const { return m_maps[space][distrib]; }
     RCP<const GraphT> graph(int space, int distrib) const { return m_graphs[space][distrib]; }
     RCP<const ExportT> exporter(int space) const { return m_exporters[space]; }

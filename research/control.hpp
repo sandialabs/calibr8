@@ -44,12 +44,12 @@ double time();
 
 }
 
-#define ALWAYS_ASSERT(cond)                           \
+#define ASSERT(cond)                                  \
   do {                                                \
     if (! (cond)) {                                   \
       char omsg[2048];                                \
       sprintf(omsg, "%s failed at %s + %d \n",        \
         #cond, __FILE__, __LINE__);                   \
-      calibr8::assert_fail(omsg);            \
+      calibr8::assert_fail(omsg);                     \
     }                                                 \
   } while (0)

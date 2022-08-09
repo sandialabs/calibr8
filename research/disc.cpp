@@ -155,23 +155,23 @@ int Disc::get_space(apf::FieldShape* shape) {
 }
 
 std::string Disc::space_name(int space) {
-  if (space == COARSE) return "coarse";
-  if (space == FINE) return "fine";
+  if (space == COARSE) return "H";
+  if (space == FINE) return "h";
   return "";
 }
 
 std::string Disc::elem_set_name(int es_idx) const {
-  ALWAYS_ASSERT(es_idx < m_num_elem_sets);
+  ASSERT(es_idx < m_num_elem_sets);
   return m_sets->models[m_num_dims][es_idx]->stkName;
 }
 
 std::string Disc::side_set_name(int ss_idx) const {
-  ALWAYS_ASSERT(ss_idx < m_num_side_sets);
+  ASSERT(ss_idx < m_num_side_sets);
   return m_sets->models[m_num_dims-1][ss_idx]->stkName;
 }
 
 std::string Disc::node_set_name(int ns_idx) const {
-  ALWAYS_ASSERT(ns_idx < m_num_node_sets);
+  ASSERT(ns_idx < m_num_node_sets);
   return m_sets->models[0][ns_idx]->stkName;
 }
 
@@ -182,7 +182,7 @@ int Disc::elem_set_idx(std::string const& esn) const {
       idx = i;
     }
   }
-  ALWAYS_ASSERT(idx > -1);
+  ASSERT(idx > -1);
   return idx;
 }
 
@@ -193,7 +193,7 @@ int Disc::side_set_idx(std::string const& ssn) const {
       idx = i;
     }
   }
-  ALWAYS_ASSERT(idx > -1);
+  ASSERT(idx > -1);
   return idx;
 }
 
@@ -204,22 +204,22 @@ int Disc::node_set_idx(std::string const& nsn) const {
       idx = i;
     }
   }
-  ALWAYS_ASSERT(idx > -1);
+  ASSERT(idx > -1);
   return idx;
 }
 
 ElemSet const& Disc::elems(std::string const& name) {
-  ALWAYS_ASSERT(m_elem_sets.count(name));
+  ASSERT(m_elem_sets.count(name));
   return m_elem_sets[name];
 }
 
 SideSet const& Disc::sides(std::string const& name) {
-  ALWAYS_ASSERT(m_side_sets.count(name));
+  ASSERT(m_side_sets.count(name));
   return m_side_sets[name];
 }
 
 NodeSet const& Disc::nodes(int space, std::string const& name) {
-  ALWAYS_ASSERT(m_node_sets[space].count(name));
+  ASSERT(m_node_sets[space].count(name));
   return m_node_sets[space][name];
 }
 
@@ -236,7 +236,7 @@ std::vector<LO> Disc::get_elem_lids(int space, apf::MeshEntity* e) {
   apf::NewArray<int> node_ids;
   apf::Numbering* nmbr = m_ghost_nmbr[space];
   int const num_nodes = apf::getElementNumbers(nmbr, e, node_ids);
-  ALWAYS_ASSERT(num_nodes == get_num_nodes(space, e));
+  ASSERT(num_nodes == get_num_nodes(space, e));
   std::vector<LO> lids(num_nodes*m_num_eqs);
   for (int n = 0; n < num_nodes; ++n) {
     for (int eq = 0; eq < m_num_eqs; ++eq) {
@@ -260,15 +260,15 @@ LO Disc::get_lid(int space, apf::MeshEntity* ent, int n, int eq) {
 }
 
 apf::DynamicArray<apf::Node> Disc::owned_nodes(int space) {
-  ALWAYS_ASSERT(m_owned_nmbr[space]);
+  ASSERT(m_owned_nmbr[space]);
   apf::DynamicArray<apf::Node> owned;
   apf::getNodes(m_owned_nmbr[space], owned);
   return owned;
 }
 
 void Disc::compute_node_map(int space) {
-  ALWAYS_ASSERT(!m_owned_nmbr[space]);
-  ALWAYS_ASSERT(!m_global_nmbr[space]);
+  ASSERT(!m_owned_nmbr[space]);
+  ASSERT(!m_global_nmbr[space]);
   apf::FieldShape* shape = m_shape[space];
   std::string const name = "owned_" + space_name(space);
   m_owned_nmbr[space] = apf::numberOwnedNodes(m_mesh, name.c_str(), shape);
@@ -301,7 +301,7 @@ void Disc::compute_coords(int space) {
 }
 
 void Disc::compute_owned_map(int space) {
-  ALWAYS_ASSERT(m_num_eqs > 0);
+  ASSERT(m_num_eqs > 0);
   apf::DynamicArray<apf::Node> owned;
   apf::getNodes(m_global_nmbr[space], owned);
   size_t const num_owned = owned.size();
@@ -318,8 +318,8 @@ void Disc::compute_owned_map(int space) {
 }
 
 void Disc::compute_ghost_map(int space) {
-  ALWAYS_ASSERT(m_num_eqs > 0);
-  ALWAYS_ASSERT(!m_ghost_nmbr[space]);
+  ASSERT(m_num_eqs > 0);
+  ASSERT(!m_ghost_nmbr[space]);
   apf::FieldShape* shape = m_shape[space];
   std::string const name = "ghost_" + space_name(space);
   m_ghost_nmbr[space] = apf::numberOverlapNodes(m_mesh, name.c_str(), shape);
