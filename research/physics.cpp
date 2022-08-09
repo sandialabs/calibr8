@@ -78,6 +78,7 @@ apf::Field* subtract(RCP<Disc> disc, apf::Field* a, apf::Field* b, std::string c
     for (int eq = 0; eq < neqs; ++eq) {
       diff_vals[eq] = a_vals[eq] - b_vals[eq];
     }
+    apf::setComponents(diff, ent, local_node, &(diff_vals[0]));
   }
   apf::synchronize(diff);
   return diff;
@@ -91,9 +92,13 @@ void Fields::destroy() {
     z[space] = nullptr;
   }
   if (uH_h) apf::destroyField(uH_h);
+  if (zH_h) apf::destroyField(zH_h);
   if (uh_minus_uH_h) apf::destroyField(uh_minus_uH_h);
+  if (zh_minus_zH_h) apf::destroyField(zh_minus_zH_h);
   uH_h = nullptr;
+  zH_h = nullptr;
   uh_minus_uH_h = nullptr;
+  zh_minus_zH_h = nullptr;
 }
 
 template <typename T>
@@ -243,6 +248,29 @@ apf::Field* solve_primal(
   apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
   apf::zeroField(f);
   fill_field(space, disc, U.val[OWNED], f);
+  return f;
+
+}
+
+apf::Field* solve_adjoint(
+    int space,
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<FADT>> adjoint,
+    apf::Field* u) {
+
+  apf::Mesh2* mesh = disc->apf_mesh();
+  apf::FieldShape* shape = disc->shape(space);
+  mesh->changeShape(shape, true);
+
+  Vector U(space, disc);
+  Vector Z(space, disc);
+  Vector dJdU(space, disc);
+  Matrix dRdUT(space, disc);
+  System ghost_sys(GHOST, dRdUT, Z, dJdU);
+  System owned_sys(OWNED, dRdUT, Z, dJdU);
+
+  apf::Field* f = nullptr;
   return f;
 
 }
