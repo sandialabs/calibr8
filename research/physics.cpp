@@ -42,14 +42,45 @@ static void project_from_to(RCP<Disc> disc, apf::Field* from, apf::Field* to) {
   apf::synchronize(to);
 }
 
-void Fields::project_uH_onto_h(RCP<Disc> disc) {
-  ASSERT(!uH_h);
-  ASSERT(u[COARSE]);
-  int const neqs = apf::countComponents(u[COARSE]);
-  apf::Mesh* mesh = apf::getMesh(u[COARSE]);
-  uH_h = apf::createPackedField(mesh, "uH_h", neqs);
-  apf::zeroField(uH_h);
-  project_from_to(disc, u[COARSE], uH_h);
+apf::Field* project(RCP<Disc> disc, apf::Field* from, std::string const& name) {
+  ASSERT(apf::getMesh(from) == disc->apf_mesh());
+  apf::FieldShape* from_shape = apf::getShape(from);
+  int const from_space = disc->get_space(from_shape);
+  int const to_space = (from_space == COARSE) ? FINE : COARSE;
+  int const neqs = apf::countComponents(from);
+  apf::Mesh* mesh = apf::getMesh(from);
+  apf::FieldShape* to_shape = disc->shape(to_space);
+  apf::Field* to = apf::createPackedField(mesh, name.c_str(), neqs, to_shape);
+  apf::zeroField(to);
+  project_from_to(disc, from, to);
+  return to;
+}
+
+apf::Field* subtract(RCP<Disc> disc, apf::Field* a, apf::Field* b, std::string const& name) {
+  ASSERT(apf::getMesh(a) == apf::getMesh(b));
+  ASSERT(apf::getMesh(b) == disc->apf_mesh());
+  ASSERT(apf::getShape(a) == apf::getShape(b));
+  ASSERT(apf::countComponents(a) == apf::countComponents(b));
+  apf::Mesh* mesh = apf::getMesh(a);
+  apf::FieldShape* shape = apf::getShape(a);
+  int const space = disc->get_space(shape);
+  int const neqs = apf::countComponents(a);
+  apf::Field* diff = apf::createPackedField(mesh, name.c_str(), neqs, shape);
+  apf::DynamicArray<apf::Node> nodes = disc->owned_nodes(space);
+  std::vector<double> a_vals(neqs, 0.);
+  std::vector<double> b_vals(neqs, 0.);
+  std::vector<double> diff_vals(neqs, 0.);
+  for (auto& node : nodes) {
+    apf::MeshEntity* ent = node.entity;
+    int const local_node = node.node;
+    apf::getComponents(a, ent, local_node, &(a_vals[0]));
+    apf::getComponents(b, ent, local_node, &(b_vals[0]));
+    for (int eq = 0; eq < neqs; ++eq) {
+      diff_vals[eq] = a_vals[eq] - b_vals[eq];
+    }
+  }
+  apf::synchronize(diff);
+  return diff;
 }
 
 void Fields::destroy() {
@@ -59,6 +90,10 @@ void Fields::destroy() {
     u[space] = nullptr;
     z[space] = nullptr;
   }
+  if (uH_h) apf::destroyField(uH_h);
+  if (uh_minus_uH_h) apf::destroyField(uh_minus_uH_h);
+  uH_h = nullptr;
+  uh_minus_uH_h = nullptr;
 }
 
 template <typename T>
@@ -148,10 +183,6 @@ apf::Field* solve_primal(
     RCP<Residual<double>> residual,
     RCP<Residual<FADT>> jacobian) {
 
-  print("---------");
-  print("primal %s", disc->space_name(space).c_str());
-  print("---------");
-
   apf::Mesh2* mesh = disc->apf_mesh();
   apf::FieldShape* shape = disc->shape(space);
   mesh->changeShape(shape, true);
@@ -209,7 +240,7 @@ apf::Field* solve_primal(
 
   std::string const name = "u" + disc->space_name(space);
   int const neqs = residual->num_eqs();
-  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs);
+  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
   apf::zeroField(f);
   fill_field(space, disc, U.val[OWNED], f);
   return f;

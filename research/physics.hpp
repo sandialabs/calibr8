@@ -11,7 +11,7 @@ struct Fields {
   apf::Field* u[NUM_SPACE] = {nullptr};
   apf::Field* z[NUM_SPACE] = {nullptr};
   apf::Field* uH_h = nullptr;
-  void project_uH_onto_h(RCP<Disc> disc);
+  apf::Field* uh_minus_uH_h = nullptr;
   void destroy();
 };
 
@@ -21,5 +21,8 @@ apf::Field* solve_primal(
     RCP<Disc> disc,
     RCP<Residual<double>> resid,
     RCP<Residual<FADT>> jacobian);
+
+apf::Field* project(RCP<Disc> disc, apf::Field* from, std::string const& name);
+apf::Field* subtract(RCP<Disc> disc, apf::Field* a, apf::Field* b, std::string const& name);
 
 }
