@@ -106,6 +106,7 @@ void Disc::build_data(int neqs) {
     compute_owned_map(space);
     compute_ghost_map(space);
     compute_exporter(space);
+    compute_importer(space);
     compute_ghost_graph(space);
     compute_owned_graph(space);
     compute_node_sets(space);
@@ -151,6 +152,12 @@ int Disc::get_space(apf::FieldShape* shape) {
   if (shape == m_shape[COARSE]) return COARSE;
   if (shape == m_shape[FINE]) return FINE;
   return -1;
+}
+
+std::string Disc::space_name(int space) {
+  if (space == COARSE) return "coarse";
+  if (space == FINE) return "fine";
+  return "";
 }
 
 std::string Disc::elem_set_name(int es_idx) const {
@@ -252,10 +259,11 @@ LO Disc::get_lid(int space, apf::MeshEntity* ent, int n, int eq) {
   return get_dof(node_ids[n], eq, m_num_eqs);
 }
 
-static std::string space_name(int space) {
-  if (space == COARSE) return "coarse";
-  if (space == FINE) return "fine";
-  return "";
+apf::DynamicArray<apf::Node> Disc::owned_nodes(int space) {
+  ALWAYS_ASSERT(m_owned_nmbr[space]);
+  apf::DynamicArray<apf::Node> owned;
+  apf::getNodes(m_owned_nmbr[space], owned);
+  return owned;
 }
 
 void Disc::compute_node_map(int space) {

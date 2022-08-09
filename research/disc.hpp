@@ -41,6 +41,7 @@ class Disc {
     int order(int space);
     int get_num_nodes(int space, apf::MeshEntity* e);
     int get_space(apf::FieldShape* shape);
+    std::string space_name(int space);
 
     std::string elem_set_name(int i) const;
     std::string side_set_name(int i) const;
@@ -54,6 +55,7 @@ class Disc {
     SideSet const& sides(std::string const& name);
     NodeSet const& nodes(int space, std::string const& name);
 
+
     RCP<const MapT> map(int space, int distrib) const { return m_maps[space][distrib]; }
     RCP<const GraphT> graph(int space, int distrib) const { return m_graphs[space][distrib]; }
     RCP<const ExportT> exporter(int space) const { return m_exporters[space]; }
@@ -63,6 +65,7 @@ class Disc {
     std::vector<LO> get_elem_lids(int space, apf::MeshEntity* elem);
     LO get_lid(int space, apf::Node const& n, int eq);
     LO get_lid(int space, apf::MeshEntity* ent, int n, int eq);
+    apf::DynamicArray<apf::Node> owned_nodes(int space);
 
   private:
 

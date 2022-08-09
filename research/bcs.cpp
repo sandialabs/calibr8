@@ -32,37 +32,55 @@ DBC get_dbc(ParameterList const& dbcs, T const& it) {
   return r;
 }
 
+void apply_resid_dbcs(
+    ParameterList const& params,
+    int space,
+    RCP<Disc> disc,
+    RCP<VectorT> u,
+    System& sys) {
+  auto b_data = sys.b->get1dViewNonConst();
+  auto u_data = u->get1dView();
+  for (auto it = params.begin(); it != params.end(); ++it) {
+    DBC const dbc = get_dbc(params, it);
+    NodeSet const& nodes = disc->nodes(space, dbc.set);
+    for (apf::Node const& node : nodes) {
+      LO const row = disc->get_lid(space, node, dbc.eq);
+      double const v = get_val(disc, dbc.val, node);
+      double const sol = u_data[row];
+      b_data[row] = sol - v;
+    }
+  }
+}
+
 void apply_jacob_dbcs(
     ParameterList const& params,
     int space,
     RCP<Disc> disc,
-    RCP<VectorT> U,
+    RCP<VectorT> u,
     System& sys,
     bool adjoint) {
   auto x_data = sys.x->get1dViewNonConst();
   auto b_data = sys.b->get1dViewNonConst();
-  auto U_data = U->get1dViewNonConst();
+  auto u_data = u->get1dView();
   Teuchos::Array<double> entries;
   Teuchos::Array<int> indices;
   for (auto it = params.begin(); it != params.end(); ++it) {
     DBC const dbc = get_dbc(params, it);
     NodeSet const& nodes = disc->nodes(space, dbc.set);
-    for (size_t node = 0; node < nodes.size(); ++node) {
-      apf::Node const n = nodes[node];
-      LO const row = disc->get_lid(space, n, dbc.eq);
-      double const sol = U_data[row];
-      double const v = get_val(disc, dbc.val, n);
+    for (apf::Node const& node : nodes) {
+      LO const row = disc->get_lid(space, node, dbc.eq);
+      double const sol = u_data[row];
+      double const v = get_val(disc, dbc.val, node);
       size_t ncols = sys.A->getNumEntriesInLocalRow(row);
       indices.resize(ncols);
       entries.resize(ncols);
       sys.A->getLocalRowCopy(row, indices(), entries(), ncols);
-      double diag = 0.;
       for (size_t col = 0; col < ncols; ++col) {
-        if (indices[col] == row) diag = entries[col];
+        if (indices[col] == row) entries[col] = 1.0;
         else entries[col] = 0.;
       }
       sys.A->replaceLocalValues(row, indices(), entries());
-      if (!adjoint) b_data[row] = diag*(sol-v);
+      if (!adjoint) b_data[row] = sol - v;
       else b_data[row] = 0.;
     }
   }

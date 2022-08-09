@@ -43,7 +43,8 @@ class NLPoisson : public Residual<T> {
           T const grad_u = dvals[eq][dim];
           double const w = weight->val(node, eq);
           double const grad_w = weight->grad(node, eq, dim);
-          this->m_resid[node][eq] += ((1.0 + m_alpha*u*u)*grad_u*grad_w - b*w)*wdetJ;
+          this->m_resid[node][eq] +=
+            ((1.0 + m_alpha*u*u)*grad_u*grad_w - b*w)*wdetJ;
         }
       }
 
