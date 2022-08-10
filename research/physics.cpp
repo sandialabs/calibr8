@@ -95,10 +95,12 @@ void Fields::destroy() {
   if (zH_h) apf::destroyField(zH_h);
   if (uh_minus_uH_h) apf::destroyField(uh_minus_uH_h);
   if (zh_minus_zH_h) apf::destroyField(zh_minus_zH_h);
+  if (E_L) apf::destroyField(E_L);
   uH_h = nullptr;
   zH_h = nullptr;
   uh_minus_uH_h = nullptr;
   zh_minus_zH_h = nullptr;
+  E_L = nullptr;
 }
 
 template <typename T>
@@ -164,10 +166,10 @@ static void fill_vector(
     int space,
     RCP<Disc> disc,
     apf::Field* f,
-    RCP<VectorT> x) {
+    Vector& x) {
   int const neqs = apf::countComponents(f);
   apf::Mesh2* meshh = disc->apf_mesh();
-  auto x_data = x->get1dViewNonConst();
+  auto x_data = x.val[OWNED]->get1dViewNonConst();
   std::vector<double> vals(neqs, 0);
   apf::DynamicArray<apf::Node> nodes = disc->owned_nodes(space);
   for (auto& node : nodes) {
@@ -179,6 +181,7 @@ static void fill_vector(
       x_data[row] = vals[eq];
     }
   }
+  x.scatter(Tpetra::INSERT);
 }
 
 apf::Field* solve_primal(
@@ -199,7 +202,7 @@ apf::Field* solve_primal(
   System ghost_sys(GHOST, dRdU, dU, R);
   System owned_sys(OWNED, dRdU, dU, R);
 
-  RCP<Weight> weight = rcp(new Weight(disc->shape(space)));
+  RCP<Weight> weight = rcp(new Weight(shape));
   ParameterList const dbcs = params->sublist("dbcs");
   ParameterList& lin_alg = params->sublist("linear algebra");
   ParameterList& newton = params->sublist("newton solve");
@@ -252,25 +255,50 @@ apf::Field* solve_primal(
 
 }
 
-apf::Field* solve_adjoint(
-    int space,
+apf::Field* compute_linearization_error(
     RCP<ParameterList> params,
     RCP<Disc> disc,
-    RCP<Residual<FADT>> adjoint,
-    apf::Field* u) {
+    RCP<Residual<double>> resid,
+    RCP<Residual<FADT>> jacobian,
+    apf::Field* uH_h,
+    apf::Field* uh_minus_uH_h) {
 
   apf::Mesh2* mesh = disc->apf_mesh();
-  apf::FieldShape* shape = disc->shape(space);
+  apf::FieldShape* shape = disc->shape(FINE);
   mesh->changeShape(shape, true);
 
-  Vector U(space, disc);
-  Vector Z(space, disc);
-  Vector dJdU(space, disc);
-  Matrix dRdUT(space, disc);
-  System ghost_sys(GHOST, dRdUT, Z, dJdU);
-  System owned_sys(OWNED, dRdUT, Z, dJdU);
+  Vector U(FINE, disc);
+  Vector R(FINE, disc);
+  Vector E(FINE, disc);
+  Vector U_diff(FINE, disc);
+  Matrix dRdU(FINE, disc);
+  System ghost_sys(GHOST, dRdU, R, R);
+  System owned_sys(OWNED, dRdU, R, R);
 
-  apf::Field* f = nullptr;
+  RCP<Weight> weight = rcp(new Weight(shape));
+  ParameterList const dbcs = params->sublist("dbcs");
+
+  dRdU.begin_fill();
+  R.zero();
+  dRdU.zero();
+  fill_vector(FINE, disc, uH_h, U);
+  fill_vector(FINE, disc, uh_minus_uH_h, U_diff);
+
+  assemble(FINE, JACOBIAN, disc, jacobian, weight, U.val[GHOST], ghost_sys);
+  R.gather(Tpetra::ADD);
+  apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, false);
+  dRdU.end_fill();
+
+  dRdU.val[OWNED]->apply(*(U_diff.val[OWNED]), *(E.val[OWNED]));
+  E.val[OWNED]->update(-1.0, *(R.val[OWNED]), -1.0);
+
+  double const E_norm = E.val[OWNED]->norm2();
+  print(" > ||E_L|| = %e", E_norm);
+
+  int const neqs = jacobian->num_eqs();
+  apf::Field* f = apf::createPackedField(mesh, "E_L", neqs, shape);
+  apf::zeroField(f);
+  fill_field(FINE, disc, E.val[OWNED], f);
   return f;
 
 }

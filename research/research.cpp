@@ -54,7 +54,12 @@ void Driver::drive() {
   print("* projecting uH onto h");
   m_fields.uH_h = project(m_disc, m_fields.u[COARSE], "uH_h");
   print("* computing uh-uH_h");
+  print("----");
   m_fields.uh_minus_uH_h = subtract(m_disc, m_fields.u[FINE], m_fields.uH_h, "uh-uH_h");
+  print_banner("linearization error");
+  m_fields.E_L = compute_linearization_error(
+      m_params, m_disc, m_residual, m_jacobian, m_fields.uH_h, m_fields.uh_minus_uH_h);
+
 
   // ---debug below---
   apf::writeVtkFiles("debug", m_disc->apf_mesh());

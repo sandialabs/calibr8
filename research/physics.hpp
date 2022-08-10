@@ -14,6 +14,7 @@ struct Fields {
   apf::Field* zH_h = nullptr;
   apf::Field* uh_minus_uH_h = nullptr;
   apf::Field* zh_minus_zH_h = nullptr;
+  apf::Field* E_L = nullptr;
   void destroy();
 };
 
@@ -27,11 +28,12 @@ apf::Field* solve_primal(
     RCP<Residual<double>> resid,
     RCP<Residual<FADT>> jacobian);
 
-apf::Field* solve_adjoint(
-    int space,
+apf::Field* compute_linearization_error(
     RCP<ParameterList> params,
     RCP<Disc> disc,
-    RCP<Residual<FADT>> adjoint,
-    apf::Field* u);
+    RCP<Residual<double>> resid,
+    RCP<Residual<FADT>> jacobian,
+    apf::Field* uH_h,
+    apf::Field* uh_minus_uH_h);
 
 }
