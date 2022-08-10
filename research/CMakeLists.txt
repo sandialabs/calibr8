@@ -5,6 +5,7 @@ set(RESEARCH_SOURCES
   linalg.cpp
   residual.cpp
   physics.cpp
+  qoi.cpp
   weights.cpp
   research.cpp
 )

@@ -29,11 +29,10 @@ void zero(Array2D<T>& v) {
   }
 }
 
-static int get_idx(int node, int eq, int neqs) {
+int get_index(int node, int eq, int neqs) {
   return node*neqs + eq;
 }
 
-template <typename T> double val(T const& in);
 template <> double val<double>(double const& in) { return in; }
 template <> double val<FADT>(FADT const& in) { return in.val(); }
 
@@ -72,12 +71,10 @@ void Residual<FADT>::gather(RCP<Disc> disc, RCP<VectorT> u) {
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
   m_nnodes = disc->get_num_nodes(m_space, ent);
   m_ndofs = m_nnodes * m_neqs;
-  resize(m_vals, m_nnodes, m_neqs);
-  resize(m_resid, m_nnodes, m_neqs);
   auto u_data = u->get1dViewNonConst();
   for (int node = 0; node < m_nnodes; ++node) {
     for (int eq = 0; eq < m_neqs; ++eq) {
-      int const idx = get_idx(node, eq, m_neqs);
+      int const idx = get_index(node, eq, m_neqs);
       LO const row = disc->get_lid(m_space, ent, node, eq);
       m_vals[node][eq].diff(idx, m_ndofs);
       m_vals[node][eq].val() = u_data[row];
@@ -145,7 +142,7 @@ void Residual<FADT>::scatter_jacobian(RCP<Disc> disc, RCP<MatrixT> J) {
       for (int col_node = 0; col_node < m_nnodes; ++col_node) {
         for (int col_eq = 0; col_eq < m_neqs; ++col_eq) {
           LO const col = disc->get_lid(m_space, ent, col_node, col_eq);
-          int const idx = get_idx(col_node, col_eq, m_neqs);
+          int const idx = get_index(col_node, col_eq, m_neqs);
           double const dval = val.fastAccessDx(idx);
           J->sumIntoLocalValues(row, arrayView(&col, 1), arrayView(&dval, 1));
         }
@@ -169,7 +166,7 @@ void Residual<FADT>::scatter_adjoint(RCP<Disc> disc, RCP<MatrixT> J) {
       for (int col_node = 0; col_node < m_nnodes; ++col_node) {
         for (int col_eq = 0; col_eq < m_neqs; ++col_eq) {
           LO const col = disc->get_lid(m_space, ent, col_node, col_eq);
-          int const idx = get_idx(col_node, col_eq, m_neqs);
+          int const idx = get_index(col_node, col_eq, m_neqs);
           double const dval = val.fastAccessDx(idx);
           J->sumIntoLocalValues(col, arrayView(&row, 1), arrayView(&dval, 1));
         }

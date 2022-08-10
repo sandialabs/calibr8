@@ -17,6 +17,10 @@ using Array3D = std::vector<std::vector<T>>;
 
 enum {RESIDUAL, JACOBIAN, ADJOINT};
 
+int get_index(int node, int eq, int neqs);
+
+template <typename T> double val(T const& in);
+
 template <typename T>
 class Residual {
   public:

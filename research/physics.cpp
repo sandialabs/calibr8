@@ -1,3 +1,4 @@
+#include <PCU.h>
 #include "bcs.hpp"
 #include "control.hpp"
 #include "linalg.hpp"
@@ -104,7 +105,7 @@ void Fields::destroy() {
 }
 
 template <typename T>
-void assemble(
+void assemble_residual(
     int space,
     int mode,
     RCP<Disc> disc,
@@ -138,6 +139,43 @@ void assemble(
   // apply tbcs here
   r->set_space(-1);
   r->set_mode(-1);
+}
+
+template <typename T>
+void assemble_qoi(
+    int space,
+    RCP<Disc> disc,
+    RCP<Residual<T>> r,
+    RCP<QoI<T>> qoi,
+    RCP<VectorT> U,
+    System* sys) {
+  r->set_space(space);
+  qoi->set_space(space);
+  apf::Mesh2* mesh = disc->apf_mesh();
+  int order = 6;
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+    std::string es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+      apf::MeshElement* me = apf::createMeshElement(mesh, elems[elem]);
+      r->in_elem(me, disc);
+      qoi->in_elem(me, r, disc);
+      r->gather(disc, U);
+      int const npts = apf::countIntPoints(me, order);
+      for (int pt = 0; pt < npts; ++pt) {
+        apf::Vector3 xi;
+        apf::getIntPoint(me, order, pt, xi);
+        double const w = apf::getIntWeight(me, order, pt);
+        double const dv = apf::getDV(me, xi);
+        qoi->at_point(xi, w, dv, r, disc);
+      }
+      qoi->scatter(disc, sys);
+      qoi->out_elem();
+    }
+  }
+  qoi->post(disc, sys);
+  r->set_space(-1);
+  qoi->set_space(-1);
 }
 
 static void fill_field(
@@ -223,7 +261,7 @@ apf::Field* solve_primal(
     R.zero();
     dRdU.zero();
 
-    assemble(space, JACOBIAN, disc, jacobian, weight, U.val[GHOST], ghost_sys);
+    assemble_residual(space, JACOBIAN, disc, jacobian, weight, U.val[GHOST], ghost_sys);
     dRdU.gather(Tpetra::ADD);
     R.gather(Tpetra::ADD);
     R.val[OWNED]->scale(-1.0);
@@ -235,7 +273,7 @@ apf::Field* solve_primal(
     U.scatter(Tpetra::INSERT);
 
     R.zero();
-    assemble(space, RESIDUAL, disc, residual, weight, U.val[GHOST], ghost_sys);
+    assemble_residual(space, RESIDUAL, disc, residual, weight, U.val[GHOST], ghost_sys);
     R.gather(Tpetra::ADD);
     apply_resid_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys);
     double const R_norm = R.val[OWNED]->norm2();
@@ -252,6 +290,32 @@ apf::Field* solve_primal(
   apf::zeroField(f);
   fill_field(space, disc, U.val[OWNED], f);
   return f;
+
+}
+
+double compute_qoi(
+    int space,
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<double>> resid,
+    RCP<QoI<double>> qoi,
+    apf::Field* u_space) {
+
+  apf::Mesh2* mesh = disc->apf_mesh();
+  apf::FieldShape* shape = disc->shape(space);
+  mesh->changeShape(shape, true);
+
+  qoi->reset();
+
+  Vector U(space, disc);
+  fill_vector(space, disc, u_space, U);
+  assemble_qoi(space, disc, resid, qoi, U.val[GHOST], nullptr);
+
+  double J = qoi->value();
+  J = PCU_Add_Double(J);
+  print(" > J = %.15e", J);
+
+  return J;
 
 }
 
@@ -284,16 +348,19 @@ apf::Field* compute_linearization_error(
   fill_vector(FINE, disc, uH_h, U);
   fill_vector(FINE, disc, uh_minus_uH_h, U_diff);
 
-  assemble(FINE, JACOBIAN, disc, jacobian, weight, U.val[GHOST], ghost_sys);
+  assemble_residual(FINE, JACOBIAN, disc, jacobian, weight, U.val[GHOST], ghost_sys);
   R.gather(Tpetra::ADD);
+  dRdU.gather(Tpetra::ADD);
   apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, false);
   dRdU.end_fill();
 
   dRdU.val[OWNED]->apply(*(U_diff.val[OWNED]), *(E.val[OWNED]));
   E.val[OWNED]->update(-1.0, *(R.val[OWNED]), -1.0);
 
+  double const R_norm = R.val[OWNED]->norm2();
   double const E_norm = E.val[OWNED]->norm2();
-  print(" > ||E_L|| = %e", E_norm);
+  print(" > ||R|| = %.15e", R_norm);
+  print(" > ||E_L|| = %.15e", E_norm);
 
   int const neqs = jacobian->num_eqs();
   apf::Field* f = apf::createPackedField(mesh, "E_L", neqs, shape);

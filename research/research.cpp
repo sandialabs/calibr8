@@ -6,6 +6,7 @@
 #include "linalg.hpp"
 #include "residual.hpp"
 #include "physics.hpp"
+#include "qoi.hpp"
 #include "weights.hpp"
 
 using namespace calibr8;
@@ -20,6 +21,8 @@ class Driver {
     RCP<Disc> m_disc;
     RCP<Residual<double>> m_residual;
     RCP<Residual<FADT>> m_jacobian;
+    RCP<QoI<double>> m_qoi;
+    RCP<QoI<FADT>> m_qoi_deriv;
     Fields m_fields;
 };
 
@@ -29,9 +32,12 @@ Driver::Driver(std::string const& in) {
   Teuchos::updateParametersFromYamlFile(in, m_params.ptr());
   ParameterList const resid_params = m_params->sublist("residual");
   ParameterList const disc_params = m_params->sublist("discretization");
+  ParameterList const qoi_params = m_params->sublist("quantity of interest");
   m_disc = rcp(new Disc(disc_params));
   m_residual = create_residual<double>(resid_params, m_disc->num_dims());
   m_jacobian = create_residual<FADT>(resid_params, m_disc->num_dims());
+  m_qoi = create_QoI<double>(qoi_params);
+  m_qoi_deriv = create_QoI<FADT>(qoi_params);
 }
 
 Driver::~Driver() {
@@ -45,21 +51,32 @@ static void print_banner(std::string const& banner) {
 }
 
 void Driver::drive() {
+
   int const neqs = m_residual->num_eqs();
   m_disc->build_data(neqs);
+
   print_banner("primal H");
   m_fields.u[COARSE] = solve_primal(COARSE, m_params, m_disc, m_residual, m_jacobian);
+  print("");
+
+  print_banner("qoi H");
+  compute_qoi(COARSE, m_params, m_disc, m_residual, m_qoi, m_fields.u[COARSE]);
+  print("");
+
   print_banner("primal h");
   m_fields.u[FINE] = solve_primal(FINE, m_params, m_disc, m_residual, m_jacobian);
+  print("");
+
   print("* projecting uH onto h");
   m_fields.uH_h = project(m_disc, m_fields.u[COARSE], "uH_h");
   print("* computing uh-uH_h");
-  print("----");
   m_fields.uh_minus_uH_h = subtract(m_disc, m_fields.u[FINE], m_fields.uH_h, "uh-uH_h");
+  print("");
+
   print_banner("linearization error");
   m_fields.E_L = compute_linearization_error(
       m_params, m_disc, m_residual, m_jacobian, m_fields.uH_h, m_fields.uh_minus_uH_h);
-
+  print("");
 
   // ---debug below---
   apf::writeVtkFiles("debug", m_disc->apf_mesh());
