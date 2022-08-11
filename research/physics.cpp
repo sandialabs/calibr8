@@ -85,25 +85,6 @@ apf::Field* subtract(RCP<Disc> disc, apf::Field* a, apf::Field* b, std::string c
   return diff;
 }
 
-void Fields::destroy() {
-  for (int space = 0; space < NUM_SPACE; ++space) {
-    if (u[space]) apf::destroyField(u[space]);
-    if (z[space]) apf::destroyField(z[space]);
-    u[space] = nullptr;
-    z[space] = nullptr;
-  }
-  if (uH_h) apf::destroyField(uH_h);
-  if (zH_h) apf::destroyField(zH_h);
-  if (uh_minus_uH_h) apf::destroyField(uh_minus_uH_h);
-  if (zh_minus_zH_h) apf::destroyField(zh_minus_zH_h);
-  if (E_L) apf::destroyField(E_L);
-  uH_h = nullptr;
-  zH_h = nullptr;
-  uh_minus_uH_h = nullptr;
-  zh_minus_zH_h = nullptr;
-  E_L = nullptr;
-}
-
 template <typename T>
 void assemble_residual(
     int space,
@@ -320,6 +301,55 @@ double compute_qoi(
 
 }
 
+apf::Field* solve_adjoint(
+    int space,
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<FADT>> jacobian,
+    RCP<QoI<FADT>> qoi,
+    apf::Field* u_space) {
+
+  apf::Mesh2* mesh = disc->apf_mesh();
+  apf::FieldShape* shape = disc->shape(space);
+  mesh->changeShape(shape, true);
+
+  Vector U(space, disc);
+  Vector Z(space, disc);
+  Vector dJdUT(space, disc);
+  Matrix dRdUT(space, disc);
+  System ghost_sys(GHOST, dRdUT, Z, dJdUT);
+  System owned_sys(OWNED, dRdUT, Z, dJdUT);
+
+  RCP<Weight> weight = rcp(new Weight(shape));
+  ParameterList const dbcs = params->sublist("dbcs");
+  ParameterList& lin_alg = params->sublist("linear algebra");
+
+  fill_vector(space, disc, u_space, U);
+
+  dRdUT.begin_fill();
+  dJdUT.zero();
+  Z.zero();
+
+  assemble_residual(space, ADJOINT, disc, jacobian, weight, U.val[GHOST], ghost_sys);
+  assemble_qoi(space, disc, jacobian, qoi, U.val[GHOST], &ghost_sys);
+
+  dRdUT.gather(Tpetra::ADD);
+  dJdUT.gather(Tpetra::ADD);
+  apply_jacob_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys, true);
+  dRdUT.end_fill();
+
+  solve(lin_alg, space, disc, owned_sys);
+
+  std::string const name = "z" + disc->space_name(space);
+  int const neqs = jacobian->num_eqs();
+  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
+  apf::zeroField(f);
+  fill_field(space, disc, Z.val[OWNED], f);
+
+  return f;
+
+}
+
 LE compute_linearization_error(
     RCP<ParameterList> params,
     RCP<Disc> disc,
@@ -370,6 +400,38 @@ LE compute_linearization_error(
 
   LE le = {f, E_norm, R_norm};
   return le;
+
+}
+
+void do_stuff(
+    RCP<Disc> disc,
+    RCP<Residual<double>> residual,
+    apf::Field* zh,
+    apf::Field* uH_h) {
+
+
+  Vector Z(FINE, disc);
+  Vector R(FINE, disc);
+  Vector U(FINE, disc);
+  Matrix dRdU(FINE, disc);
+
+  System ghost_sys(GHOST, dRdU, R, R);
+  System owned_sys(OWNED, dRdU, R, R);
+
+  fill_vector(FINE, disc, zh, Z);
+  fill_vector(FINE, disc, uH_h, U);
+
+  R.zero();
+
+  apf::FieldShape* shape = disc->shape(FINE);
+  RCP<Weight> weight = rcp(new Weight(shape));
+  assemble_residual(FINE, RESIDUAL, disc, residual, weight, U.val[GHOST], ghost_sys);
+  R.gather(Tpetra::ADD);
+
+  double eta = (Z.val[OWNED])->dot(*(R.val[OWNED]));
+
+  print("eta = %.15e", eta);
+
 
 }
 

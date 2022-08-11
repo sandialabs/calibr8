@@ -8,17 +8,6 @@
 
 namespace calibr8 {
 
-struct Fields {
-  apf::Field* u[NUM_SPACE] = {nullptr};
-  apf::Field* z[NUM_SPACE] = {nullptr};
-  apf::Field* uH_h = nullptr;
-  apf::Field* zH_h = nullptr;
-  apf::Field* uh_minus_uH_h = nullptr;
-  apf::Field* zh_minus_zH_h = nullptr;
-  apf::Field* E_L = nullptr;
-  void destroy();
-};
-
 apf::Field* project(RCP<Disc> disc, apf::Field* from, std::string const& name);
 apf::Field* subtract(RCP<Disc> disc, apf::Field* a, apf::Field* b, std::string const& name);
 
@@ -37,6 +26,14 @@ double compute_qoi(
     RCP<QoI<double>> qoi,
     apf::Field* u_space);
 
+apf::Field* solve_adjoint(
+    int space,
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<FADT>> jacobian,
+    RCP<QoI<FADT>> qoi,
+    apf::Field* u_space);
+
 struct LE {
   apf::Field* field;
   double E_L;
@@ -50,5 +47,11 @@ LE compute_linearization_error(
     RCP<Residual<FADT>> jacobian,
     apf::Field* uH_h,
     apf::Field* uh_minus_uH_h);
+
+void do_stuff(
+    RCP<Disc> disc,
+    RCP<Residual<double>> resid,
+    apf::Field* zh,
+    apf::Field* uH_h);
 
 }
