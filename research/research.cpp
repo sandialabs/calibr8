@@ -11,13 +11,6 @@
 
 using namespace calibr8;
 
-struct History {
-  std::vector<double> JH;
-  std::vector<double> Jh;
-  std::vector<double> Rh_uH_h;
-  std::vector<double> E_L;
-};
-
 class Driver {
   public:
     Driver(std::string const& input_file);
@@ -31,8 +24,24 @@ class Driver {
     RCP<QoI<double>> m_qoi;
     RCP<QoI<FADT>> m_qoi_deriv;
     Fields m_fields;
-    History m_history;
+  private:
+    void solve_primal(int space);
+    void prolong_u_to_fine();
+    void difference_u();
+    void solve_adjoint(int space);
+    void compute_linearization_error();
 };
+
+static void verify_linearization_error(
+    apf::Field* uH_h,
+    apf::Field* u_diff) {
+  if (!uH_h) {
+    throw std::runtime_error("linearization error - uH_h doesn't exist");
+  }
+  if (!u_diff) {
+    throw std::runtime_error("linearization error - u_diff doesn't exist");
+  }
+}
 
 Driver::Driver(std::string const& in) {
   print("reading input: %s", in.c_str());
@@ -58,71 +67,63 @@ static void print_banner(std::string const& banner) {
   print("****************");
 }
 
-void Driver::drive() {
-
-  int const neqs = m_residual->num_eqs();
-  m_disc->build_data(neqs);
-
-  print_banner("primal H");
-  m_fields.u[COARSE] = solve_primal(
-      COARSE,
+void Driver::solve_primal(int space) {
+  std::string const banner = "primal " + m_disc->space_name(space);
+  print_banner(banner);
+  m_fields.u[space] = calibr8::solve_primal(
+      space,
       m_params,
       m_disc,
       m_residual,
       m_jacobian);
-  double const JH = compute_qoi(
-      COARSE,
+  double const J = calibr8::compute_qoi(
+      space,
       m_params,
       m_disc,
       m_residual,
       m_qoi,
-      m_fields.u[COARSE]);
-  m_history.JH.push_back(JH);
+      m_fields.u[space]);
   print("");
+}
 
-  print_banner("primal h");
-  m_fields.u[FINE] = solve_primal(
-      FINE,
-      m_params,
-      m_disc,
-      m_residual,
-      m_jacobian);
-  double const Jh = compute_qoi(
-      FINE,
-      m_params,
-      m_disc,
-      m_residual,
-      m_qoi,
-      m_fields.u[FINE]);
-  m_history.Jh.push_back(Jh);
+void Driver::prolong_u_to_fine() {
+  print("* prolonging uH onto h");
+  m_fields.uH_h = project(m_disc, m_fields.u[COARSE], "uH_h");
   print("");
+}
 
-  print("* projecting uH onto h");
-  m_fields.uH_h = project(
-      m_disc,
-      m_fields.u[COARSE],
-      "uH_h");
-
+void Driver::difference_u() {
   print("* computing uh-uH_h");
   m_fields.uh_minus_uH_h = subtract(
-      m_disc,
-      m_fields.u[FINE],
-      m_fields.uH_h,
-      "uh-uH_h");
+      m_disc, m_fields.u[FINE], m_fields.uH_h, "uh-uH_h");
   print("");
+}
 
+void Driver::compute_linearization_error() {
   print_banner("linearization error");
-  LE const data = compute_linearization_error(
+  apf::Field* uH_h = m_fields.uH_h;
+  apf::Field* u_diff = m_fields.uh_minus_uH_h;
+  verify_linearization_error(uH_h, u_diff);
+  LE const data = calibr8::compute_linearization_error(
       m_params,
       m_disc,
       m_residual,
       m_jacobian,
-      m_fields.uH_h,
-      m_fields.uh_minus_uH_h);
+      uH_h,
+      u_diff);
   m_fields.E_L = data.field;
-  m_history.E_L.push_back(data.E_L);
-  m_history.Rh_uH_h.push_back(data.Rh_uH_h);
   print("");
+}
+
+void Driver::drive() {
+  int const neqs = m_residual->num_eqs();
+  m_disc->build_data(neqs);
+  this->solve_primal(COARSE);
+  this->solve_primal(FINE);
+  this->prolong_u_to_fine();
+  this->difference_u();
+  this->compute_linearization_error();
+
 
   // ---debug below---
   apf::writeVtkFiles("debug", m_disc->apf_mesh());
