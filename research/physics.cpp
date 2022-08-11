@@ -313,7 +313,8 @@ double compute_qoi(
 
   double J = qoi->value();
   J = PCU_Add_Double(J);
-  print(" > J = %.15e", J);
+  std::string const name = "J" + disc->space_name(space);
+  print("%s = %.15e", name.c_str(), J);
 
   return J;
 

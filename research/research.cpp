@@ -57,14 +57,12 @@ void Driver::drive() {
 
   print_banner("primal H");
   m_fields.u[COARSE] = solve_primal(COARSE, m_params, m_disc, m_residual, m_jacobian);
-  print("");
-
-  print_banner("qoi H");
   compute_qoi(COARSE, m_params, m_disc, m_residual, m_qoi, m_fields.u[COARSE]);
   print("");
 
   print_banner("primal h");
   m_fields.u[FINE] = solve_primal(FINE, m_params, m_disc, m_residual, m_jacobian);
+  compute_qoi(FINE, m_params, m_disc, m_residual, m_qoi, m_fields.u[FINE]);
   print("");
 
   print("* projecting uH onto h");

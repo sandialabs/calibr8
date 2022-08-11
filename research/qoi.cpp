@@ -32,9 +32,6 @@ void QoI<T>::in_elem(
 template <typename T>
 void QoI<T>::out_elem() {
   this->m_value += m_elem_value;
-
-  std::cout << "m_elem_value: " << m_elem_value << "\n";
-  std::cout << "m_value: " << m_value << "\n";
   m_mesh_elem = nullptr;
   m_neqs = -1;
   m_nnodes = -1;
