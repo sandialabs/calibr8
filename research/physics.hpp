@@ -37,14 +37,18 @@ double compute_qoi(
     RCP<QoI<double>> qoi,
     apf::Field* u_space);
 
-apf::Field* compute_linearization_error(
+struct LE {
+  apf::Field* field;
+  double E_L;
+  double Rh_uH_h;
+};
+
+LE compute_linearization_error(
     RCP<ParameterList> params,
     RCP<Disc> disc,
     RCP<Residual<double>> resid,
     RCP<Residual<FADT>> jacobian,
     apf::Field* uH_h,
     apf::Field* uh_minus_uH_h);
-
-double compute_volume(apf::Mesh* mesh);
 
 }

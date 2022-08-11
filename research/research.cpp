@@ -11,6 +11,13 @@
 
 using namespace calibr8;
 
+struct History {
+  std::vector<double> JH;
+  std::vector<double> Jh;
+  std::vector<double> Rh_uH_h;
+  std::vector<double> E_L;
+};
+
 class Driver {
   public:
     Driver(std::string const& input_file);
@@ -24,6 +31,7 @@ class Driver {
     RCP<QoI<double>> m_qoi;
     RCP<QoI<FADT>> m_qoi_deriv;
     Fields m_fields;
+    History m_history;
 };
 
 Driver::Driver(std::string const& in) {
@@ -56,24 +64,64 @@ void Driver::drive() {
   m_disc->build_data(neqs);
 
   print_banner("primal H");
-  m_fields.u[COARSE] = solve_primal(COARSE, m_params, m_disc, m_residual, m_jacobian);
-  compute_qoi(COARSE, m_params, m_disc, m_residual, m_qoi, m_fields.u[COARSE]);
+  m_fields.u[COARSE] = solve_primal(
+      COARSE,
+      m_params,
+      m_disc,
+      m_residual,
+      m_jacobian);
+  double const JH = compute_qoi(
+      COARSE,
+      m_params,
+      m_disc,
+      m_residual,
+      m_qoi,
+      m_fields.u[COARSE]);
+  m_history.JH.push_back(JH);
   print("");
 
   print_banner("primal h");
-  m_fields.u[FINE] = solve_primal(FINE, m_params, m_disc, m_residual, m_jacobian);
-  compute_qoi(FINE, m_params, m_disc, m_residual, m_qoi, m_fields.u[FINE]);
+  m_fields.u[FINE] = solve_primal(
+      FINE,
+      m_params,
+      m_disc,
+      m_residual,
+      m_jacobian);
+  double const Jh = compute_qoi(
+      FINE,
+      m_params,
+      m_disc,
+      m_residual,
+      m_qoi,
+      m_fields.u[FINE]);
+  m_history.Jh.push_back(Jh);
   print("");
 
   print("* projecting uH onto h");
-  m_fields.uH_h = project(m_disc, m_fields.u[COARSE], "uH_h");
+  m_fields.uH_h = project(
+      m_disc,
+      m_fields.u[COARSE],
+      "uH_h");
+
   print("* computing uh-uH_h");
-  m_fields.uh_minus_uH_h = subtract(m_disc, m_fields.u[FINE], m_fields.uH_h, "uh-uH_h");
+  m_fields.uh_minus_uH_h = subtract(
+      m_disc,
+      m_fields.u[FINE],
+      m_fields.uH_h,
+      "uh-uH_h");
   print("");
 
   print_banner("linearization error");
-  m_fields.E_L = compute_linearization_error(
-      m_params, m_disc, m_residual, m_jacobian, m_fields.uH_h, m_fields.uh_minus_uH_h);
+  LE const data = compute_linearization_error(
+      m_params,
+      m_disc,
+      m_residual,
+      m_jacobian,
+      m_fields.uH_h,
+      m_fields.uh_minus_uH_h);
+  m_fields.E_L = data.field;
+  m_history.E_L.push_back(data.E_L);
+  m_history.Rh_uH_h.push_back(data.Rh_uH_h);
   print("");
 
   // ---debug below---

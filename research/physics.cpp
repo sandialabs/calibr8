@@ -320,7 +320,7 @@ double compute_qoi(
 
 }
 
-apf::Field* compute_linearization_error(
+LE compute_linearization_error(
     RCP<ParameterList> params,
     RCP<Disc> disc,
     RCP<Residual<double>> resid,
@@ -367,7 +367,9 @@ apf::Field* compute_linearization_error(
   apf::Field* f = apf::createPackedField(mesh, "E_L", neqs, shape);
   apf::zeroField(f);
   fill_field(FINE, disc, E.val[OWNED], f);
-  return f;
+
+  LE le = {f, E_norm, R_norm};
+  return le;
 
 }
 
