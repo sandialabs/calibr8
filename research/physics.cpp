@@ -93,6 +93,7 @@ void assemble_residual(
     RCP<Residual<T>> r,
     RCP<Weight> weight,
     RCP<VectorT> U,
+    RCP<VectorT> Z,
     System& sys) {
   r->set_space(space);
   r->set_mode(mode);
@@ -105,6 +106,8 @@ void assemble_residual(
       apf::MeshElement* me = apf::createMeshElement(mesh, elems[elem]);
       r->in_elem(me, disc);
       r->gather(disc, U);
+      weight->in_elem(me, disc);
+      weight->gather(disc, Z);
       int const npts = apf::countIntPoints(me, order);
       for (int pt = 0; pt < npts; ++pt) {
         apf::Vector3 xi;
@@ -115,6 +118,8 @@ void assemble_residual(
       }
       r->scatter(disc, sys);
       r->out_elem();
+      weight->out_elem();
+      apf::destroyMeshElement(me);
     }
   }
   // apply tbcs here
@@ -242,7 +247,7 @@ apf::Field* solve_primal(
     R.zero();
     dRdU.zero();
 
-    assemble_residual(space, JACOBIAN, disc, jacobian, weight, U.val[GHOST], ghost_sys);
+    assemble_residual(space, JACOBIAN, disc, jacobian, weight, U.val[GHOST], Teuchos::null, ghost_sys);
     dRdU.gather(Tpetra::ADD);
     R.gather(Tpetra::ADD);
     R.val[OWNED]->scale(-1.0);
@@ -254,7 +259,7 @@ apf::Field* solve_primal(
     U.scatter(Tpetra::INSERT);
 
     R.zero();
-    assemble_residual(space, RESIDUAL, disc, residual, weight, U.val[GHOST], ghost_sys);
+    assemble_residual(space, RESIDUAL, disc, residual, weight, U.val[GHOST], Teuchos::null, ghost_sys);
     R.gather(Tpetra::ADD);
     apply_resid_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys);
     double const R_norm = R.val[OWNED]->norm2();
@@ -330,7 +335,7 @@ apf::Field* solve_adjoint(
   dJdUT.zero();
   Z.zero();
 
-  assemble_residual(space, ADJOINT, disc, jacobian, weight, U.val[GHOST], ghost_sys);
+  assemble_residual(space, ADJOINT, disc, jacobian, weight, U.val[GHOST], Teuchos::null, ghost_sys);
   assemble_qoi(space, disc, jacobian, qoi, U.val[GHOST], &ghost_sys);
 
   dRdUT.gather(Tpetra::ADD);
@@ -379,7 +384,7 @@ LE compute_linearization_error(
   fill_vector(FINE, disc, uH_h, U);
   fill_vector(FINE, disc, uh_minus_uH_h, U_diff);
 
-  assemble_residual(FINE, JACOBIAN, disc, jacobian, weight, U.val[GHOST], ghost_sys);
+  assemble_residual(FINE, JACOBIAN, disc, jacobian, weight, U.val[GHOST], Teuchos::null, ghost_sys);
   R.gather(Tpetra::ADD);
   dRdU.gather(Tpetra::ADD);
   apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, false);
@@ -425,7 +430,7 @@ void do_stuff(
 
   apf::FieldShape* shape = disc->shape(FINE);
   RCP<Weight> weight = rcp(new Weight(shape));
-  assemble_residual(FINE, RESIDUAL, disc, residual, weight, U.val[GHOST], ghost_sys);
+  assemble_residual(FINE, RESIDUAL, disc, residual, weight, U.val[GHOST], Teuchos::null, ghost_sys);
   R.gather(Tpetra::ADD);
 
   double eta = (Z.val[OWNED])->dot(*(R.val[OWNED]));

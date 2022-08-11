@@ -33,7 +33,7 @@ class NLPoisson : public Residual<T> {
       apf::mapLocalToGlobal(this->m_mesh_elem, xi, x);
       double const b = eval(m_body_force, x[0], x[1], x[2], 0.);
 
-      weight->evaluate(this->m_mesh_elem, xi);
+      weight->evaluate(xi);
       Array1D<T> const vals = this->interp(xi, disc);
       Array2D<T> const dvals = this->interp_grad(xi, disc);
 

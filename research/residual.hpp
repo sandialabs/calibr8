@@ -6,15 +6,6 @@
 
 namespace calibr8 {
 
-template <typename T>
-using Array1D = std::vector<T>;
-
-template <typename T>
-using Array2D = std::vector<std::vector<T>>;
-
-template <typename T>
-using Array3D = std::vector<std::vector<T>>;
-
 enum {RESIDUAL, JACOBIAN, ADJOINT};
 
 int get_index(int node, int eq, int neqs);
