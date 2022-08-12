@@ -107,12 +107,29 @@ Array2D<double> AdjointWeight::interp_grad_z(apf::Vector3 const& xi) {
   Array2D<double> grad_z;
   resize(grad_z, m_neqs, m_ndims);
   zero(grad_z);
+  apf::getGradBF(m_shape, m_mesh_elem, xi, m_gBF);
+  for (int node = 0; node < m_nnodes; ++node) {
+    for (int eq = 0; eq < m_neqs; ++eq) {
+      for (int dim = 0; dim < m_ndims; ++dim) {
+        grad_z[eq][dim] += m_z_vals[node][eq] * m_gBF[node][dim];
+      }
+    }
+  }
   return grad_z;
 }
 
 void AdjointWeight::evaluate(apf::Vector3 const& xi) {
   Array1D<double> z = interp_z(xi);
   Array2D<double> grad_z = interp_grad_z(xi);
+  for (int node = 0; node < m_nnodes; ++node) {
+    for (int eq = 0; eq < m_neqs; ++eq) {
+      m_vals[node][eq] = z[eq] * m_BF[node];
+      for (int dim = 0; dim < m_ndims; ++dim) {
+        m_grads[node][eq][dim] =
+          grad_z[eq][dim] * m_BF[node] + z[eq] * m_gBF[node][dim];
+      }
+    }
+  }
 }
 
 double AdjointWeight::val(int node, int eq) {
