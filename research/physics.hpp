@@ -15,7 +15,9 @@ double inline multiply(double a, double b) { return a*b; }
 class Physics {
   public:
     Physics(RCP<ParameterList> params);
+    RCP<Disc> disc() { return m_disc; }
     void build_disc();
+    void destroy_disc();
     apf::Field* solve_primal(int space);
     apf::Field* solve_adjoint(int space, apf::Field* u);
     apf::Field* prolong_u_coarse_onto_fine(apf::Field* u);
@@ -33,7 +35,6 @@ class Physics {
         apf::Field* a,
         apf::Field* b,
         std::string const& name);
-    RCP<Disc> disc() { return m_disc; }
   private:
     RCP<ParameterList> m_params;
     RCP<Disc> m_disc;

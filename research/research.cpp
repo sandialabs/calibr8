@@ -31,12 +31,12 @@ void Driver::drive() {
   std::string const output = error_params.get<std::string>("output");
   int check = mkdir(output.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   { // loop over adaptive cycles here
-  m_physics->build_disc();
-  apf::Field* eta = m_error->compute_error(m_physics);
-  m_error->write_mesh(m_physics, output, 0);
-  m_error->destroy_intermediate_fields();
-  //m_physics->destroy_disc();
-  //adapt mesh here if ncycles is bigger than 1
+    m_physics->build_disc();
+    apf::Field* eta = m_error->compute_error(m_physics);
+    m_error->write_mesh(m_physics, output, 0);
+    m_error->destroy_intermediate_fields();
+    m_physics->destroy_disc();
+    //adapt mesh here if ncycles is bigger than 1
   }
   m_error->write_pvd(output, 1);
 }

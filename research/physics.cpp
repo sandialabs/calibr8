@@ -438,6 +438,10 @@ void Physics::build_disc() {
   m_disc->build_data(neqs);
 }
 
+void Physics::destroy_disc() {
+  m_disc->destroy_data();
+}
+
 apf::Field* Physics::solve_primal(int space) {
   print("primal %s", m_disc->space_name(space).c_str());
   return calibr8::solve_primal(
