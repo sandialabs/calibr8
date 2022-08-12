@@ -55,6 +55,7 @@ double Weight::val(int node, int eq) {
 }
 
 double Weight::grad(int node, int eq, int dim) {
+  (void)eq;
   return m_gBF[node][dim];
 }
 

@@ -434,7 +434,7 @@ static double compute_eta(
   fill_vector(FINE, disc, u, U);
   R.zero();
   RCP<Weight> weight = rcp(new Weight(shape));
-  assemble_residual(FINE, RESIDUAL, disc, residual, weight, U.val[GHOST], Z.val[GHOST], ghost_sys);
+  assemble_residual(FINE, RESIDUAL, disc, residual, weight, U.val[GHOST], Teuchos::null, ghost_sys);
   R.gather(Tpetra::ADD);
   apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
   double eta = -(Z.val[OWNED])->dot(*(R.val[OWNED]));

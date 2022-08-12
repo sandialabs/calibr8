@@ -36,11 +36,9 @@ void Driver::drive() {
   apf::Field* E_L = m_physics->compute_linearization_error(
       uH_h, uh_minus_uH_h, norm_R, norm_E);
   apf::Field* eta = m_physics->localize_error(uH_h, zh_minus_zh_H);
-
   double eta_zh = m_physics->compute_eta(uH_h, zh);
   double eta_zh_minus_zh_H = m_physics->compute_eta(uH_h, zh_minus_zh_H);
   double eta_L = m_physics->compute_eta_L(zh, E_L);
-
 
   double eta_sum, eta_bound;
   sum(m_physics->disc(), eta, eta_sum, eta_bound);
@@ -48,7 +46,6 @@ void Driver::drive() {
   print("manual stuff");
   print(" > eta =  %.15e", eta_sum);
   print(" > |eta| < %.15e", eta_bound);
-
 
   apf::writeVtkFiles("debug", m_physics->disc()->apf_mesh());
 
