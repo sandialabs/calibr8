@@ -36,7 +36,7 @@ class Weight {
     apf::NewArray<apf::Vector3> m_gBF;
 };
 
-class AdjointWeight : Weight {
+class AdjointWeight : public Weight {
   public:
     AdjointWeight(apf::FieldShape* shape);
     ~AdjointWeight();

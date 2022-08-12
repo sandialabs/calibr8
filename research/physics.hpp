@@ -21,6 +21,7 @@ class Physics {
         apf::Field* uh_minus_uH_h,
         double& norm_R,
         double& norm_E);
+    apf::Field* localize_error(apf::Field* u, apf::Field* z);
     double compute_qoi(int space, apf::Field* u);
     RCP<Disc> disc() { return m_disc; }
   private:

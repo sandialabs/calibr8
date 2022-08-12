@@ -364,6 +364,36 @@ static apf::Field* compute_linearization_error(
   return f;
 }
 
+static apf::Field* localize_error(
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<double>> residual,
+    apf::Field* u,
+    apf::Field* z) {
+  apf::Mesh2* mesh = disc->apf_mesh();
+  apf::FieldShape* shape = disc->shape(FINE);
+  mesh->changeShape(shape, true);
+  ParameterList const dbcs = params->sublist("dbcs");
+  Vector U(FINE, disc);
+  Vector Z(FINE, disc);
+  Vector R(FINE, disc);
+  System ghost_sys; ghost_sys.b = R.val[GHOST];
+  System owned_sys; owned_sys.b = R.val[OWNED];
+  fill_vector(FINE, disc, z, Z);
+  fill_vector(FINE, disc, u, U);
+  R.zero();
+  RCP<Weight> weight = rcp(new AdjointWeight(shape));
+  assemble_residual(FINE, RESIDUAL, disc, residual, weight, U.val[GHOST], Teuchos::null, ghost_sys);
+  R.gather(Tpetra::ADD);
+  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
+  int const neqs = residual->num_eqs();
+  apf::Field* f = apf::createPackedField(mesh, "eta", neqs, shape);
+  apf::zeroField(f);
+  fill_field(FINE, disc, R.val[OWNED], f);
+  return f;
+}
+
+#if 0
 static void do_stuff(
     RCP<Disc> disc,
     RCP<Residual<double>> residual,
@@ -385,6 +415,7 @@ static void do_stuff(
   double eta = (Z.val[OWNED])->dot(*(R.val[OWNED]));
   print("eta = %.15e", eta);
 }
+#endif
 
 Physics::Physics(RCP<ParameterList> params) {
   m_params = params;
@@ -438,6 +469,18 @@ apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* z) {
   apf::Field* zh_H = calibr8::project(m_disc, tmp, "zh_H");
   apf::destroyField(tmp);
   return zh_H;
+}
+
+apf::Field* Physics::localize_error(apf::Field* u, apf::Field* z) {
+  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  print("localizing error to h nodes");
+  return calibr8::localize_error(
+      m_params,
+      m_disc,
+      m_residual,
+      u,
+      z);
 }
 
 apf::Field* Physics::compute_linearization_error(

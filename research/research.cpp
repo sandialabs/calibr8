@@ -35,6 +35,8 @@ void Driver::drive() {
   double norm_R, norm_E;
   apf::Field* E_L = m_physics->compute_linearization_error(
       uH_h, uh_minus_uH_h, norm_R, norm_E);
+  apf::Field* eta = m_physics->localize_error(uH_h, zh_minus_zh_H);
+
 
 
 
