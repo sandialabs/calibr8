@@ -42,6 +42,8 @@ void Driver::drive() {
 
   apf::writeVtkFiles("debug", m_physics->disc()->apf_mesh());
 
+  apf::destroyField(eta);
+  apf::destroyField(E_L);
   apf::destroyField(uh_minus_uH_h);
   apf::destroyField(zh);
   apf::destroyField(uH_h);

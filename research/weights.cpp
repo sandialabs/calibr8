@@ -19,7 +19,7 @@ static void resize(Array3D<double>& v, int ni, int nj, int nk) {
   for (int i = 0; i < ni; ++i) {
     v[i].resize(nj);
     for (int j = 0; j < nj; ++j) {
-      v[j].resize(nk);
+      v[i][j].resize(nk);
     }
   }
 }
