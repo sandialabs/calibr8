@@ -15,6 +15,12 @@ class Physics {
     apf::Field* solve_primal(int space);
     apf::Field* solve_adjoint(int space, apf::Field* u);
     apf::Field* prolong_u_coarse_onto_fine(apf::Field* u);
+    apf::Field* restrict_z_fine_onto_fine(apf::Field* z);
+    apf::Field* compute_linearization_error(
+        apf::Field* uH_h,
+        apf::Field* uh_minus_uH_h,
+        double& norm_R,
+        double& norm_E);
     double compute_qoi(int space, apf::Field* u);
     RCP<Disc> disc() { return m_disc; }
   private:

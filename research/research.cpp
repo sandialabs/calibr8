@@ -30,6 +30,11 @@ void Driver::drive() {
   apf::Field* uH_h = m_physics->prolong_u_coarse_onto_fine(uH);
   apf::Field* zh = m_physics->solve_adjoint(FINE, uH_h);
   apf::Field* uh_minus_uH_h = subtract(m_physics->disc(), uh, uH_h, "uh-uH_h");
+  apf::Field* zh_H = m_physics->restrict_z_fine_onto_fine(zh);
+  apf::Field* zh_minus_zh_H = subtract(m_physics->disc(), zh, zh_H, "zh-zh_H");
+  double norm_R, norm_E;
+  apf::Field* E_L = m_physics->compute_linearization_error(
+      uH_h, uh_minus_uH_h, norm_R, norm_E);
 
 
 

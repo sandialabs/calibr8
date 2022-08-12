@@ -327,8 +327,8 @@ static apf::Field* compute_linearization_error(
     RCP<Residual<FADT>> jacobian,
     apf::Field* uH_h,
     apf::Field* uh_minus_uH_h,
-    double& E_L,
-    double& Rh_uH_h) {
+    double& norm_R,
+    double& norm_E) {
   apf::Mesh2* mesh = disc->apf_mesh();
   apf::FieldShape* shape = disc->shape(FINE);
   mesh->changeShape(shape, true);
@@ -353,10 +353,10 @@ static apf::Field* compute_linearization_error(
   dRdU.end_fill();
   dRdU.val[OWNED]->apply(*(U_diff.val[OWNED]), *(E.val[OWNED]));
   E.val[OWNED]->update(-1.0, *(R.val[OWNED]), -1.0);
-  Rh_uH_h = R.val[OWNED]->norm2();
-  E_L = E.val[OWNED]->norm2();
-  print(" > ||R|| = %.15e", Rh_uH_h);
-  print(" > ||E_L|| = %.15e", E_L);
+  norm_R = R.val[OWNED]->norm2();
+  norm_E = E.val[OWNED]->norm2();
+  print(" > ||R|| = %.15e", norm_R);
+  print(" > ||E_L|| = %.15e", norm_E);
   int const neqs = jacobian->num_eqs();
   apf::Field* f = apf::createPackedField(mesh, "E_L", neqs, shape);
   apf::zeroField(f);
@@ -429,6 +429,34 @@ apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* u) {
   ASSERT(apf::getShape(u) == m_disc->shape(COARSE));
   print("prolonging uH onto h");
   return calibr8::project(m_disc, u, "uH_h");
+}
+
+apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* z) {
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  print("restricting zh onto H on h");
+  apf::Field* tmp = calibr8::project(m_disc, z, "tmp");
+  apf::Field* zh_H = calibr8::project(m_disc, tmp, "zh_H");
+  apf::destroyField(tmp);
+  return zh_H;
+}
+
+apf::Field* Physics::compute_linearization_error(
+    apf::Field* uH_h,
+    apf::Field* uh_minus_uH_h,
+    double& norm_R,
+    double& norm_E) {
+  ASSERT(apf::getShape(uH_h) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(uh_minus_uH_h) == m_disc->shape(FINE));
+  print("computing linearization error");
+  return calibr8::compute_linearization_error(
+    m_params,
+    m_disc,
+    m_residual,
+    m_jacobian,
+    uH_h,
+    uh_minus_uH_h,
+    norm_R,
+    norm_E);
 }
 
 double Physics::compute_qoi(int space, apf::Field* u) {
