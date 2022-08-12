@@ -249,7 +249,7 @@ static apf::Field* solve_primal(
     R.gather(Tpetra::ADD);
     apply_resid_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys);
     double const R_norm = R.val[OWNED]->norm2();
-    print(" ||R|| = %e", R_norm);
+    print(" > ||R|| = %e", R_norm);
     if (R_norm < tolerance) converged = true;
     iter++;
   }
@@ -278,7 +278,7 @@ static double compute_qoi(
   double J = qoi->value();
   J = PCU_Add_Double(J);
   std::string const name = "J" + disc->space_name(space);
-  print(" %s = %.15e", name.c_str(), J);
+  print(" > %s = %.15e", name.c_str(), J);
   return J;
 }
 
@@ -393,29 +393,45 @@ static apf::Field* localize_error(
   return f;
 }
 
-#if 0
-static void do_stuff(
+static double compute_eta(
+    RCP<ParameterList> params,
     RCP<Disc> disc,
     RCP<Residual<double>> residual,
-    apf::Field* zh,
-    apf::Field* uH_h) {
+    apf::Field* u,
+    apf::Field* z) {
+  apf::Mesh2* mesh = disc->apf_mesh();
+  apf::FieldShape* shape = disc->shape(FINE);
+  mesh->changeShape(shape, true);
+  ParameterList const dbcs = params->sublist("dbcs");
+  Vector U(FINE, disc);
   Vector Z(FINE, disc);
   Vector R(FINE, disc);
-  Vector U(FINE, disc);
-  Matrix dRdU(FINE, disc);
-  System ghost_sys(GHOST, dRdU, R, R);
-  System owned_sys(OWNED, dRdU, R, R);
-  fill_vector(FINE, disc, zh, Z);
-  fill_vector(FINE, disc, uH_h, U);
+  System ghost_sys; ghost_sys.b = R.val[GHOST];
+  System owned_sys; owned_sys.b = R.val[OWNED];
+  fill_vector(FINE, disc, z, Z);
+  fill_vector(FINE, disc, u, U);
   R.zero();
-  apf::FieldShape* shape = disc->shape(FINE);
   RCP<Weight> weight = rcp(new Weight(shape));
-  assemble_residual(FINE, RESIDUAL, disc, residual, weight, U.val[GHOST], Teuchos::null, ghost_sys);
+  assemble_residual(FINE, RESIDUAL, disc, residual, weight, U.val[GHOST], Z.val[GHOST], ghost_sys);
   R.gather(Tpetra::ADD);
-  double eta = (Z.val[OWNED])->dot(*(R.val[OWNED]));
-  print("eta = %.15e", eta);
+  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
+  double eta = -(Z.val[OWNED])->dot(*(R.val[OWNED]));
+  print(" > eta = %.15e", eta);
+  return eta;
 }
-#endif
+
+static double compute_eta_L(
+    RCP<Disc> disc,
+    apf::Field* z,
+    apf::Field* E_L) {
+  Vector Z(FINE, disc);
+  Vector E(FINE, disc);
+  fill_vector(FINE, disc, z, Z);
+  fill_vector(FINE, disc, E_L, E);
+  double eta_L = -(Z.val[OWNED])->dot(*E.val[OWNED]);
+  print(" > eta_L = %.15e", eta_L);
+  return eta_L;
+}
 
 Physics::Physics(RCP<ParameterList> params) {
   m_params = params;
@@ -512,6 +528,25 @@ double Physics::compute_qoi(int space, apf::Field* u) {
     m_residual,
     m_qoi,
     u);
+}
+
+double Physics::compute_eta(apf::Field* u, apf::Field* z) {
+  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  print("computing error estimate");
+  return calibr8::compute_eta(
+      m_params,
+      m_disc,
+      m_residual,
+      u,
+      z);
+}
+
+double Physics::compute_eta_L(apf::Field* z, apf::Field* E_L) {
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(E_L) == m_disc->shape(FINE));
+  print("computing linearization error estimate");
+  return calibr8::compute_eta_L(m_disc, z, E_L);
 }
 
 }

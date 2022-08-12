@@ -23,6 +23,8 @@ class Physics {
         double& norm_E);
     apf::Field* localize_error(apf::Field* u, apf::Field* z);
     double compute_qoi(int space, apf::Field* u);
+    double compute_eta(apf::Field* u, apf::Field* z);
+    double compute_eta_L(apf::Field* z, apf::Field* E_L);
     RCP<Disc> disc() { return m_disc; }
   private:
     RCP<ParameterList> m_params;

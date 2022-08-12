@@ -37,7 +37,9 @@ void Driver::drive() {
       uH_h, uh_minus_uH_h, norm_R, norm_E);
   apf::Field* eta = m_physics->localize_error(uH_h, zh_minus_zh_H);
 
-
+  double eta_zh = m_physics->compute_eta(uH_h, zh);
+  double eta_zh_minus_zh_H = m_physics->compute_eta(uH_h, zh_minus_zh_H);
+  double eta_L = m_physics->compute_eta_L(zh, E_L);
 
 
   apf::writeVtkFiles("debug", m_physics->disc()->apf_mesh());
