@@ -41,4 +41,10 @@ apf::Field* subtract(
     apf::Field* b,
     std::string const& name);
 
+void sum(
+    RCP<Disc> disc,
+    apf::Field* a,
+    double& val,
+    double& abs_val);
+
 }

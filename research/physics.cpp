@@ -82,6 +82,28 @@ apf::Field* subtract(RCP<Disc> disc, apf::Field* a, apf::Field* b, std::string c
   return diff;
 }
 
+void sum(RCP<Disc> disc, apf::Field* a, double& val, double& abs_val) {
+  apf::Mesh* mesh = apf::getMesh(a);
+  apf::FieldShape* shape = apf::getShape(a);
+  int const space = disc->get_space(shape);
+  int const neqs = apf::countComponents(a);
+  apf::DynamicArray<apf::Node> nodes = disc->owned_nodes(space);
+  std::vector<double> a_vals(neqs, 0.);
+  val = 0.;
+  abs_val = 0.;
+  for (auto& node : nodes) {
+    apf::MeshEntity* ent = node.entity;
+    int const local_node = node.node;
+    apf::getComponents(a, ent, local_node, &(a_vals[0]));
+    double node_val = 0.;
+    for (int eq = 0; eq < neqs; ++eq) {
+      node_val += a_vals[eq];
+    }
+    val += node_val;
+    abs_val += std::abs(node_val);
+  }
+}
+
 template <typename T>
 void assemble_residual(
     int space,

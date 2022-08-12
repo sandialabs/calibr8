@@ -42,6 +42,14 @@ void Driver::drive() {
   double eta_L = m_physics->compute_eta_L(zh, E_L);
 
 
+  double eta_sum, eta_bound;
+  sum(m_physics->disc(), eta, eta_sum, eta_bound);
+
+  print("manual stuff");
+  print(" > eta =  %.15e", eta_sum);
+  print(" > |eta| < %.15e", eta_bound);
+
+
   apf::writeVtkFiles("debug", m_physics->disc()->apf_mesh());
 
   apf::destroyField(eta);
