@@ -6,7 +6,6 @@ set(RESEARCH_SOURCES
   residual.cpp
   physics.cpp
   qoi.cpp
-  weights.cpp
   research.cpp
 )
 

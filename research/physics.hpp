@@ -8,6 +8,10 @@
 
 namespace calibr8 {
 
+double inline add(double a, double b) { return a+b; }
+double inline subtract(double a, double b) { return a-b; }
+double inline multiply(double a, double b) { return a*b; }
+
 class Physics {
   public:
     Physics(RCP<ParameterList> params);
@@ -21,10 +25,14 @@ class Physics {
         apf::Field* uh_minus_uH_h,
         double& norm_R,
         double& norm_E);
-    apf::Field* localize_error(apf::Field* u, apf::Field* z);
     double compute_qoi(int space, apf::Field* u);
     double compute_eta(apf::Field* u, apf::Field* z);
     double compute_eta_L(apf::Field* z, apf::Field* E_L);
+    apf::Field* op(
+        std::function<double(double,double)> f,
+        apf::Field* a,
+        apf::Field* b,
+        std::string const& name);
     RCP<Disc> disc() { return m_disc; }
   private:
     RCP<ParameterList> m_params;
@@ -34,17 +42,5 @@ class Physics {
     RCP<QoI<double>> m_qoi;
     RCP<QoI<FADT>> m_qoi_deriv;
 };
-
-apf::Field* subtract(
-    RCP<Disc> disc,
-    apf::Field* a,
-    apf::Field* b,
-    std::string const& name);
-
-void sum(
-    RCP<Disc> disc,
-    apf::Field* a,
-    double& val,
-    double& abs_val);
 
 }

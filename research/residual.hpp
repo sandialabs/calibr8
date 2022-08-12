@@ -2,7 +2,6 @@
 
 #include "disc.hpp"
 #include "linalg.hpp"
-#include "weights.hpp"
 
 namespace calibr8 {
 
@@ -11,6 +10,15 @@ enum {RESIDUAL, JACOBIAN, ADJOINT};
 int get_index(int node, int eq, int neqs);
 
 template <typename T> double val(T const& in);
+
+template <typename T>
+using Array1D = std::vector<T>;
+
+template <typename T>
+using Array2D = std::vector<std::vector<T>>;
+
+template <typename T>
+using Array3D = std::vector<std::vector<std::vector<T>>>;
 
 template <typename T>
 class Residual {
@@ -22,13 +30,13 @@ class Residual {
     void set_mode(int mode) { m_mode = mode; }
     void in_elem(apf::MeshElement* me, RCP<Disc> disc);
     void gather(RCP<Disc> disc, RCP<VectorT> u);
-    Array1D<T> interp(apf::Vector3 const& xi, RCP<Disc> disc);
-    Array2D<T> interp_grad(apf::Vector3 const& xi, RCP<Disc> disc);
+    void interp_basis(apf::Vector3 const& xi, RCP<Disc> disc);
+    Array1D<T> interp(apf::Vector3 const& xi);
+    Array2D<T> interp_grad(apf::Vector3 const& xi);
     virtual void at_point(
         apf::Vector3 const& xi,
         double w,
         double dv,
-        RCP<Weight> weight,
         RCP<Disc> disc) = 0;
     void scatter(RCP<Disc> disc, System const& sys);
     void out_elem();
@@ -40,6 +48,8 @@ class Residual {
     int m_space = -1;
     int m_mode = -1;
     apf::MeshElement* m_mesh_elem = nullptr;
+    apf::NewArray<double> m_BF;
+    apf::NewArray<apf::Vector3> m_gBF;
     Array2D<T> m_vals;
     Array2D<T> m_resid;
   private:

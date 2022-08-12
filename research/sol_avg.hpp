@@ -22,7 +22,8 @@ class SolAvg : public QoI<T> {
         RCP<Disc> disc) override {
       double const wdetJ = w*dv;
       T integrand = 0.;
-      Array1D<T> const vals = residual->interp(xi, disc);
+      residual->interp_basis(xi, disc);
+      Array1D<T> const vals = residual->interp(xi);
       for (int eq = 0; eq < this->m_neqs; ++eq) {
         integrand += vals[eq];
       }

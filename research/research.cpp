@@ -23,33 +23,27 @@ Driver::Driver(std::string const& in) {
 
 void Driver::drive() {
   m_physics->build_disc();
+  double norm_R, norm_E;
   apf::Field* uH = m_physics->solve_primal(COARSE);
   apf::Field* uh = m_physics->solve_primal(FINE);
   double const JH = m_physics->compute_qoi(COARSE, uH);
   double const Jh = m_physics->compute_qoi(FINE, uh);
   apf::Field* uH_h = m_physics->prolong_u_coarse_onto_fine(uH);
   apf::Field* zh = m_physics->solve_adjoint(FINE, uH_h);
-  apf::Field* uh_minus_uH_h = subtract(m_physics->disc(), uh, uH_h, "uh-uH_h");
+  apf::Field* uh_minus_uH_h =
+    m_physics->op(subtract, uh, uH_h, "uh-uH_h");
   apf::Field* zh_H = m_physics->restrict_z_fine_onto_fine(zh);
-  apf::Field* zh_minus_zh_H = subtract(m_physics->disc(), zh, zh_H, "zh-zh_H");
-  double norm_R, norm_E;
+  apf::Field* zh_minus_zh_H =
+    m_physics->op(subtract, zh, zh_H, "zh-zh_H");
   apf::Field* E_L = m_physics->compute_linearization_error(
       uH_h, uh_minus_uH_h, norm_R, norm_E);
-  apf::Field* eta = m_physics->localize_error(uH_h, zh_minus_zh_H);
+
   double eta_zh = m_physics->compute_eta(uH_h, zh);
   double eta_zh_minus_zh_H = m_physics->compute_eta(uH_h, zh_minus_zh_H);
   double eta_L = m_physics->compute_eta_L(zh, E_L);
 
-  double eta_sum, eta_bound;
-  sum(m_physics->disc(), eta, eta_sum, eta_bound);
-
-  print("manual stuff");
-  print(" > eta =  %.15e", eta_sum);
-  print(" > |eta| < %.15e", eta_bound);
-
   apf::writeVtkFiles("debug", m_physics->disc()->apf_mesh());
 
-  apf::destroyField(eta);
   apf::destroyField(E_L);
   apf::destroyField(uh_minus_uH_h);
   apf::destroyField(zh);

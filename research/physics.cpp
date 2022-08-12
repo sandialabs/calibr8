@@ -5,7 +5,6 @@
 #include "linalg.hpp"
 #include "residual.hpp"
 #include "physics.hpp"
-#include "weights.hpp"
 
 namespace calibr8 {
 
@@ -54,7 +53,12 @@ apf::Field* project(RCP<Disc> disc, apf::Field* from, std::string const& name) {
   return to;
 }
 
-apf::Field* subtract(RCP<Disc> disc, apf::Field* a, apf::Field* b, std::string const& name) {
+apf::Field* op(
+    std::function<double(double,double)> f,
+    RCP<Disc> disc,
+    apf::Field* a,
+    apf::Field* b,
+    std::string const& name) {
   ASSERT(apf::getMesh(a) == apf::getMesh(b));
   ASSERT(apf::getMesh(b) == disc->apf_mesh());
   ASSERT(apf::getShape(a) == apf::getShape(b));
@@ -74,7 +78,7 @@ apf::Field* subtract(RCP<Disc> disc, apf::Field* a, apf::Field* b, std::string c
     apf::getComponents(a, ent, local_node, &(a_vals[0]));
     apf::getComponents(b, ent, local_node, &(b_vals[0]));
     for (int eq = 0; eq < neqs; ++eq) {
-      diff_vals[eq] = a_vals[eq] - b_vals[eq];
+      diff_vals[eq] = f(a_vals[eq], b_vals[eq]);
     }
     apf::setComponents(diff, ent, local_node, &(diff_vals[0]));
   }
@@ -110,9 +114,7 @@ void assemble_residual(
     int mode,
     RCP<Disc> disc,
     RCP<Residual<T>> r,
-    RCP<Weight> weight,
     RCP<VectorT> U,
-    RCP<VectorT> Z,
     System& sys) {
   r->set_space(space);
   r->set_mode(mode);
@@ -125,19 +127,16 @@ void assemble_residual(
       apf::MeshElement* me = apf::createMeshElement(mesh, elems[elem]);
       r->in_elem(me, disc);
       r->gather(disc, U);
-      weight->in_elem(me, disc);
-      weight->gather(disc, Z);
       int const npts = apf::countIntPoints(me, order);
       for (int pt = 0; pt < npts; ++pt) {
         apf::Vector3 xi;
         apf::getIntPoint(me, order, pt, xi);
         double const w = apf::getIntWeight(me, order, pt);
         double const dv = apf::getDV(me, xi);
-        r->at_point(xi, w, dv, weight, disc);
+        r->at_point(xi, w, dv, disc);
       }
       r->scatter(disc, sys);
       r->out_elem();
-      weight->out_elem();
       apf::destroyMeshElement(me);
     }
   }
@@ -242,7 +241,6 @@ static apf::Field* solve_primal(
   Matrix dRdU(space, disc);
   System ghost_sys(GHOST, dRdU, dU, R);
   System owned_sys(OWNED, dRdU, dU, R);
-  RCP<Weight> weight = rcp(new Weight(shape));
   ParameterList const dbcs = params->sublist("dbcs");
   ParameterList& lin_alg = params->sublist("linear algebra");
   ParameterList& newton = params->sublist("newton solve");
@@ -257,7 +255,7 @@ static apf::Field* solve_primal(
     dU.zero();
     R.zero();
     dRdU.zero();
-    assemble_residual(space, JACOBIAN, disc, jacobian, weight, U.val[GHOST], Teuchos::null, ghost_sys);
+    assemble_residual(space, JACOBIAN, disc, jacobian, U.val[GHOST], ghost_sys);
     dRdU.gather(Tpetra::ADD);
     R.gather(Tpetra::ADD);
     R.val[OWNED]->scale(-1.0);
@@ -267,7 +265,7 @@ static apf::Field* solve_primal(
     U.val[OWNED]->update(1.0, *(dU.val[OWNED]), 1.0);
     U.scatter(Tpetra::INSERT);
     R.zero();
-    assemble_residual(space, RESIDUAL, disc, residual, weight, U.val[GHOST], Teuchos::null, ghost_sys);
+    assemble_residual(space, RESIDUAL, disc, residual, U.val[GHOST], ghost_sys);
     R.gather(Tpetra::ADD);
     apply_resid_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys);
     double const R_norm = R.val[OWNED]->norm2();
@@ -320,14 +318,13 @@ static apf::Field* solve_adjoint(
   Matrix dRdUT(space, disc);
   System ghost_sys(GHOST, dRdUT, Z, dJdUT);
   System owned_sys(OWNED, dRdUT, Z, dJdUT);
-  RCP<Weight> weight = rcp(new Weight(shape));
   ParameterList const dbcs = params->sublist("dbcs");
   ParameterList& lin_alg = params->sublist("linear algebra");
   fill_vector(space, disc, u_space, U);
   dRdUT.begin_fill();
   dJdUT.zero();
   Z.zero();
-  assemble_residual(space, ADJOINT, disc, jacobian, weight, U.val[GHOST], Teuchos::null, ghost_sys);
+  assemble_residual(space, ADJOINT, disc, jacobian, U.val[GHOST], ghost_sys);
   assemble_qoi(space, disc, jacobian, qoi, U.val[GHOST], &ghost_sys);
   dRdUT.gather(Tpetra::ADD);
   dJdUT.gather(Tpetra::ADD);
@@ -361,14 +358,13 @@ static apf::Field* compute_linearization_error(
   Matrix dRdU(FINE, disc);
   System ghost_sys(GHOST, dRdU, R, R);
   System owned_sys(OWNED, dRdU, R, R);
-  RCP<Weight> weight = rcp(new Weight(shape));
   ParameterList const dbcs = params->sublist("dbcs");
   dRdU.begin_fill();
   R.zero();
   dRdU.zero();
   fill_vector(FINE, disc, uH_h, U);
   fill_vector(FINE, disc, uh_minus_uH_h, U_diff);
-  assemble_residual(FINE, JACOBIAN, disc, jacobian, weight, U.val[GHOST], Teuchos::null, ghost_sys);
+  assemble_residual(FINE, JACOBIAN, disc, jacobian, U.val[GHOST], ghost_sys);
   R.gather(Tpetra::ADD);
   dRdU.gather(Tpetra::ADD);
   apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, false);
@@ -383,35 +379,6 @@ static apf::Field* compute_linearization_error(
   apf::Field* f = apf::createPackedField(mesh, "E_L", neqs, shape);
   apf::zeroField(f);
   fill_field(FINE, disc, E.val[OWNED], f);
-  return f;
-}
-
-static apf::Field* localize_error(
-    RCP<ParameterList> params,
-    RCP<Disc> disc,
-    RCP<Residual<double>> residual,
-    apf::Field* u,
-    apf::Field* z) {
-  apf::Mesh2* mesh = disc->apf_mesh();
-  apf::FieldShape* shape = disc->shape(FINE);
-  mesh->changeShape(shape, true);
-  ParameterList const dbcs = params->sublist("dbcs");
-  Vector U(FINE, disc);
-  Vector Z(FINE, disc);
-  Vector R(FINE, disc);
-  System ghost_sys; ghost_sys.b = R.val[GHOST];
-  System owned_sys; owned_sys.b = R.val[OWNED];
-  fill_vector(FINE, disc, z, Z);
-  fill_vector(FINE, disc, u, U);
-  R.zero();
-  RCP<Weight> weight = rcp(new AdjointWeight(shape));
-  assemble_residual(FINE, RESIDUAL, disc, residual, weight, U.val[GHOST], Z.val[GHOST], ghost_sys);
-  R.gather(Tpetra::ADD);
-  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
-  int const neqs = residual->num_eqs();
-  apf::Field* f = apf::createPackedField(mesh, "eta", neqs, shape);
-  apf::zeroField(f);
-  fill_field(FINE, disc, R.val[OWNED], f);
   return f;
 }
 
@@ -433,8 +400,7 @@ static double compute_eta(
   fill_vector(FINE, disc, z, Z);
   fill_vector(FINE, disc, u, U);
   R.zero();
-  RCP<Weight> weight = rcp(new Weight(shape));
-  assemble_residual(FINE, RESIDUAL, disc, residual, weight, U.val[GHOST], Teuchos::null, ghost_sys);
+  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], ghost_sys);
   R.gather(Tpetra::ADD);
   apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
   double eta = -(Z.val[OWNED])->dot(*(R.val[OWNED]));
@@ -509,18 +475,6 @@ apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* z) {
   return zh_H;
 }
 
-apf::Field* Physics::localize_error(apf::Field* u, apf::Field* z) {
-  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  print("localizing error to h nodes");
-  return calibr8::localize_error(
-      m_params,
-      m_disc,
-      m_residual,
-      u,
-      z);
-}
-
 apf::Field* Physics::compute_linearization_error(
     apf::Field* uH_h,
     apf::Field* uh_minus_uH_h,
@@ -569,6 +523,14 @@ double Physics::compute_eta_L(apf::Field* z, apf::Field* E_L) {
   ASSERT(apf::getShape(E_L) == m_disc->shape(FINE));
   print("computing linearization error estimate");
   return calibr8::compute_eta_L(m_disc, z, E_L);
+}
+
+apf::Field* Physics::op(
+    std::function<double(double,double)> f,
+    apf::Field* a,
+    apf::Field* b,
+    std::string const& name) {
+  return calibr8::op(f, m_disc, a, b, name);
 }
 
 }

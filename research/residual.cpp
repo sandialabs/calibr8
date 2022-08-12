@@ -84,31 +84,32 @@ void Residual<FADT>::gather(RCP<Disc> disc, RCP<VectorT> u) {
 }
 
 template <typename T>
-Array1D<T> Residual<T>::interp(apf::Vector3 const& xi, RCP<Disc> disc) {
-  Array1D<T> u(m_neqs, 0.);
-  apf::NewArray<double> BF;
+void Residual<T>::interp_basis(apf::Vector3 const& xi, RCP<Disc> disc) {
   apf::FieldShape* shape = disc->shape(m_space);
-  apf::getBF(shape, m_mesh_elem, xi, BF);
+  apf::getBF(shape, m_mesh_elem, xi, m_BF);
+  apf::getGradBF(shape, m_mesh_elem, xi, m_gBF);
+}
+
+template <typename T>
+Array1D<T> Residual<T>::interp(apf::Vector3 const& xi) {
+  Array1D<T> u(m_neqs, 0.);
   for (int node = 0; node < m_nnodes; ++node) {
     for (int eq = 0; eq < m_neqs; ++eq) {
-      u[eq] += m_vals[node][eq] * BF[node];
+      u[eq] += m_vals[node][eq] * m_BF[node];
     }
   }
   return u;
 }
 
 template <typename T>
-Array2D<T> Residual<T>::interp_grad(apf::Vector3 const& xi, RCP<Disc> disc) {
+Array2D<T> Residual<T>::interp_grad(apf::Vector3 const& xi) {
   Array2D<T> grad_u;
   resize(grad_u, m_neqs, m_ndims);
   zero(grad_u);
-  apf::NewArray<apf::Vector3> gBF;
-  apf::FieldShape* shape = disc->shape(m_space);
-  apf::getGradBF(shape, m_mesh_elem, xi, gBF);
   for (int node = 0; node < m_nnodes; ++node) {
     for (int eq = 0; eq < m_neqs; ++eq) {
       for (int dim = 0; dim < m_ndims; ++dim) {
-        grad_u[eq][dim] += m_vals[node][eq] * gBF[node][dim];
+        grad_u[eq][dim] += m_vals[node][eq] * m_gBF[node][dim];
       }
     }
   }
