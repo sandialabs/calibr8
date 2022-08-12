@@ -1,6 +1,9 @@
 #include <Teuchos_YamlParameterListHelpers.hpp>
 #include <lionPrint.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "control.hpp"
+#include "error.hpp"
 #include "physics.hpp"
 
 using namespace calibr8;
@@ -12,6 +15,7 @@ class Driver {
   private:
     RCP<ParameterList> m_params;
     RCP<Physics> m_physics;
+    RCP<Error> m_error;
 };
 
 Driver::Driver(std::string const& in) {
@@ -19,38 +23,22 @@ Driver::Driver(std::string const& in) {
   m_params = rcp(new ParameterList);
   Teuchos::updateParametersFromYamlFile(in, m_params.ptr());
   m_physics = rcp(new Physics(m_params));
+  m_error = create_error(m_params->sublist("error"));
 }
 
 void Driver::drive() {
+  ParameterList const error_params = m_params->sublist("error");
+  std::string const output = error_params.get<std::string>("output");
+  int check = mkdir(output.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+  { // loop over adaptive cycles here
   m_physics->build_disc();
-  double norm_R, norm_E;
-  apf::Field* uH = m_physics->solve_primal(COARSE);
-  apf::Field* uh = m_physics->solve_primal(FINE);
-  double const JH = m_physics->compute_qoi(COARSE, uH);
-  double const Jh = m_physics->compute_qoi(FINE, uh);
-  apf::Field* uH_h = m_physics->prolong_u_coarse_onto_fine(uH);
-  apf::Field* zh = m_physics->solve_adjoint(FINE, uH_h);
-  apf::Field* uh_minus_uH_h =
-    m_physics->op(subtract, uh, uH_h, "uh-uH_h");
-  apf::Field* zh_H = m_physics->restrict_z_fine_onto_fine(zh);
-  apf::Field* zh_minus_zh_H =
-    m_physics->op(subtract, zh, zh_H, "zh-zh_H");
-  apf::Field* E_L = m_physics->compute_linearization_error(
-      uH_h, uh_minus_uH_h, norm_R, norm_E);
-
-  double eta_zh = m_physics->compute_eta(uH_h, zh);
-  double eta_zh_minus_zh_H = m_physics->compute_eta(uH_h, zh_minus_zh_H);
-  double eta_L = m_physics->compute_eta_L(zh, E_L);
-
-  apf::writeVtkFiles("debug", m_physics->disc()->apf_mesh());
-
-  apf::destroyField(E_L);
-  apf::destroyField(uh_minus_uH_h);
-  apf::destroyField(zh);
-  apf::destroyField(uH_h);
-  apf::destroyField(uh);
-  apf::destroyField(uH);
-
+  apf::Field* eta = m_error->compute_error(m_physics);
+  m_error->write_mesh(m_physics, output, 0);
+  m_error->destroy_intermediate_fields();
+  //m_physics->destroy_disc();
+  //adapt mesh here if ncycles is bigger than 1
+  }
+  m_error->write_pvd(output, 1);
 }
 
 int main(int argc, char** argv) {

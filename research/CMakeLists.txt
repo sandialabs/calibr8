@@ -2,6 +2,7 @@ set(RESEARCH_SOURCES
   bcs.cpp
   control.cpp
   disc.cpp
+  error.cpp
   linalg.cpp
   residual.cpp
   physics.cpp

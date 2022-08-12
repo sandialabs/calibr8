@@ -66,7 +66,7 @@ RCP<QoI<T>> create_QoI(ParameterList const& params) {
   if (type == "solution average") {
     return rcp(new SolAvg<T>(params));
   } else {
-    return Teuchos::null;
+    throw std::runtime_error("invalid qoi");
   }
 }
 

@@ -203,7 +203,7 @@ RCP<Residual<T>> create_residual(ParameterList const& params, int ndims) {
   if (type == "nonlinear poisson") {
     return rcp(new NLPoisson<T>(params, ndims));
   } else {
-    return Teuchos::null;
+    throw std::runtime_error("invalid residual");
   }
 }
 
