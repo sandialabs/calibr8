@@ -8,50 +8,28 @@
 
 namespace calibr8 {
 
-apf::Field* project(RCP<Disc> disc, apf::Field* from, std::string const& name);
-apf::Field* subtract(RCP<Disc> disc, apf::Field* a, apf::Field* b, std::string const& name);
-
-apf::Field* solve_primal(
-    int space,
-    RCP<ParameterList> params,
-    RCP<Disc> disc,
-    RCP<Residual<double>> resid,
-    RCP<Residual<FADT>> jacobian);
-
-double compute_qoi(
-    int space,
-    RCP<ParameterList> params,
-    RCP<Disc> disc,
-    RCP<Residual<double>> resid,
-    RCP<QoI<double>> qoi,
-    apf::Field* u_space);
-
-apf::Field* solve_adjoint(
-    int space,
-    RCP<ParameterList> params,
-    RCP<Disc> disc,
-    RCP<Residual<FADT>> jacobian,
-    RCP<QoI<FADT>> qoi,
-    apf::Field* u_space);
-
-struct LE {
-  apf::Field* field;
-  double E_L;
-  double Rh_uH_h;
+class Physics {
+  public:
+    Physics(RCP<ParameterList> params);
+    void build_disc();
+    apf::Field* solve_primal(int space);
+    apf::Field* solve_adjoint(int space, apf::Field* u);
+    apf::Field* prolong_u_coarse_onto_fine(apf::Field* u);
+    double compute_qoi(int space, apf::Field* u);
+    RCP<Disc> disc() { return m_disc; }
+  private:
+    RCP<ParameterList> m_params;
+    RCP<Disc> m_disc;
+    RCP<Residual<double>> m_residual;
+    RCP<Residual<FADT>> m_jacobian;
+    RCP<QoI<double>> m_qoi;
+    RCP<QoI<FADT>> m_qoi_deriv;
 };
 
-LE compute_linearization_error(
-    RCP<ParameterList> params,
+apf::Field* subtract(
     RCP<Disc> disc,
-    RCP<Residual<double>> resid,
-    RCP<Residual<FADT>> jacobian,
-    apf::Field* uH_h,
-    apf::Field* uh_minus_uH_h);
-
-void do_stuff(
-    RCP<Disc> disc,
-    RCP<Residual<double>> resid,
-    apf::Field* zh,
-    apf::Field* uH_h);
+    apf::Field* a,
+    apf::Field* b,
+    std::string const& name);
 
 }

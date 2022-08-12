@@ -56,10 +56,10 @@ void Residual<T>::out_elem() {
 template <>
 void Residual<double>::gather(RCP<Disc> disc, RCP<VectorT> u) {
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
-  auto u_data = u->get1dViewNonConst();
+  auto u_data = u->get1dView();
   for (int node = 0; node < m_nnodes; ++node) {
     for (int eq = 0; eq < m_neqs; ++eq) {
-      LO row = disc->get_lid(m_space, ent, node, eq);
+      LO const row = disc->get_lid(m_space, ent, node, eq);
       m_vals[node][eq] = u_data[row];
       m_resid[node][eq] = 0.;
     }
@@ -71,7 +71,7 @@ void Residual<FADT>::gather(RCP<Disc> disc, RCP<VectorT> u) {
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
   m_nnodes = disc->get_num_nodes(m_space, ent);
   m_ndofs = m_nnodes * m_neqs;
-  auto u_data = u->get1dViewNonConst();
+  auto u_data = u->get1dView();
   for (int node = 0; node < m_nnodes; ++node) {
     for (int eq = 0; eq < m_neqs; ++eq) {
       int const idx = get_index(node, eq, m_neqs);

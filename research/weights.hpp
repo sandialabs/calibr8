@@ -47,10 +47,14 @@ class AdjointWeight : Weight {
     double grad(int node, int eq, int dim) override;
     void out_elem() override;
   private:
+    Array1D<double> interp_z(apf::Vector3 const& xi);
+    Array2D<double> interp_grad_z(apf::Vector3 const& xi);
+    int m_space = -1;
     int m_neqs = -1;
     int m_ndims = -1;
     int m_nnodes = -1;
     apf::MeshElement* m_mesh_element = nullptr;
+    Array2D<double> m_z_vals;
     Array2D<double> m_vals;
     Array3D<double> m_grads;
 };
