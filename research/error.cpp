@@ -127,7 +127,11 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
 void R_zh::write_history(std::string const& file, double J_ex) {
   std::stringstream stream;
   stream << std::scientific << std::setprecision(16);
-  stream << "elems H_dofs h_dofs JH Jh eta eta_bound Eh Ih Iboundh \n";
+  stream << "elems H_dofs h_dofs JH Jh eta eta_bound Eh Ih Iboundh ";
+  if (J_ex != 0.0) {
+    stream << " E I Ibound";
+  }
+  stream << "\n";
   for (size_t ctr = 0; ctr < m_nelems.size(); ++ctr) {
     double const Eh = m_Jh[ctr] - m_JH[ctr];
     double const Ih = m_estimate[ctr] / Eh;
@@ -143,6 +147,11 @@ void R_zh::write_history(std::string const& file, double J_ex) {
       << Eh << " "
       << Ih << " "
       << Iboundh << " ";
+    if (J_ex != 0.0) {
+      double const E = J_ex - m_JH[ctr];
+      double const I = m_estimate[ctr] / E;
+      double const Ibound = m_estimate[ctr] / E;
+    }
     stream << "\n";
   }
   write_stream(file + "/error.dat", stream);
@@ -176,6 +185,14 @@ class R_zh_minus_zh_H : public Error {
     apf::Field* m_zh_minus_zh_H = nullptr;
     apf::Field* m_Rh_uH_h = nullptr;
     apf::Field* m_eta = nullptr;
+  private:
+    std::vector<int> m_nelems;
+    std::vector<int> m_H_dofs;
+    std::vector<int> m_h_dofs;
+    std::vector<double> m_JH;
+    std::vector<double> m_Jh;
+    std::vector<double> m_estimate;
+    std::vector<double> m_estimate_bound;
 };
 
 apf::Field* R_zh_minus_zh_H::compute_error(RCP<Physics> physics) {
@@ -194,14 +211,51 @@ apf::Field* R_zh_minus_zh_H::compute_error(RCP<Physics> physics) {
   double const eta = physics->estimate_error(m_eta);
   double const eta_bound = physics->estimate_error_bound(m_eta);
 
+  // collect the data
+  m_nelems.push_back(get_nelems(physics));
+  m_H_dofs.push_back(get_ndofs(COARSE, physics));
+  m_h_dofs.push_back(get_ndofs(FINE, physics));
+  m_JH.push_back(JH);
+  m_Jh.push_back(Jh);
+  m_estimate.push_back(eta);
+  m_estimate_bound.push_back(eta_bound);
+
   // return the localized error
   return m_eta;
 
 }
 
 void R_zh_minus_zh_H::write_history(std::string const& file, double J_ex) {
-  (void)file;
-  (void)J_ex;
+  std::stringstream stream;
+  stream << std::scientific << std::setprecision(16);
+  stream << "elems H_dofs h_dofs JH Jh eta eta_bound Eh Ih Iboundh ";
+  if (J_ex != 0.0) {
+    stream << " E I Ibound ";
+  }
+  stream << "\n";
+  for (size_t ctr = 0; ctr < m_nelems.size(); ++ctr) {
+    double const Eh = m_Jh[ctr] - m_JH[ctr];
+    double const Ih = m_estimate[ctr] / Eh;
+    double const Iboundh = m_estimate_bound[ctr] / Eh;
+    stream
+      << m_nelems[ctr] << " "
+      << m_H_dofs[ctr] << " "
+      << m_h_dofs[ctr] << " "
+      << m_JH[ctr] << " "
+      << m_Jh[ctr] << " "
+      << m_estimate[ctr] << " "
+      << m_estimate_bound[ctr] << " "
+      << Eh << " "
+      << Ih << " "
+      << Iboundh << " ";
+    if (J_ex != 0.0) {
+      double const E = J_ex - m_JH[ctr];
+      double const I = m_estimate[ctr] / E;
+      double const Ibound = m_estimate[ctr] / E;
+    }
+    stream << "\n";
+  }
+  write_stream(file + "/error.dat", stream);
 }
 
 void R_zh_minus_zh_H::destroy_intermediate_fields() {
