@@ -339,6 +339,33 @@ static apf::Field* solve_adjoint(
   return f;
 }
 
+static apf::Field* evaluate_residual(
+    int space,
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<double>> residual,
+    apf::Field* u_space) {
+  apf::Mesh2* mesh = disc->apf_mesh();
+  apf::FieldShape* shape = disc->shape(space);
+  mesh->changeShape(shape, true);
+  ParameterList const dbcs = params->sublist("dbcs");
+  Vector U(space, disc);
+  Vector R(space, disc);
+  System ghost_sys; ghost_sys.b = R.val[GHOST];
+  System owned_sys; owned_sys.b = R.val[OWNED];
+  fill_vector(FINE, disc, u_space, U);
+  R.zero();
+  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], ghost_sys);
+  R.gather(Tpetra::ADD);
+  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
+  std::string const name = "R" + disc->space_name(space);
+  int const neqs = residual->num_eqs();
+  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
+  apf::zeroField(f);
+  fill_field(space, disc, R.val[OWNED], f);
+  return f;
+}
+
 static apf::Field* compute_linearization_error(
     RCP<ParameterList> params,
     RCP<Disc> disc,
@@ -381,6 +408,10 @@ static apf::Field* compute_linearization_error(
   fill_field(FINE, disc, E.val[OWNED], f);
   return f;
 }
+
+
+
+
 
 static double compute_eta(
     RCP<ParameterList> params,
@@ -452,52 +483,6 @@ apf::Field* Physics::solve_primal(int space) {
       m_jacobian);
 }
 
-apf::Field* Physics::solve_adjoint(int space, apf::Field* u) {
-  ASSERT(apf::getShape(u) == m_disc->shape(space));
-  print("adjoint %s", m_disc->space_name(space).c_str());
-  return calibr8::solve_adjoint(
-      space,
-      m_params,
-      m_disc,
-      m_jacobian,
-      m_qoi_deriv,
-      u);
-}
-
-apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* u) {
-  ASSERT(apf::getShape(u) == m_disc->shape(COARSE));
-  print("prolonging uH onto h");
-  return calibr8::project(m_disc, u, "uH_h");
-}
-
-apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* z) {
-  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  print("restricting zh onto H on h");
-  apf::Field* tmp = calibr8::project(m_disc, z, "tmp");
-  apf::Field* zh_H = calibr8::project(m_disc, tmp, "zh_H");
-  apf::destroyField(tmp);
-  return zh_H;
-}
-
-apf::Field* Physics::compute_linearization_error(
-    apf::Field* uH_h,
-    apf::Field* uh_minus_uH_h,
-    double& norm_R,
-    double& norm_E) {
-  ASSERT(apf::getShape(uH_h) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(uh_minus_uH_h) == m_disc->shape(FINE));
-  print("computing linearization error");
-  return calibr8::compute_linearization_error(
-    m_params,
-    m_disc,
-    m_residual,
-    m_jacobian,
-    uH_h,
-    uh_minus_uH_h,
-    norm_R,
-    norm_E);
-}
-
 double Physics::compute_qoi(int space, apf::Field* u) {
   ASSERT(apf::getShape(u) == m_disc->shape(space));
   print("qoi %s", m_disc->space_name(space).c_str());
@@ -508,6 +493,71 @@ double Physics::compute_qoi(int space, apf::Field* u) {
     m_residual,
     m_qoi,
     u);
+}
+
+apf::Field* Physics::solve_adjoint(int space, apf::Field* u) {
+  print("adjoint %s", m_disc->space_name(space).c_str());
+  ASSERT(apf::getShape(u) == m_disc->shape(space));
+  return calibr8::solve_adjoint(
+      space,
+      m_params,
+      m_disc,
+      m_jacobian,
+      m_qoi_deriv,
+      u);
+}
+
+apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* u) {
+  print("prolonging uH onto h");
+  ASSERT(apf::getShape(u) == m_disc->shape(COARSE));
+  return calibr8::project(m_disc, u, "uH_h");
+}
+
+apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* z) {
+  print("restricting zh onto H on h");
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  apf::Field* tmp = calibr8::project(m_disc, z, "tmp");
+  apf::Field* zh_H = calibr8::project(m_disc, tmp, "zh_H");
+  apf::destroyField(tmp);
+  return zh_H;
+}
+
+apf::Field* Physics::evaluate_residual(int space, apf::Field* u) {
+  print("evaluating residual");
+  return calibr8::evaluate_residual(
+      space,
+      m_params,
+      m_disc,
+      m_residual,
+      u);
+}
+
+apf::Field* Physics::localize_error(apf::Field* R, apf::Field* z) {
+  print("localizing error");
+  ASSERT(apf::getShape(R) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  return op(negate_multiply, m_disc, R, z, "eta");
+}
+
+// work on the below
+
+apf::Field* Physics::compute_linearization_error(
+    apf::Field* uH_h,
+    apf::Field* uh_minus_uH_h,
+    double& norm_R,
+    double& norm_E) {
+  print("computing linearization error");
+  ASSERT(apf::getShape(uH_h) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(uh_minus_uH_h) == m_disc->shape(FINE));
+  return calibr8::compute_linearization_error(
+    m_params,
+    m_disc,
+    m_residual,
+    m_jacobian,
+    uH_h,
+    uh_minus_uH_h,
+    norm_R,
+    norm_E);
 }
 
 double Physics::compute_eta(apf::Field* u, apf::Field* z) {
@@ -527,14 +577,6 @@ double Physics::compute_eta_L(apf::Field* z, apf::Field* E_L) {
   ASSERT(apf::getShape(E_L) == m_disc->shape(FINE));
   print("computing linearization error estimate");
   return calibr8::compute_eta_L(m_disc, z, E_L);
-}
-
-apf::Field* Physics::op(
-    std::function<double(double,double)> f,
-    apf::Field* a,
-    apf::Field* b,
-    std::string const& name) {
-  return calibr8::op(f, m_disc, a, b, name);
 }
 
 }

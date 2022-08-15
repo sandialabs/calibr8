@@ -102,6 +102,7 @@ void SPR::destroy_intermediate_fields() {
 }
 
 void SPR::write_history(std::string const& file, double J_ex) {
+  //TODO: write history here
   (void)file;
   (void)J_ex;
 }
@@ -116,6 +117,8 @@ class R_zh : public Error {
     apf::Field* m_uh = nullptr;
     apf::Field* m_uH_h = nullptr;
     apf::Field* m_zh = nullptr;
+    apf::Field* m_Rh_uH_h = nullptr;
+    apf::Field* m_eta = nullptr;
 };
 
 apf::Field* R_zh::compute_error(RCP<Physics> physics) {
@@ -125,10 +128,12 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
   double const Jh = physics->compute_qoi(FINE, m_uh);
   m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
   m_zh = physics->solve_adjoint(FINE, m_uH_h);
-  double const eta = physics->compute_eta(m_uH_h, m_zh);
+  m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
+  m_eta = physics->localize_error(m_Rh_uH_h, m_zh);
+
+
   std::cout << std::scientific << std::setprecision(17);
   std::cout << "Jh - JH: " << (Jh - JH) << "\n";
-  // physics->localize_error(uH_h, zh);
   return m_uH;
 }
 
@@ -142,10 +147,13 @@ void R_zh::destroy_intermediate_fields() {
   apf::destroyField(m_uh);
   apf::destroyField(m_uH_h);
   apf::destroyField(m_zh);
+  apf::destroyField(m_Rh_uH_h);
   m_uH = nullptr;
   m_uh = nullptr;
   m_uH_h = nullptr;
   m_zh = nullptr;
+  m_Rh_uH_h = nullptr;
+  m_eta = nullptr;
 }
 
 RCP<Error> create_error(ParameterList const& params) {
@@ -154,12 +162,10 @@ RCP<Error> create_error(ParameterList const& params) {
     return rcp(new SPR);
   } else if (type == "R dot zh") {
     return rcp(new R_zh);
-  }  else {
+  } else {
     throw std::runtime_error("invalid residual");
   }
 }
-
-
 
 #if 0
   double norm_R, norm_E;
