@@ -8,10 +8,6 @@
 
 namespace calibr8 {
 
-double inline add(double a, double b) { return a+b; }
-double inline subtract(double a, double b) { return a-b; }
-double inline multiply(double a, double b) { return a*b; }
-double inline negate_multiply(double a, double b) { return -a*b; }
 
 class Physics {
   public:
@@ -26,6 +22,8 @@ class Physics {
     apf::Field* restrict_z_fine_onto_fine(apf::Field* z);
     apf::Field* evaluate_residual(int space, apf::Field* u);
     apf::Field* localize_error(apf::Field* R, apf::Field* z);
+    double estimate_error(apf::Field* eta);
+    double estimate_error_bound(apf::Field* eta);
 
 
 // work on the below
@@ -34,8 +32,8 @@ class Physics {
         apf::Field* uh_minus_uH_h,
         double& norm_R,
         double& norm_E);
-    double compute_eta(apf::Field* u, apf::Field* z);
     double compute_eta_L(apf::Field* z, apf::Field* E_L);
+
   private:
     RCP<ParameterList> m_params;
     RCP<Disc> m_disc;

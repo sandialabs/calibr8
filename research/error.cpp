@@ -1,3 +1,4 @@
+#include <fstream>
 #include <PCU.h>
 #include <spr.h>
 #include "control.hpp"
@@ -5,6 +6,17 @@
 #include "physics.hpp"
 
 namespace calibr8 {
+
+static void write_stream(
+    std::string const& path,
+    std::stringstream const& stream) {
+  std::ofstream file_stream(path.c_str());
+  if (!file_stream.is_open()) {
+    throw std::runtime_error("write_stream - could not open: " + path);
+  }
+  file_stream << stream.rdbuf();
+  file_stream.close();
+}
 
 void Error::write_mesh(RCP<Physics> physics, std::string const& file, int ctr) {
   std::string names[NUM_SPACE];
@@ -19,9 +31,31 @@ void Error::write_mesh(RCP<Physics> physics, std::string const& file, int ctr) {
   }
 }
 
+static void write_pvd(
+    std::stringstream& stream,
+    std::string const& name,
+    int nctr) {
+  stream << "<VTKFile type=\"Collection\" version=\"0.1\">" << std::endl;
+  stream << "  <Collection>" << std::endl;
+  for (int ctr = 1; ctr <= nctr; ++ctr) {
+    std::string const out = name + "_" + std::to_string(ctr);
+    std::string const pvtu = out + "/" + out;
+    stream << "    <DataSet timestep=\"" << ctr << "\" group=\"\" ";
+    stream << "part=\"0\" file=\"" << pvtu;
+    stream << ".pvtu\"/>" << std::endl;
+  }
+  stream << "  </Collection>" << std::endl;
+  stream << "</VTKFile>" << std::endl;
+}
+
 void Error::write_pvd(std::string const& file, int nctr) {
-  (void)file;
-  (void)nctr;
+  if (PCU_Comm_Self()) return;
+  std::stringstream coarse_stream;
+  std::stringstream fine_stream;
+  calibr8::write_pvd(coarse_stream, "coarse", nctr);
+  calibr8::write_pvd(fine_stream, "fine", nctr);
+  write_stream(file + "/" + "coarse.pvd", coarse_stream);
+  write_stream(file + "/" + "fine.pvd", fine_stream);
 }
 
 class SPR : public Error {
@@ -130,10 +164,8 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
   m_zh = physics->solve_adjoint(FINE, m_uH_h);
   m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
   m_eta = physics->localize_error(m_Rh_uH_h, m_zh);
-
-
-  std::cout << std::scientific << std::setprecision(17);
-  std::cout << "Jh - JH: " << (Jh - JH) << "\n";
+  double const eta = physics->estimate_error(m_eta);
+  double const eta_bound = physics->estimate_error_bound(m_eta);
   return m_uH;
 }
 
@@ -166,36 +198,5 @@ RCP<Error> create_error(ParameterList const& params) {
     throw std::runtime_error("invalid residual");
   }
 }
-
-#if 0
-  double norm_R, norm_E;
-  apf::Field* uH = m_physics->solve_primal(COARSE);
-  apf::Field* uh = m_physics->solve_primal(FINE);
-  double const JH = m_physics->compute_qoi(COARSE, uH);
-  double const Jh = m_physics->compute_qoi(FINE, uh);
-  apf::Field* uH_h = m_physics->prolong_u_coarse_onto_fine(uH);
-  apf::Field* zh = m_physics->solve_adjoint(FINE, uH_h);
-  apf::Field* uh_minus_uH_h =
-    m_physics->op(subtract, uh, uH_h, "uh-uH_h");
-  apf::Field* zh_H = m_physics->restrict_z_fine_onto_fine(zh);
-  apf::Field* zh_minus_zh_H =
-    m_physics->op(subtract, zh, zh_H, "zh-zh_H");
-  apf::Field* E_L = m_physics->compute_linearization_error(
-      uH_h, uh_minus_uH_h, norm_R, norm_E);
-
-  apf::Field* eta = 
-  double eta_zh = m_physics->compute_eta(uH_h, zh);
-  double eta_zh_minus_zh_H = m_physics->compute_eta(uH_h, zh_minus_zh_H);
-  double eta_L = m_physics->compute_eta_L(zh, E_L);
-
-  apf::writeVtkFiles("debug", m_physics->disc()->apf_mesh());
-
-  apf::destroyField(E_L);
-  apf::destroyField(uh_minus_uH_h);
-  apf::destroyField(zh);
-  apf::destroyField(uH_h);
-  apf::destroyField(uh);
-  apf::destroyField(uH);
-#endif
 
 }

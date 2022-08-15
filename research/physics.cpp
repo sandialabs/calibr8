@@ -53,6 +53,12 @@ apf::Field* project(RCP<Disc> disc, apf::Field* from, std::string const& name) {
   return to;
 }
 
+static double subtract(double a, double b) { return a-b; }
+static double negate_multiply(double a, double b) { return -a*b; }
+
+static void sum_into (double& a, double b) { a += b; }
+static void abs_sum_into(double& a, double b) { a += std::abs(b); }
+
 apf::Field* op(
     std::function<double(double,double)> f,
     RCP<Disc> disc,
@@ -67,23 +73,49 @@ apf::Field* op(
   apf::FieldShape* shape = apf::getShape(a);
   int const space = disc->get_space(shape);
   int const neqs = apf::countComponents(a);
-  apf::Field* diff = apf::createPackedField(mesh, name.c_str(), neqs, shape);
+  apf::Field* result = apf::createPackedField(mesh, name.c_str(), neqs, shape);
   apf::DynamicArray<apf::Node> nodes = disc->owned_nodes(space);
   std::vector<double> a_vals(neqs, 0.);
   std::vector<double> b_vals(neqs, 0.);
-  std::vector<double> diff_vals(neqs, 0.);
+  std::vector<double> result_vals(neqs, 0.);
   for (auto& node : nodes) {
     apf::MeshEntity* ent = node.entity;
     int const local_node = node.node;
     apf::getComponents(a, ent, local_node, &(a_vals[0]));
     apf::getComponents(b, ent, local_node, &(b_vals[0]));
     for (int eq = 0; eq < neqs; ++eq) {
-      diff_vals[eq] = f(a_vals[eq], b_vals[eq]);
+      result_vals[eq] = f(a_vals[eq], b_vals[eq]);
     }
-    apf::setComponents(diff, ent, local_node, &(diff_vals[0]));
+    apf::setComponents(result, ent, local_node, &(result_vals[0]));
   }
-  apf::synchronize(diff);
-  return diff;
+  apf::synchronize(result);
+  return result;
+}
+
+double op(
+    std::function<void(double&,double)> f1,
+    std::function<void(double&,double)> f2,
+    RCP<Disc> disc,
+    apf::Field* a) {
+  double result = 0.;
+  apf::Mesh* mesh = apf::getMesh(a);
+  apf::FieldShape* shape = apf::getShape(a);
+  int const space = disc->get_space(shape);
+  int const neqs = apf::countComponents(a);
+  apf::DynamicArray<apf::Node> nodes = disc->owned_nodes(space);
+  std::vector<double> a_vals(neqs, 0.);
+  for (auto& node : nodes) {
+    apf::MeshEntity* ent = node.entity;
+    int const local_node = node.node;
+    apf::getComponents(a, ent, local_node, &(a_vals[0]));
+    double node_val = 0.;
+    for (int eq = 0; eq < neqs; ++eq) {
+      f1(node_val, a_vals[eq]);
+    }
+    f2(result, node_val);
+  }
+  result = PCU_Add_Double(result);
+  return result;
 }
 
 void sum(RCP<Disc> disc, apf::Field* a, double& val, double& abs_val) {
@@ -410,34 +442,7 @@ static apf::Field* compute_linearization_error(
 }
 
 
-
-
-
-static double compute_eta(
-    RCP<ParameterList> params,
-    RCP<Disc> disc,
-    RCP<Residual<double>> residual,
-    apf::Field* u,
-    apf::Field* z) {
-  apf::Mesh2* mesh = disc->apf_mesh();
-  apf::FieldShape* shape = disc->shape(FINE);
-  mesh->changeShape(shape, true);
-  ParameterList const dbcs = params->sublist("dbcs");
-  Vector U(FINE, disc);
-  Vector Z(FINE, disc);
-  Vector R(FINE, disc);
-  System ghost_sys; ghost_sys.b = R.val[GHOST];
-  System owned_sys; owned_sys.b = R.val[OWNED];
-  fill_vector(FINE, disc, z, Z);
-  fill_vector(FINE, disc, u, U);
-  R.zero();
-  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], ghost_sys);
-  R.gather(Tpetra::ADD);
-  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
-  double eta = -(Z.val[OWNED])->dot(*(R.val[OWNED]));
-  print(" > eta = %.15e", eta);
-  return eta;
-}
+// work on below
 
 static double compute_eta_L(
     RCP<Disc> disc,
@@ -539,6 +544,20 @@ apf::Field* Physics::localize_error(apf::Field* R, apf::Field* z) {
   return op(negate_multiply, m_disc, R, z, "eta");
 }
 
+double Physics::estimate_error(apf::Field* eta) {
+  print("estimating error");
+  double const estimate = op(sum_into, sum_into, m_disc, eta);
+  print(" > eta = %.15e", estimate);
+  return estimate;
+}
+
+double Physics::estimate_error_bound(apf::Field* eta) {
+  print("estimating error bound");
+  double const estimate = op(sum_into, abs_sum_into, m_disc, eta);
+  print(" > |eta| < %.15e", estimate);
+  return estimate;
+}
+
 // work on the below
 
 apf::Field* Physics::compute_linearization_error(
@@ -558,18 +577,6 @@ apf::Field* Physics::compute_linearization_error(
     uh_minus_uH_h,
     norm_R,
     norm_E);
-}
-
-double Physics::compute_eta(apf::Field* u, apf::Field* z) {
-  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  print("computing error estimate");
-  return calibr8::compute_eta(
-      m_params,
-      m_disc,
-      m_residual,
-      u,
-      z);
 }
 
 double Physics::compute_eta_L(apf::Field* z, apf::Field* E_L) {
