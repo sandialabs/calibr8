@@ -41,9 +41,9 @@ void Driver::drive() {
     m_error->write_mesh(m_physics, output, adapt_ctr);
     m_error->destroy_intermediate_fields();
     m_physics->destroy_disc();
-//    if (niters > 1) {
+    if (adapt_ctr != nadapt) {
       m_adapt->adapt(adapt_params, m_physics);
-//    }
+    }
   }
   m_error->write_pvd(output, nadapt);
   m_error->write_history(output, 0.);

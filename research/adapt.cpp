@@ -1,11 +1,19 @@
+#include <PCU.h>
+#include <ma.h>
+#include <apfCavityOp.h>
 #include "adapt.hpp"
 #include "control.hpp"
 #include "physics.hpp"
 
 namespace calibr8 {
 
-static apf::Field* interp_error_to_cells(apf::Mesh* mesh) {
-  apf::Field* eta = mesh->findField("eta");
+class Test : public Adapt {
+  void adapt(ParameterList const& params, RCP<Physics> physics);
+};
+
+static apf::Field* interp_error_to_cells(apf::Field* eta) {
+  print("interpolating error field to cell centers");
+  apf::Mesh* mesh = apf::getMesh(eta);
   apf::Field* error = apf::createStepField(mesh, "error", apf::SCALAR);
   int const neqs = apf::countComponents(eta);
   Array1D<double> values(neqs, 0.);
@@ -26,20 +34,176 @@ static apf::Field* interp_error_to_cells(apf::Mesh* mesh) {
     apf::destroyMeshElement(me);
   }
   mesh->end(elems);
-  apf::writeVtkFiles("debug", mesh);
-  apf::destroyField(eta);
   return error;
 }
 
-class Test : public Adapt {
-  void adapt(ParameterList const& params, RCP<Physics> physics);
+struct Specification {
+  apf::Mesh* mesh;
+  apf::Field* error;
+  int p_order;
+  int target;
+  double alpha;
+  double beta;
+  double size_factor;
+  apf::Field* elem_size;
+  apf::Field* vtx_size;
 };
 
+static void setup_specification(
+    Specification* s,
+    apf::Field* err,
+    int target,
+    int p_order) {
+  s->mesh = apf::getMesh(err);
+  s->error = err;
+  s->p_order = p_order;
+  s->target = target;
+  s->alpha = 0.25;
+  s->beta = 2.0;
+  s->size_factor = 0.0;
+  s->elem_size = 0;
+  s->vtx_size = 0;
+}
+
+static double sum_contributions(Specification* s) {
+  double r = 0.0;
+  double d = s->mesh->getDimension();
+  double p = s->p_order;
+  apf::MeshEntity* elem;
+  auto it = s->mesh->begin(d);
+  while ((elem = s->mesh->iterate(it))) {
+    double v = std::abs(apf::getScalar(s->error, elem, 0));
+    r += std::pow(v, ((2.0 * d) / (2.0 * p + d)));
+  }
+  s->mesh->end(it);
+  PCU_Add_Doubles(&r, 1);
+  return r;
+}
+
+static void compute_size_factor(Specification* s) {
+  double d = s->mesh->getDimension();
+  double G = sum_contributions(s);
+  double N = s->target;
+  s->size_factor = std::pow((G/N), (1.0/d));
+}
+
+static double get_current_size(apf::Mesh* m, apf::MeshEntity* e) {
+  double h = 0.0;
+  apf::Downward edges;
+  int ne = m->getDownward(e, 1, edges);
+  for (int i = 0; i < ne; ++i)
+    h += apf::measure(m, edges[i]) * apf::measure(m, edges[i]);
+  return std::sqrt(h/ne);
+}
+
+static double get_new_size(Specification* s, apf::MeshEntity* e) {
+  double p = s->p_order;
+  double d = s->mesh->getDimension();
+  double h = get_current_size(s->mesh, e);
+  double theta_e = std::abs(apf::getScalar(s->error, e, 0));
+  double r = std::pow(theta_e, ((-2.0) / (2.0*p + d)));
+  double h_new = s->size_factor * r * h;
+  if (h_new < s->alpha * h) h_new = s->alpha * h;
+  if (h_new > s->beta * h) h_new = s->beta * h;
+  return h_new;
+}
+
+static void get_elem_size(Specification* s) {
+  auto e_size = apf::createStepField(s->mesh, "esize", apf::SCALAR);
+  auto d = s->mesh->getDimension();
+  apf::MeshEntity* elem;
+  auto it = s->mesh->begin(d);
+  while ((elem = s->mesh->iterate(it))) {
+    double h = get_new_size(s, elem);
+    apf::setScalar(e_size, elem, 0, h);
+  }
+  s->mesh->end(it);
+  s->elem_size = e_size;
+}
+
+static void avg_to_vtx(
+    apf::Field* ef,
+    apf::Field* vf,
+    apf::MeshEntity* ent) {
+  auto m = apf::getMesh(ef);
+  apf::Adjacent elems;
+  m->getAdjacent(ent, m->getDimension(), elems);
+  double s = 0.0;
+  for (size_t i = 0; i < elems.getSize(); ++i)
+    s += apf::getScalar(ef, elems[i], 0);
+  s /= elems.getSize();
+  apf::setScalar(vf, ent, 0, s);
+}
+
+class AverageOp : public apf::CavityOp {
+  public:
+    AverageOp(Specification* s) :
+      apf::CavityOp(s->mesh), specs(s), entity(0) {}
+    virtual Outcome setEntity(apf::MeshEntity* e) {
+      entity = e;
+      if (apf::hasEntity(specs->vtx_size, entity)) return SKIP;
+      if (!requestLocality(&entity, 1)) return REQUEST;
+      return OK;
+    }
+    virtual void apply() {
+      avg_to_vtx(specs->elem_size, specs->vtx_size, entity);
+    }
+    Specification* specs;
+    apf::MeshEntity* entity;
+};
+
+static void average_size_field(Specification* s) {
+  s->vtx_size = apf::createLagrangeField(s->mesh, "size", apf::SCALAR, 1);
+  AverageOp op(s);
+  op.applyToDimension(0);
+}
+
+static void create_size_field(Specification* s) {
+  compute_size_factor(s);
+  get_elem_size(s);
+  average_size_field(s);
+  apf::destroyField(s->elem_size);
+  apf::destroyField(s->error);
+}
+
+apf::Field* get_iso_target_size(
+    apf::Field* e,
+    int target) {
+  ASSERT(target > 0);
+  Specification s;
+  setup_specification(&s, e, target, 1);
+  create_size_field(&s);
+  return s.vtx_size;
+}
+
 void Test::adapt(ParameterList const& params, RCP<Physics> physics) {
-  print("im adapting");
-  apf::Field* error  = interp_error_to_cells(physics->disc()->apf_mesh());
-  (void)params;
-  (void)physics;
+  print("adapting mesh");
+  physics->disc()->change_shape(COARSE);
+  apf::Mesh2* mesh = physics->disc()->apf_mesh();
+  apf::Field* eta = mesh->findField("eta");
+  apf::Field* error = interp_error_to_cells(eta);
+  apf::destroyField(eta);
+
+
+  static int ctr = 1;
+  apf::Field* size_field = get_iso_target_size(error, std::pow(2, ctr)*500);
+  ctr++;
+
+  auto in = ma::makeAdvanced(ma::configure(mesh, size_field));
+
+  // these are the configure_ma stuff
+  in->maximumIterations = 3;
+  in->shouldCoarsen = false;
+  in->shouldFixShape = false;
+  in->goodQuality = 0.5;
+  in->shouldRunPreParma = true;
+  in->shouldRunMidParma = true;
+  in->shouldRunPostParma = true;
+//  configure_ma(in, adapt_params);
+
+  ma::adapt(in);
+  apf::destroyField(size_field);
+
 }
 
 RCP<Adapt> create_adapt(ParameterList const& params) {
