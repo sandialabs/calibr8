@@ -351,7 +351,7 @@ RCP<Error> create_error(ParameterList const& params) {
   } else if (type == "R dot zh minus zh_H") {
     return rcp(new R_zh_minus_zh_H);
   } else {
-    throw std::runtime_error("invalid residual");
+    throw std::runtime_error("invalid error");
   }
 }
 
