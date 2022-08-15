@@ -119,6 +119,31 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
   m_estimate.push_back(eta);
   m_estimate_bound.push_back(eta_bound);
 
+
+  // do some stuff manually
+  RCP<Disc> disc = physics->disc();
+  apf::Mesh* mesh = disc->apf_mesh();
+  apf::FieldShape* shape = disc->shape(FINE);
+  int const neqs = disc->num_eqs();
+  Array1D<double> values(neqs, 0.);
+  apf::Field* TEST = apf::createStepField(mesh, "TEST", apf::SCALAR);
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+    std::string es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+      apf::Vector3 xi;
+      apf::NewArray<double> BF;
+      apf::MeshEntity* ent = elems[elem];
+      apf::MeshElement* me = apf::createMeshElement(mesh, elems[elem]);
+      apf::Element* e  = apf::createElement(m_eta, me);
+      apf::getIntPoint(me, 1, 0, xi);
+      apf::getComponents(e, xi, &(values[0]));
+      apf::setScalar(TEST, ent, 0, values[0]);
+      apf::destroyElement(e);
+      apf::destroyMeshElement(me);
+    }
+  }
+
   // return the localized error
   return m_eta;
 
