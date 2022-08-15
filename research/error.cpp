@@ -119,31 +119,6 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
   m_estimate.push_back(eta);
   m_estimate_bound.push_back(eta_bound);
 
-
-  // do some stuff manually
-  RCP<Disc> disc = physics->disc();
-  apf::Mesh* mesh = disc->apf_mesh();
-  apf::FieldShape* shape = disc->shape(FINE);
-  int const neqs = disc->num_eqs();
-  Array1D<double> values(neqs, 0.);
-  apf::Field* TEST = apf::createStepField(mesh, "TEST", apf::SCALAR);
-  for (int es = 0; es < disc->num_elem_sets(); ++es) {
-    std::string es_name = disc->elem_set_name(es);
-    ElemSet const& elems = disc->elems(es_name);
-    for (size_t elem = 0; elem < elems.size(); ++elem) {
-      apf::Vector3 xi;
-      apf::NewArray<double> BF;
-      apf::MeshEntity* ent = elems[elem];
-      apf::MeshElement* me = apf::createMeshElement(mesh, elems[elem]);
-      apf::Element* e  = apf::createElement(m_eta, me);
-      apf::getIntPoint(me, 1, 0, xi);
-      apf::getComponents(e, xi, &(values[0]));
-      apf::setScalar(TEST, ent, 0, values[0]);
-      apf::destroyElement(e);
-      apf::destroyMeshElement(me);
-    }
-  }
-
   // return the localized error
   return m_eta;
 
@@ -183,6 +158,66 @@ void R_zh::destroy_intermediate_fields() {
   m_uh = nullptr;
   m_uH_h = nullptr;
   m_zh = nullptr;
+  m_Rh_uH_h = nullptr;
+  m_eta = nullptr;
+}
+
+class R_zh_minus_zh_H : public Error {
+  public:
+    apf::Field* compute_error(RCP<Physics> physics) override;
+    void destroy_intermediate_fields() override;
+    void write_history(std::string const& file, double J_ex) override;
+  private:
+    apf::Field* m_uH = nullptr;
+    apf::Field* m_uh = nullptr;
+    apf::Field* m_uH_h = nullptr;
+    apf::Field* m_zh = nullptr;
+    apf::Field* m_zh_H = nullptr;
+    apf::Field* m_zh_minus_zh_H = nullptr;
+    apf::Field* m_Rh_uH_h = nullptr;
+    apf::Field* m_eta = nullptr;
+};
+
+apf::Field* R_zh_minus_zh_H::compute_error(RCP<Physics> physics) {
+
+  // do the error estimation
+  m_uH = physics->solve_primal(COARSE);
+  m_uh = physics->solve_primal(FINE);
+  double const JH = physics->compute_qoi(COARSE, m_uH);
+  double const Jh = physics->compute_qoi(FINE, m_uh);
+  m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
+  m_zh = physics->solve_adjoint(FINE, m_uH_h);
+  m_zh_H = physics->restrict_z_fine_onto_fine(m_zh);
+  m_zh_minus_zh_H = physics->subtract_z_coarse_from_z_fine(m_zh, m_zh_H);
+  m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
+  m_eta = physics->localize_error(m_Rh_uH_h, m_zh_minus_zh_H);
+  double const eta = physics->estimate_error(m_eta);
+  double const eta_bound = physics->estimate_error_bound(m_eta);
+
+  // return the localized error
+  return m_eta;
+
+}
+
+void R_zh_minus_zh_H::write_history(std::string const& file, double J_ex) {
+  (void)file;
+  (void)J_ex;
+}
+
+void R_zh_minus_zh_H::destroy_intermediate_fields() {
+  apf::destroyField(m_uH);
+  apf::destroyField(m_uh);
+  apf::destroyField(m_uH_h);
+  apf::destroyField(m_zh);
+  apf::destroyField(m_zh_H);
+  apf::destroyField(m_zh_minus_zh_H);
+  apf::destroyField(m_Rh_uH_h);
+  m_uH = nullptr;
+  m_uh = nullptr;
+  m_uH_h = nullptr;
+  m_zh = nullptr;
+  m_zh_H = nullptr;
+  m_zh_minus_zh_H = nullptr;
   m_Rh_uH_h = nullptr;
   m_eta = nullptr;
 }
@@ -259,6 +294,8 @@ RCP<Error> create_error(ParameterList const& params) {
     return rcp(new SPR);
   } else if (type == "R dot zh") {
     return rcp(new R_zh);
+  } else if (type == "R dot zh minus zh_H") {
+    return rcp(new R_zh_minus_zh_H);
   } else {
     throw std::runtime_error("invalid residual");
   }

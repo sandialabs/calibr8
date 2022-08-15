@@ -503,6 +503,13 @@ apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* z) {
   return zh_H;
 }
 
+apf::Field* Physics::subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH) {
+  print("subtracting zH from zh");
+  ASSERT(apf::getShape(zh) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(zH) == m_disc->shape(FINE));
+  return op(subtract, m_disc, zh, zH, "zh_minus_zH");
+}
+
 apf::Field* Physics::evaluate_residual(int space, apf::Field* u) {
   print("evaluating residual");
   return calibr8::evaluate_residual(

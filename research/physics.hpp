@@ -20,11 +20,11 @@ class Physics {
     apf::Field* solve_adjoint(int space, apf::Field* u);
     apf::Field* prolong_u_coarse_onto_fine(apf::Field* u);
     apf::Field* restrict_z_fine_onto_fine(apf::Field* z);
+    apf::Field* subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH);
     apf::Field* evaluate_residual(int space, apf::Field* u);
     apf::Field* localize_error(apf::Field* R, apf::Field* z);
     double estimate_error(apf::Field* eta);
     double estimate_error_bound(apf::Field* eta);
-
 
 // work on the below
     apf::Field* compute_linearization_error(
