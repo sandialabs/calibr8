@@ -40,6 +40,7 @@ void Driver::drive() {
     //adapt mesh here if ncycles is bigger than 1
   }
   m_error->write_pvd(output, adapt_ctr);
+  m_error->write_history(output, 0.);
 }
 
 int main(int argc, char** argv) {

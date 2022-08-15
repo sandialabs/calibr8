@@ -7,6 +7,23 @@
 
 namespace calibr8 {
 
+static int const get_ndofs(int space, RCP<Physics> physics) {
+  RCP<Disc> disc = physics->disc();
+  apf::Mesh* mesh = disc->apf_mesh();
+  int const neqs = disc->num_eqs();
+  int dofs = neqs * disc->owned_nodes(space).getSize();
+  dofs = PCU_Add_Double(dofs);
+  return dofs;
+}
+
+static int const get_nelems(RCP<Physics> physics) {
+  RCP<Disc> disc = physics->disc();
+  apf::Mesh* mesh = disc->apf_mesh();
+  int nelems = mesh->count(disc->num_dims());
+  nelems = PCU_Add_Double(nelems);
+  return nelems;
+}
+
 static void write_stream(
     std::string const& path,
     std::stringstream const& stream) {
@@ -58,6 +75,94 @@ void Error::write_pvd(std::string const& file, int nctr) {
   write_stream(file + "/" + "fine.pvd", fine_stream);
 }
 
+class R_zh : public Error {
+  public:
+    apf::Field* compute_error(RCP<Physics> physics) override;
+    void destroy_intermediate_fields() override;
+    void write_history(std::string const& file, double J_ex) override;
+  private:
+    apf::Field* m_uH = nullptr;
+    apf::Field* m_uh = nullptr;
+    apf::Field* m_uH_h = nullptr;
+    apf::Field* m_zh = nullptr;
+    apf::Field* m_Rh_uH_h = nullptr;
+    apf::Field* m_eta = nullptr;
+  private:
+    std::vector<int> m_nelems;
+    std::vector<int> m_H_dofs;
+    std::vector<int> m_h_dofs;
+    std::vector<double> m_JH;
+    std::vector<double> m_Jh;
+    std::vector<double> m_estimate;
+    std::vector<double> m_estimate_bound;
+};
+
+apf::Field* R_zh::compute_error(RCP<Physics> physics) {
+
+  // do the error estimation
+  m_uH = physics->solve_primal(COARSE);
+  m_uh = physics->solve_primal(FINE);
+  double const JH = physics->compute_qoi(COARSE, m_uH);
+  double const Jh = physics->compute_qoi(FINE, m_uh);
+  m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
+  m_zh = physics->solve_adjoint(FINE, m_uH_h);
+  m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
+  m_eta = physics->localize_error(m_Rh_uH_h, m_zh);
+  double const eta = physics->estimate_error(m_eta);
+  double const eta_bound = physics->estimate_error_bound(m_eta);
+
+  // collect the data
+  m_nelems.push_back(get_nelems(physics));
+  m_H_dofs.push_back(get_ndofs(COARSE, physics));
+  m_h_dofs.push_back(get_ndofs(FINE, physics));
+  m_JH.push_back(JH);
+  m_Jh.push_back(Jh);
+  m_estimate.push_back(eta);
+  m_estimate_bound.push_back(eta_bound);
+
+  // return the localized error
+  return m_eta;
+
+}
+
+void R_zh::write_history(std::string const& file, double J_ex) {
+  std::stringstream stream;
+  stream << std::scientific << std::setprecision(16);
+  stream << "elems H_dofs h_dofs JH Jh eta eta_bound Eh Ih Iboundh \n";
+  for (size_t ctr = 0; ctr < m_nelems.size(); ++ctr) {
+    double const Eh = m_Jh[ctr] - m_JH[ctr];
+    double const Ih = m_estimate[ctr] / Eh;
+    double const Iboundh = m_estimate_bound[ctr] / Eh;
+    stream
+      << m_nelems[ctr] << " "
+      << m_H_dofs[ctr] << " "
+      << m_h_dofs[ctr] << " "
+      << m_JH[ctr] << " "
+      << m_Jh[ctr] << " "
+      << m_estimate[ctr] << " "
+      << m_estimate_bound[ctr] << " "
+      << Eh << " "
+      << Ih << " "
+      << Iboundh << " ";
+    stream << "\n";
+  }
+  write_stream(file + "/error.dat", stream);
+}
+
+void R_zh::destroy_intermediate_fields() {
+  apf::destroyField(m_uH);
+  apf::destroyField(m_uh);
+  apf::destroyField(m_uH_h);
+  apf::destroyField(m_zh);
+  apf::destroyField(m_Rh_uH_h);
+  m_uH = nullptr;
+  m_uh = nullptr;
+  m_uH_h = nullptr;
+  m_zh = nullptr;
+  m_Rh_uH_h = nullptr;
+  m_eta = nullptr;
+}
+
 class SPR : public Error {
   public:
     apf::Field* compute_error(RCP<Physics> physics) override;
@@ -92,23 +197,6 @@ static apf::Field* create_value_type_field(
   return u_vt;
 }
 
-static int const get_ndofs(int space, RCP<Physics> physics) {
-  RCP<Disc> disc = physics->disc();
-  apf::Mesh* mesh = disc->apf_mesh();
-  int const neqs = disc->num_eqs();
-  int dofs = neqs * disc->owned_nodes(space).getSize();
-  dofs = PCU_Add_Double(dofs);
-  return dofs;
-}
-
-static int const get_nelems(RCP<Physics> physics) {
-  RCP<Disc> disc = physics->disc();
-  apf::Mesh* mesh = disc->apf_mesh();
-  int nelems = mesh->count(disc->num_dims());
-  nelems = PCU_Add_Double(nelems);
-  return nelems;
-}
-
 apf::Field* SPR::compute_error(RCP<Physics> physics) {
   RCP<Disc> disc = physics->disc();
   int const order = disc->order(COARSE);
@@ -139,53 +227,6 @@ void SPR::write_history(std::string const& file, double J_ex) {
   //TODO: write history here
   (void)file;
   (void)J_ex;
-}
-
-class R_zh : public Error {
-  public:
-    apf::Field* compute_error(RCP<Physics> physics) override;
-    void destroy_intermediate_fields() override;
-    void write_history(std::string const& file, double J_ex) override;
-  private:
-    apf::Field* m_uH = nullptr;
-    apf::Field* m_uh = nullptr;
-    apf::Field* m_uH_h = nullptr;
-    apf::Field* m_zh = nullptr;
-    apf::Field* m_Rh_uH_h = nullptr;
-    apf::Field* m_eta = nullptr;
-};
-
-apf::Field* R_zh::compute_error(RCP<Physics> physics) {
-  m_uH = physics->solve_primal(COARSE);
-  m_uh = physics->solve_primal(FINE);
-  double const JH = physics->compute_qoi(COARSE, m_uH);
-  double const Jh = physics->compute_qoi(FINE, m_uh);
-  m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
-  m_zh = physics->solve_adjoint(FINE, m_uH_h);
-  m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
-  m_eta = physics->localize_error(m_Rh_uH_h, m_zh);
-  double const eta = physics->estimate_error(m_eta);
-  double const eta_bound = physics->estimate_error_bound(m_eta);
-  return m_uH;
-}
-
-void R_zh::write_history(std::string const& file, double J_ex) {
-  (void)file;
-  (void)J_ex;
-}
-
-void R_zh::destroy_intermediate_fields() {
-  apf::destroyField(m_uH);
-  apf::destroyField(m_uh);
-  apf::destroyField(m_uH_h);
-  apf::destroyField(m_zh);
-  apf::destroyField(m_Rh_uH_h);
-  m_uH = nullptr;
-  m_uh = nullptr;
-  m_uH_h = nullptr;
-  m_zh = nullptr;
-  m_Rh_uH_h = nullptr;
-  m_eta = nullptr;
 }
 
 RCP<Error> create_error(ParameterList const& params) {
