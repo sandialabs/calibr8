@@ -42,8 +42,7 @@ void Error::write_mesh(RCP<Physics> physics, std::string const& file, int ctr) {
   RCP<Disc> disc = physics->disc();
   apf::Mesh* mesh = disc->apf_mesh();
   for (int space = 0; space < NUM_SPACE; ++space) {
-    apf::FieldShape* shape = disc->shape(space);
-    mesh->changeShape(shape, true);
+    disc->change_shape(space);
     apf::writeVtkFiles(names[space].c_str(), mesh);
   }
 }

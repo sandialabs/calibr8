@@ -160,6 +160,14 @@ std::string Disc::space_name(int space) {
   return "";
 }
 
+void Disc::change_shape(int space) {
+  apf::FieldShape* current_shape = m_mesh->getShape();
+  apf::FieldShape* desired_shape = shape(space);
+  if (current_shape != desired_shape) {
+    m_mesh->changeShape(desired_shape, true);
+  }
+}
+
 std::string Disc::elem_set_name(int es_idx) const {
   ASSERT(es_idx < m_num_elem_sets);
   return m_sets->models[m_num_dims][es_idx]->stkName;

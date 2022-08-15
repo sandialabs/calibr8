@@ -118,28 +118,6 @@ double op(
   return result;
 }
 
-void sum(RCP<Disc> disc, apf::Field* a, double& val, double& abs_val) {
-  apf::Mesh* mesh = apf::getMesh(a);
-  apf::FieldShape* shape = apf::getShape(a);
-  int const space = disc->get_space(shape);
-  int const neqs = apf::countComponents(a);
-  apf::DynamicArray<apf::Node> nodes = disc->owned_nodes(space);
-  std::vector<double> a_vals(neqs, 0.);
-  val = 0.;
-  abs_val = 0.;
-  for (auto& node : nodes) {
-    apf::MeshEntity* ent = node.entity;
-    int const local_node = node.node;
-    apf::getComponents(a, ent, local_node, &(a_vals[0]));
-    double node_val = 0.;
-    for (int eq = 0; eq < neqs; ++eq) {
-      node_val += a_vals[eq];
-    }
-    val += node_val;
-    abs_val += std::abs(node_val);
-  }
-}
-
 template <typename T>
 void assemble_residual(
     int space,
@@ -265,8 +243,7 @@ static apf::Field* solve_primal(
     RCP<Residual<double>> residual,
     RCP<Residual<FADT>> jacobian) {
   apf::Mesh2* mesh = disc->apf_mesh();
-  apf::FieldShape* shape = disc->shape(space);
-  mesh->changeShape(shape, true);
+  disc->change_shape(space);
   Vector U(space, disc);
   Vector dU(space, disc);
   Vector R(space, disc);
@@ -307,6 +284,7 @@ static apf::Field* solve_primal(
   }
   std::string const name = "u" + disc->space_name(space);
   int const neqs = residual->num_eqs();
+  apf::FieldShape* shape = disc->shape(space);
   apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
   apf::zeroField(f);
   fill_field(space, disc, U.val[OWNED], f);
@@ -321,8 +299,7 @@ static double compute_qoi(
     RCP<QoI<double>> qoi,
     apf::Field* u_space) {
   apf::Mesh2* mesh = disc->apf_mesh();
-  apf::FieldShape* shape = disc->shape(space);
-  mesh->changeShape(shape, true);
+  disc->change_shape(space);
   qoi->reset();
   Vector U(space, disc);
   fill_vector(space, disc, u_space, U);
@@ -342,8 +319,7 @@ static apf::Field* solve_adjoint(
     RCP<QoI<FADT>> qoi,
     apf::Field* u_space) {
   apf::Mesh2* mesh = disc->apf_mesh();
-  apf::FieldShape* shape = disc->shape(space);
-  mesh->changeShape(shape, true);
+  disc->change_shape(space);
   Vector U(space, disc);
   Vector Z(space, disc);
   Vector dJdUT(space, disc);
@@ -365,6 +341,7 @@ static apf::Field* solve_adjoint(
   solve(lin_alg, space, disc, owned_sys);
   std::string const name = "z" + disc->space_name(space);
   int const neqs = jacobian->num_eqs();
+  apf::FieldShape* shape = disc->shape(space);
   apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
   apf::zeroField(f);
   fill_field(space, disc, Z.val[OWNED], f);
@@ -378,8 +355,7 @@ static apf::Field* evaluate_residual(
     RCP<Residual<double>> residual,
     apf::Field* u_space) {
   apf::Mesh2* mesh = disc->apf_mesh();
-  apf::FieldShape* shape = disc->shape(space);
-  mesh->changeShape(shape, true);
+  disc->change_shape(space);
   ParameterList const dbcs = params->sublist("dbcs");
   Vector U(space, disc);
   Vector R(space, disc);
@@ -392,11 +368,14 @@ static apf::Field* evaluate_residual(
   apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
   std::string const name = "R" + disc->space_name(space);
   int const neqs = residual->num_eqs();
+  apf::FieldShape* shape = disc->shape(space);
   apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
   apf::zeroField(f);
   fill_field(space, disc, R.val[OWNED], f);
   return f;
 }
+
+// work on below
 
 static apf::Field* compute_linearization_error(
     RCP<ParameterList> params,
@@ -408,8 +387,7 @@ static apf::Field* compute_linearization_error(
     double& norm_R,
     double& norm_E) {
   apf::Mesh2* mesh = disc->apf_mesh();
-  apf::FieldShape* shape = disc->shape(FINE);
-  mesh->changeShape(shape, true);
+  disc->change_shape(FINE);
   Vector U(FINE, disc);
   Vector R(FINE, disc);
   Vector E(FINE, disc);
@@ -435,14 +413,12 @@ static apf::Field* compute_linearization_error(
   print(" > ||R|| = %.15e", norm_R);
   print(" > ||E_L|| = %.15e", norm_E);
   int const neqs = jacobian->num_eqs();
+  apf::FieldShape* shape = disc->shape(FINE);
   apf::Field* f = apf::createPackedField(mesh, "E_L", neqs, shape);
   apf::zeroField(f);
   fill_field(FINE, disc, E.val[OWNED], f);
   return f;
 }
-
-
-// work on below
 
 static double compute_eta_L(
     RCP<Disc> disc,
