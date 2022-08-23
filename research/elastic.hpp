@@ -3,6 +3,10 @@
 #include <minitensor.h>
 #include "residual.hpp"
 
+// references for linear elasticity w/ thermal expansion:
+// * http://mmc.rmee.upc.edu/documents/Slides/Ch6_v17.pdf, slides 72+73
+// * http://solidmechanics.org/Text/Chapter3_2/Chapter3_2.php
+
 namespace calibr8 {
 
 template <typename T>
@@ -14,6 +18,8 @@ class Elastic : public Residual<T> {
       this->m_neqs = ndims;
       this->m_E = params.get<double>("E");
       this->m_nu = params.get<double>("nu");
+      this->m_cte = params.get<double>("cte");
+      this->m_dT = params.get<double>("dT");
     }
 
     ~Elastic() override {
@@ -30,8 +36,11 @@ class Elastic : public Residual<T> {
       double const wdetJ = w*dv;
       double const E = this->m_E;
       double const nu = this->m_nu;
+      double const alpha = this->m_cte;
+      double const dT = this->m_dT;
       double const lambda = (E*nu)/((1.+nu)*(1.-2.*nu));
       double const mu = E/(2.*(1.+nu));
+      double const beta = (E/(1.-2.*nu))*alpha;
 
       this->interp_basis(xi, disc);
       Array1D<T> const dofs = this->interp(xi);
@@ -48,7 +57,7 @@ class Elastic : public Residual<T> {
       Tensor<T> const grad_uT = minitensor::transpose(grad_u);
       Tensor<T> const eps = 0.5*(grad_u + grad_uT);
       T const tr_eps = minitensor::trace(eps);
-      Tensor<T> const sigma = lambda*tr_eps*I + 2.*mu*eps;
+      Tensor<T> const sigma = lambda*tr_eps*I + 2.*mu*eps - beta*dT*I;
 
       for (int node = 0; node < this->m_nnodes; ++node) {
         for (int i = 0; i < this->m_ndims; ++i) {
@@ -65,6 +74,8 @@ class Elastic : public Residual<T> {
 
     double m_E = 0.;
     double m_nu = 0.;
+    double m_cte = 0.;
+    double m_dT = 0.;
 
 };
 
