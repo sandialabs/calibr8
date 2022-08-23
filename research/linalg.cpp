@@ -39,7 +39,7 @@ void Vector::gather(Tpetra::CombineMode mode) {
 
 void Vector::scatter(Tpetra::CombineMode mode) {
   RCP<const ImportT> importer = m_disc->importer(m_space);
-  val[GHOST]->doExport(*(val[OWNED]), *importer, mode);
+  val[GHOST]->doImport(*(val[OWNED]), *importer, mode);
 }
 
 Matrix::Matrix(int space, RCP<Disc> disc) :
