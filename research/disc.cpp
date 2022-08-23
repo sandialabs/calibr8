@@ -366,7 +366,7 @@ void Disc::compute_importer(int space) {
 }
 
 void Disc::compute_ghost_graph(int space) {
-  int const est = 300;
+  int const est = 500;
   RCP<const MapT> ghost_map = m_maps[space][GHOST];
   m_graphs[space][GHOST] = rcp(new GraphT(ghost_map, est));
   apf::MeshEntity* elem;
@@ -388,7 +388,7 @@ void Disc::compute_ghost_graph(int space) {
 }
 
 void Disc::compute_owned_graph(int space) {
-  int const est = 300;
+  int const est = 500;
   RCP<const MapT> owned_map = m_maps[space][OWNED];
   RCP<const GraphT> ghost_graph = m_graphs[space][GHOST];
   RCP<const ExportT> exporter = m_exporters[space];
