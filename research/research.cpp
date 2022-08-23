@@ -37,12 +37,12 @@ void Driver::drive() {
   mkdir(output.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   for (int adapt_ctr = 1;  adapt_ctr <=  nadapt; ++adapt_ctr) {
     m_physics->build_disc();
-    apf::Field* eta = m_error->compute_error(m_physics);
+    apf::Field* error = m_error->compute_error(m_physics);
     m_error->write_mesh(m_physics, output, adapt_ctr);
     m_error->destroy_intermediate_fields();
     m_physics->destroy_disc();
     if (adapt_ctr != nadapt) {
-      m_adapt->adapt(adapt_params, m_physics);
+      m_adapt->adapt(adapt_params, m_physics, error);
     }
   }
   m_error->write_pvd(output, nadapt);

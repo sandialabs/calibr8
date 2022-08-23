@@ -74,6 +74,32 @@ void Error::write_pvd(std::string const& file, int nctr) {
   write_stream(file + "/" + "fine.pvd", fine_stream);
 }
 
+apf::Field* interp_error_to_cells(apf::Field* eta) {
+  print("interpolating error field to cell centers");
+  apf::Mesh* mesh = apf::getMesh(eta);
+  apf::Field* error = apf::createStepField(mesh, "error", apf::SCALAR);
+  int const neqs = apf::countComponents(eta);
+  Array1D<double> values(neqs, 0.);
+  apf::MeshEntity* ent;
+  apf::MeshIterator* elems = mesh->begin(mesh->getDimension());
+  while ((ent = mesh->iterate(elems))) {
+    apf::Vector3 xi;
+    apf::MeshElement* me = apf::createMeshElement(mesh, ent);
+    apf::Element* e = apf::createElement(eta, me);
+    apf::getIntPoint(me, 1, 0, xi);
+    apf::getComponents(e, xi, &(values[0]));
+    double error_val = 0.;
+    for (int eq = 0; eq < neqs; ++eq) {
+      error_val += std::abs(values[eq]);
+    }
+    apf::setScalar(error, ent, 0, error_val);
+    apf::destroyElement(e);
+    apf::destroyMeshElement(me);
+  }
+  mesh->end(elems);
+  return error;
+}
+
 class R_zh : public Error {
   public:
     apf::Field* compute_error(RCP<Physics> physics) override;
@@ -120,7 +146,7 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
   m_estimate_bound.push_back(eta_bound);
 
   // return the localized error
-  return m_eta;
+  return interp_error_to_cells(m_eta);
 
 }
 
@@ -163,6 +189,7 @@ void R_zh::destroy_intermediate_fields() {
   apf::destroyField(m_uH_h);
   apf::destroyField(m_zh);
   apf::destroyField(m_Rh_uH_h);
+  apf::destroyField(m_eta);
   m_uH = nullptr;
   m_uh = nullptr;
   m_uH_h = nullptr;
@@ -220,8 +247,8 @@ apf::Field* R_zh_minus_zh_H::compute_error(RCP<Physics> physics) {
   m_estimate.push_back(eta);
   m_estimate_bound.push_back(eta_bound);
 
-  // return the localized error
-  return m_eta;
+  // return the localized error interpolated to cells
+  return interp_error_to_cells(m_eta);
 
 }
 
@@ -266,6 +293,7 @@ void R_zh_minus_zh_H::destroy_intermediate_fields() {
   apf::destroyField(m_zh_H);
   apf::destroyField(m_zh_minus_zh_H);
   apf::destroyField(m_Rh_uH_h);
+  apf::destroyField(m_eta);
   m_uH = nullptr;
   m_uh = nullptr;
   m_uH_h = nullptr;
