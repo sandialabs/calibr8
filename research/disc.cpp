@@ -81,6 +81,7 @@ static bool is_null_model(ParameterList const& p) {
 
 Disc::Disc(ParameterList const& params) {
   params.validateParameters(get_valid_params(), 0);
+  m_params = params;
   load_mesh(&m_mesh, params);
   m_sets = read_sets(m_mesh, params);
   m_is_null = is_null_model(params);
