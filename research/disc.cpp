@@ -150,10 +150,13 @@ int Disc::order(int space) {
   return -1;
 }
 
-int Disc::get_num_nodes(int space, apf::MeshEntity* e) {
-  int const type = m_mesh->getType(e);
-  apf::EntityShape* es = m_shape[space]->getEntityShape(type);
-  int const nnodes = es->countNodes();
+int Disc::get_num_nodes(int space) {
+  int type = -1;
+  if (m_num_dims == 2) type = apf::Mesh::TRIANGLE;
+  if (m_num_dims == 3) type = apf::Mesh::TET;
+  apf::FieldShape* shape = m_shape[space];
+  apf::EntityShape* ent_shape = shape->getEntityShape(type);
+  int const nnodes = ent_shape->countNodes();
   return nnodes;
 }
 
@@ -253,7 +256,7 @@ std::vector<LO> Disc::get_elem_lids(int space, apf::MeshEntity* e) {
   apf::NewArray<int> node_ids;
   apf::Numbering* nmbr = m_ghost_nmbr[space];
   int const num_nodes = apf::getElementNumbers(nmbr, e, node_ids);
-  ASSERT(num_nodes == get_num_nodes(space, e));
+  ASSERT(num_nodes == get_num_nodes(space));
   std::vector<LO> lids(num_nodes*m_num_eqs);
   for (int n = 0; n < num_nodes; ++n) {
     for (int eq = 0; eq < m_num_eqs; ++eq) {

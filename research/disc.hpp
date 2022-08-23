@@ -39,7 +39,7 @@ class Disc {
     apf::FieldShape* shape(int space) { return m_shape[space]; }
 
     int order(int space);
-    int get_num_nodes(int space, apf::MeshEntity* e);
+    int get_num_nodes(int space);
     int get_space(apf::FieldShape* shape);
     std::string space_name(int space);
     void change_shape(int space);

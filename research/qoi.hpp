@@ -11,7 +11,7 @@ class QoI {
   public:
     QoI();
     virtual ~QoI();
-    void set_space(int space) { m_space = space; }
+    void set_space(int space, RCP<Disc> disc);
     void reset();
     void in_elem(
         apf::MeshElement* me,

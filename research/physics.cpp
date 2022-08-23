@@ -126,7 +126,7 @@ void assemble_residual(
     RCP<Residual<T>> r,
     RCP<VectorT> U,
     System& sys) {
-  r->set_space(space);
+  r->set_space(space, disc);
   r->set_mode(mode);
   apf::Mesh2* mesh = disc->apf_mesh();
   int order = 6;
@@ -152,7 +152,7 @@ void assemble_residual(
     }
   }
   // apply tbcs here
-  r->set_space(-1);
+  r->set_space(-1, disc);
   r->set_mode(-1);
 }
 
@@ -164,8 +164,8 @@ void assemble_qoi(
     RCP<QoI<T>> qoi,
     RCP<VectorT> U,
     System* sys) {
-  r->set_space(space);
-  qoi->set_space(space);
+  r->set_space(space, disc);
+  qoi->set_space(space, disc);
   apf::Mesh2* mesh = disc->apf_mesh();
   int order = 6;
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
@@ -189,8 +189,8 @@ void assemble_qoi(
     }
   }
   qoi->post(disc, sys);
-  r->set_space(-1);
-  qoi->set_space(-1);
+  r->set_space(-1, disc);
+  qoi->set_space(-1, disc);
 }
 
 static void fill_field(

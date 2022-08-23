@@ -31,6 +31,24 @@ void zero(Array2D<T>& v) {
   }
 }
 
+template <typename T>
+void Residual<T>::set_space(int space, RCP<Disc> disc) {
+  m_space = space;
+  if (m_space == -1) {
+    m_nnodes = -1;
+    m_ndofs = -1;
+    m_vals.resize(0);
+    m_resid.resize(0);
+  } else {
+    m_nnodes = disc->get_num_nodes(space);
+    m_ndofs = m_nnodes * m_neqs;
+    m_vals.resize(0);
+    m_resid.resize(0);
+    resize(m_vals, m_nnodes, m_neqs);
+    resize(m_resid, m_nnodes, m_neqs);
+  }
+}
+
 int get_index(int node, int eq, int neqs) {
   return node*neqs + eq;
 }
@@ -41,18 +59,11 @@ template <> double val<FADT>(FADT const& in) { return in.val(); }
 template <typename T>
 void Residual<T>::in_elem(apf::MeshElement* me, RCP<Disc> disc) {
   m_mesh_elem = me;
-  apf::MeshEntity* ent = apf::getMeshEntity(me);
-  m_nnodes = disc->get_num_nodes(m_space, ent);
-  m_ndofs = m_nnodes * m_neqs;
-  resize(m_vals, m_nnodes, m_neqs);
-  resize(m_resid, m_nnodes, m_neqs);
 }
 
 template <typename T>
 void Residual<T>::out_elem() {
   m_mesh_elem = nullptr;
-  m_nnodes = -1;
-  m_ndofs = -1;
 }
 
 template <>
@@ -71,8 +82,6 @@ void Residual<double>::gather(RCP<Disc> disc, RCP<VectorT> u) {
 template <>
 void Residual<FADT>::gather(RCP<Disc> disc, RCP<VectorT> u) {
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
-  m_nnodes = disc->get_num_nodes(m_space, ent);
-  m_ndofs = m_nnodes * m_neqs;
   auto u_data = u->get1dView();
   for (int node = 0; node < m_nnodes; ++node) {
     for (int eq = 0; eq < m_neqs; ++eq) {

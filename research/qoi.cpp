@@ -18,6 +18,16 @@ void QoI<T>::reset() {
 }
 
 template <typename T>
+void QoI<T>::set_space(int space, RCP<Disc> disc) {
+  m_space = space;
+  if (m_space == -1) {
+    m_nnodes = -1;
+  } else {
+    m_nnodes = disc->get_num_nodes(space);
+  }
+}
+
+template <typename T>
 void QoI<T>::in_elem(
     apf::MeshElement* me,
     RCP<Residual<T>> residual,
@@ -26,7 +36,6 @@ void QoI<T>::in_elem(
   apf::MeshEntity* ent = apf::getMeshEntity(me);
   m_elem_value = 0.;
   m_neqs = residual->num_eqs();
-  m_nnodes = disc->get_num_nodes(m_space, ent);
 }
 
 template <typename T>
@@ -34,7 +43,6 @@ void QoI<T>::out_elem() {
   this->m_value += m_elem_value;
   m_mesh_elem = nullptr;
   m_neqs = -1;
-  m_nnodes = -1;
 }
 
 template <>

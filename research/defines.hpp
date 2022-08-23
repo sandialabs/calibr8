@@ -10,7 +10,7 @@ namespace calibr8 {
 using LO = int;
 using GO = long long;
 
-static constexpr int nmax_derivs = 16;
+static constexpr int nmax_derivs = 30;
 
 using FADT = Sacado::Fad::SLFad<double, nmax_derivs>;
 
