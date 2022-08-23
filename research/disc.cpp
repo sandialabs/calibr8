@@ -403,7 +403,10 @@ void Disc::compute_owned_graph(int space) {
 }
 
 void Disc::compute_model_node_sets(int space) {
-  m_node_sets[space].clear();
+  for (int i = 0; i < m_num_node_sets; ++i) {
+    std::string const name = node_set_name(i);
+    m_node_sets[space][name].resize(0);
+  }
   apf::DynamicArray<apf::Node> owned;
   apf::getNodes(m_owned_nmbr[space], owned);
   for (size_t n = 0; n < owned.size(); ++n) {
@@ -422,7 +425,10 @@ void Disc::compute_model_node_sets(int space) {
 }
 
 void Disc::compute_analytic_node_sets(int space) {
-  m_node_sets[space].clear();
+  for (int i = 0; i < m_num_node_sets; ++i) {
+    std::string const name = node_set_name(i);
+    m_node_sets[space][name].resize(0);
+  }
   change_shape(space);
   auto& analytic = m_params.sublist("analytic node sets");
   for (int i = 0; i < m_num_node_sets; ++i) {
@@ -448,7 +454,10 @@ void Disc::compute_node_sets(int space) {
 }
 
 void Disc::compute_elem_sets() {
-  m_elem_sets.clear();
+  for (int i = 0; i < m_num_elem_sets; ++i) {
+    std::string const name = elem_set_name(i);
+    m_elem_sets[name].resize(0);
+  }
   apf::MeshEntity* elem;
   apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
   while ((elem = m_mesh->iterate(elems))) {
@@ -461,7 +470,10 @@ void Disc::compute_elem_sets() {
 }
 
 void Disc::compute_side_sets() {
-  m_side_sets.clear();
+  for (int i = 0; i < m_num_side_sets; ++i) {
+    std::string const name = side_set_name(i);
+    m_side_sets[name].resize(0);
+  }
   apf::MeshEntity* side;
   apf::MeshIterator* sides = m_mesh->begin(m_num_dims - 1);
   while ((side = m_mesh->iterate(sides))) {

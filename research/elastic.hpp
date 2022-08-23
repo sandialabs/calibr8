@@ -1,6 +1,6 @@
 #pragma once
 
-#include <minitensor.h>
+#include "MiniTensor.h"
 #include "residual.hpp"
 
 // references for linear elasticity w/ thermal expansion:
