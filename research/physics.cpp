@@ -267,9 +267,9 @@ static apf::Field* solve_primal(
     assemble_residual(space, JACOBIAN, disc, jacobian, U.val[GHOST], ghost_sys);
     dRdU.gather(Tpetra::ADD);
     R.gather(Tpetra::ADD);
-    R.val[OWNED]->scale(-1.0);
     apply_jacob_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys, false);
     dRdU.end_fill();
+    R.val[OWNED]->scale(-1.0);
     solve(lin_alg, space, disc, owned_sys);
     U.val[OWNED]->update(1.0, *(dU.val[OWNED]), 1.0);
     U.scatter(Tpetra::INSERT);
