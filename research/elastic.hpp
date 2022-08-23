@@ -15,14 +15,23 @@ class Elastic : public Residual<T> {
   public:
 
     Elastic(ParameterList const& params, int ndims) : Residual<T>(ndims) {
+      m_params = params;
       this->m_neqs = ndims;
-      this->m_E = params.get<double>("E");
-      this->m_nu = params.get<double>("nu");
-      this->m_cte = params.get<double>("cte");
-      this->m_dT = params.get<double>("dT");
     }
 
     ~Elastic() override {
+    }
+
+    void before_elems(int es_idx, RCP<Disc> disc) override {
+      std::string const es_name = disc->elem_set_name(es_idx);
+      ParameterList const& mat = this->m_params.sublist(es_name);
+      double const E = mat.get<double>("E");
+      double const nu = mat.get<double>("nu");
+      double const alpha = mat.get<double>("cte");
+      this->m_lambda = (E*nu)/((1.+nu)*(1.-2.*nu));
+      this->m_mu = E/(2.*(1.+nu));
+      this->m_beta = (E/(1.-2.*nu))*alpha;
+      this->m_dT = mat.get<double>("dT");
     }
 
     void at_point(
@@ -34,14 +43,6 @@ class Elastic : public Residual<T> {
       using minitensor::Tensor;
 
       double const wdetJ = w*dv;
-      double const E = this->m_E;
-      double const nu = this->m_nu;
-      double const alpha = this->m_cte;
-      double const dT = this->m_dT;
-      double const lambda = (E*nu)/((1.+nu)*(1.-2.*nu));
-      double const mu = E/(2.*(1.+nu));
-      double const beta = (E/(1.-2.*nu))*alpha;
-
       this->interp_basis(xi, disc);
       Array1D<T> const dofs = this->interp(xi);
       Array2D<T> const grad_dofs = this->interp_grad(xi);
@@ -57,7 +58,7 @@ class Elastic : public Residual<T> {
       Tensor<T> const grad_uT = minitensor::transpose(grad_u);
       Tensor<T> const eps = 0.5*(grad_u + grad_uT);
       T const tr_eps = minitensor::trace(eps);
-      Tensor<T> const sigma = lambda*tr_eps*I + 2.*mu*eps - beta*dT*I;
+      Tensor<T> const sigma = m_lambda*tr_eps*I + 2.*m_mu*eps - m_beta*m_dT*I;
 
       for (int node = 0; node < this->m_nnodes; ++node) {
         for (int i = 0; i < this->m_ndims; ++i) {
@@ -72,10 +73,12 @@ class Elastic : public Residual<T> {
 
   private:
 
-    double m_E = 0.;
-    double m_nu = 0.;
-    double m_cte = 0.;
+    double m_lambda = 0.;
+    double m_mu = 0.;
+    double m_beta = 0.;
     double m_dT = 0.;
+
+    ParameterList m_params;
 
 };
 

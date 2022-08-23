@@ -133,6 +133,7 @@ void assemble_residual(
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
     std::string es_name = disc->elem_set_name(es);
     ElemSet const& elems = disc->elems(es_name);
+    r->before_elems(es, disc);
     for (size_t elem = 0; elem < elems.size(); ++elem) {
       apf::MeshElement* me = apf::createMeshElement(mesh, elems[elem]);
       r->in_elem(me, disc);

@@ -28,6 +28,7 @@ class Residual {
     int num_eqs() { return m_neqs; }
     void set_space(int space) { m_space = space; }
     void set_mode(int mode) { m_mode = mode; }
+    virtual void before_elems(int es_idx, RCP<Disc> disc) {}
     void in_elem(apf::MeshElement* me, RCP<Disc> disc);
     void gather(RCP<Disc> disc, RCP<VectorT> u);
     void interp_basis(apf::Vector3 const& xi, RCP<Disc> disc);
