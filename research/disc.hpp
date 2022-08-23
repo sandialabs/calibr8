@@ -79,6 +79,8 @@ class Disc {
     void compute_importer(int space);
     void compute_owned_graph(int space);
     void compute_ghost_graph(int space);
+    void compute_model_node_sets(int space);
+    void compute_field_node_sets(int space);
     void compute_node_sets(int space);
     void compute_elem_sets();
     void compute_side_sets();
@@ -91,6 +93,8 @@ class Disc {
     int m_num_elem_sets = -1;
     int m_num_side_sets = -1;
     int m_num_node_sets = -1;
+
+    bool m_is_null = false;
 
     apf::Mesh2* m_mesh = nullptr;
     apf::StkModels* m_sets = nullptr;
