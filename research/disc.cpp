@@ -12,6 +12,7 @@ static ParameterList get_valid_params() {
   p.set<std::string>("geom file", "");
   p.set<std::string>("mesh file", "");
   p.set<std::string>("assoc file", "");
+  p.sublist("analytic node sets");
   return p;
 }
 
@@ -94,43 +95,6 @@ Disc::~Disc() {
   delete m_sets;
 }
 
-static void create_test_field(apf::Mesh* mesh) {
-  apf::Field* bdry = apf::createFieldOn(mesh, "bdry", apf::SCALAR);
-  apf::zeroField(bdry);
-  apf::MeshEntity* vtx;
-  auto verts = mesh->begin(0);
-  while ((vtx = mesh->iterate(verts))) {
-    apf::Vector3 x;
-    mesh->getPoint(vtx, 0, x);
-    double const tol = 1.e-8;
-    if ((std::abs(x[0] - 0.) < tol) ||
-        (std::abs(x[0] - 1.) < tol) ||
-        (std::abs(x[1] - 0.) < tol) ||
-        (std::abs(x[1] - 1.) < tol)) {
-      apf::setScalar(bdry, vtx, 0, 1.0);
-    }
-  }
-}
-
-static void prepare_ns_fields(Disc& disc) {
-  apf::Mesh* mesh = disc.apf_mesh();
-  create_test_field(mesh); // debug
-  for (int i = 0; i < disc.num_node_sets(); ++i) {
-    std::string const name = disc.node_set_name(i);
-    apf::FieldShape* coarse_shape = disc.shape(COARSE);
-    apf::FieldShape* fine_shape = disc.shape(FINE);
-    std::string const coarse_name = name + "_" + disc.space_name(COARSE);
-    std::string const fine_name = name + "_" + disc.space_name(FINE);
-    apf::Field* coarse_ns_field = mesh->findField(name.c_str());
-    apf::Field* fine_ns_field = apf::createField(
-        mesh, fine_name.c_str(), apf::SCALAR, fine_shape);
-    ASSERT(coarse_ns_field);
-    ASSERT(apf::getShape(coarse_ns_field) == coarse_shape);
-    apf::projectField(/*to=*/fine_ns_field, /*from=*/coarse_ns_field);
-    apf::renameField(coarse_ns_field, coarse_name.c_str());
-  }
-}
-
 void Disc::initialize() {
   m_num_dims = m_mesh->getDimension();
   m_num_elem_sets = m_sets->models[m_num_dims].size();
@@ -139,7 +103,6 @@ void Disc::initialize() {
   m_shape[COARSE] = apf::getLagrange(1);
   m_shape[FINE] = apf::getSerendipity();
   m_comm = Tpetra::getDefaultComm();
-  if (m_is_null) prepare_ns_fields(*this);
 }
 
 void Disc::build_data(int neqs) {
@@ -454,20 +417,21 @@ void Disc::compute_model_node_sets(int space) {
   }
 }
 
-void Disc::compute_field_node_sets(int space) {
+void Disc::compute_analytic_node_sets(int space) {
   m_node_sets[space].clear();
+  change_shape(space);
+  auto& analytic = m_params.sublist("analytic node sets");
   for (int i = 0; i < m_num_node_sets; ++i) {
     std::string const name = node_set_name(i);
-    std::string const fname = name + "_" + space_name(space);
-    apf::Field* ns_field = m_mesh->findField(fname.c_str());
-    ASSERT(ns_field);
+    std::string const expr = analytic.get<std::string>(name);
+    apf::Vector3 x;
     apf::DynamicArray<apf::Node> owned;
     apf::getNodes(m_owned_nmbr[space], owned);
     for (size_t n = 0; n < owned.size(); ++n) {
       apf::Node const node = owned[n];
-      apf::MeshEntity* ent = node.entity;
-      double const val = apf::getScalar(ns_field, ent, 0);
-      if (std::abs(val - 1.0) < 1.0e-12) {
+      m_mesh->getPoint(node.entity, node.node, x);
+      double const val = eval(expr, x[0], x[1], x[2], 0.);
+      if (std::abs(val - 1.) < 1.0e-12) {
         m_node_sets[space][name].push_back(node);
       }
     }
@@ -475,7 +439,7 @@ void Disc::compute_field_node_sets(int space) {
 }
 
 void Disc::compute_node_sets(int space) {
-  if (m_is_null) compute_field_node_sets(space);
+  if (m_is_null) compute_analytic_node_sets(space);
   else compute_model_node_sets(space);
 }
 
