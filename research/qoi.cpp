@@ -1,6 +1,7 @@
 #include "qoi.hpp"
 #include "residual.hpp"
 #include "sol_avg.hpp"
+#include "vm_stress.hpp"
 
 namespace calibr8 {
 
@@ -73,7 +74,9 @@ RCP<QoI<T>> create_QoI(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
   if (type == "solution average") {
     return rcp(new SolAvg<T>(params));
-  } else {
+  } else if (type == "von mises") {
+    return rcp(new VMStress<T>(params));
+  }else {
     throw std::runtime_error("invalid qoi");
   }
 }

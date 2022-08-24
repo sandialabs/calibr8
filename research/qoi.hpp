@@ -13,6 +13,7 @@ class QoI {
     virtual ~QoI();
     void set_space(int space, RCP<Disc> disc);
     void reset();
+    virtual void before_elems(int es_idx, RCP<Disc> disc) {}
     void in_elem(
         apf::MeshElement* me,
         RCP<Residual<T>> residual,
