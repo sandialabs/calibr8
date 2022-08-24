@@ -34,32 +34,33 @@ class Elastic : public Residual<T> {
       this->m_dT = mat.get<double>("dT");
     }
 
-    void at_point(
-        apf::Vector3 const& xi,
-        double w,
-        double dv,
-        RCP<Disc> disc) override {
-
+    minitensor::Tensor<T> compute_sigma(apf::Vector3 const& xi, RCP<Disc> disc) {
       using minitensor::Tensor;
-
-      double const wdetJ = w*dv;
       this->interp_basis(xi, disc);
       Array1D<T> const dofs = this->interp(xi);
       Array2D<T> const grad_dofs = this->interp_grad(xi);
-
       Tensor<T> grad_u(this->m_ndims);
       for (int i = 0; i < this->m_ndims; ++i) {
         for (int j = 0; j < this->m_ndims; ++j) {
           grad_u(i,j) = grad_dofs[i][j];
         }
       }
-
       Tensor<T> const I = minitensor::eye<T>(this->m_ndims);
       Tensor<T> const grad_uT = minitensor::transpose(grad_u);
       Tensor<T> const eps = 0.5*(grad_u + grad_uT);
       T const tr_eps = minitensor::trace(eps);
       Tensor<T> const sigma = m_lambda*tr_eps*I + 2.*m_mu*eps - m_beta*m_dT*I;
+      return sigma;
+    }
 
+    void at_point(
+        apf::Vector3 const& xi,
+        double w,
+        double dv,
+        RCP<Disc> disc) override {
+      using minitensor::Tensor;
+      double const wdetJ = w*dv;
+      Tensor<T> sigma = compute_sigma(xi, disc);
       for (int node = 0; node < this->m_nnodes; ++node) {
         for (int i = 0; i < this->m_ndims; ++i) {
           for (int j = 0; j < this->m_ndims; ++j) {
