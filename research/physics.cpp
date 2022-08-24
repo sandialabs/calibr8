@@ -251,8 +251,10 @@ static apf::Field* solve_primal(
   Matrix dRdU(space, disc);
   System ghost_sys(GHOST, dRdU, dU, R);
   System owned_sys(OWNED, dRdU, dU, R);
+  std::string const linear_algebra_name =
+    "primal linear algebra " + disc->space_name(space);
   ParameterList const dbcs = params->sublist("dbcs");
-  ParameterList& lin_alg = params->sublist("linear algebra");
+  ParameterList& lin_alg = params->sublist(linear_algebra_name);
   ParameterList& newton = params->sublist("newton solve");
   U.zero();
   int iter = 1;
@@ -328,7 +330,7 @@ static apf::Field* solve_adjoint(
   System ghost_sys(GHOST, dRdUT, Z, dJdUT);
   System owned_sys(OWNED, dRdUT, Z, dJdUT);
   ParameterList const dbcs = params->sublist("dbcs");
-  ParameterList& lin_alg = params->sublist("linear algebra");
+  ParameterList& lin_alg = params->sublist("adjoint linear algebra");
   fill_vector(space, disc, u_space, U);
   dRdUT.begin_fill();
   dJdUT.zero();
