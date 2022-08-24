@@ -35,6 +35,7 @@ class Elastic : public Residual<T> {
       if constexpr (std::is_same_v<T, double>) {
         if (!m_sigma_field) {
           m_sigma_field = apf::createIPField(disc->apf_mesh(), "sigma", apf::MATRIX, 1);
+          apf::zeroField(m_sigma_field);
         }
       }
     }
@@ -92,6 +93,13 @@ class Elastic : public Residual<T> {
         }
       }
 
+    }
+
+    void destroy_data() override {
+      if (m_sigma_field) {
+        apf::destroyField(m_sigma_field);
+        m_sigma_field = nullptr;
+      }
     }
 
   private:

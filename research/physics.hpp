@@ -15,6 +15,7 @@ class Physics {
     RCP<Disc> disc() { return m_disc; }
     void build_disc();
     void destroy_disc();
+    void destroy_residual_data();
     apf::Field* solve_primal(int space);
     double compute_qoi(int space, apf::Field* u);
     apf::Field* solve_adjoint(int space, apf::Field* u);

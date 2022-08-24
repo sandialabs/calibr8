@@ -41,6 +41,7 @@ void Driver::drive() {
     m_error->write_mesh(m_physics, output, adapt_ctr);
     m_error->destroy_intermediate_fields();
     m_physics->destroy_disc();
+    m_physics->destroy_residual_data();
     if (adapt_ctr != nadapt) {
       m_adapt->adapt(adapt_params, m_physics, error);
     }

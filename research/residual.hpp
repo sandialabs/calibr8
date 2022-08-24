@@ -41,6 +41,7 @@ class Residual {
         RCP<Disc> disc) = 0;
     void scatter(RCP<Disc> disc, System const& sys);
     void out_elem();
+    virtual void destroy_data() {}
   protected:
     int m_neqs = -1;
     int m_ndims = -1;
