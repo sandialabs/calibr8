@@ -32,6 +32,11 @@ class Elastic : public Residual<T> {
       this->m_mu = E/(2.*(1.+nu));
       this->m_beta = (E/(1.-2.*nu))*alpha;
       this->m_dT = mat.get<double>("dT");
+      if constexpr (std::is_same_v<T, double>) {
+        if (!m_sigma_field) {
+          m_sigma_field = apf::createIPField(disc->apf_mesh(), "sigma", apf::MATRIX, 1);
+        }
+      }
     }
 
     minitensor::Tensor<T> compute_sigma(apf::Vector3 const& xi, RCP<Disc> disc) {
@@ -58,8 +63,11 @@ class Elastic : public Residual<T> {
         double w,
         double dv,
         RCP<Disc> disc) override {
+
       using minitensor::Tensor;
       double const wdetJ = w*dv;
+
+      // compute the stress divergence residual
       Tensor<T> sigma = compute_sigma(xi, disc);
       for (int node = 0; node < this->m_nnodes; ++node) {
         for (int i = 0; i < this->m_ndims; ++i) {
@@ -67,6 +75,20 @@ class Elastic : public Residual<T> {
             double const grad_w = this->m_gBF[node][j];
             this->m_resid[node][i] += sigma(i,j) * grad_w * wdetJ;
           }
+        }
+      }
+
+      // save the stress field if this is the coarse solve
+      if constexpr (std::is_same_v<T, double>) {
+        if (this->m_space == COARSE) {
+          apf::MeshEntity* ent = apf::getMeshEntity(this->m_mesh_elem);
+          apf::Matrix3x3 apf_sigma(0,0,0,0,0,0,0,0,0);
+          for (int i = 0; i < this->m_ndims; ++i) {
+            for (int j = 0; j < this->m_ndims; ++j) {
+              apf_sigma[i][j] = val(sigma(i,j));
+            }
+          }
+          apf::setMatrix(this->m_sigma_field, ent, 0, apf_sigma);
         }
       }
 
@@ -80,6 +102,7 @@ class Elastic : public Residual<T> {
     double m_dT = 0.;
 
     ParameterList m_params;
+    apf::Field* m_sigma_field = nullptr;
 
 };
 
