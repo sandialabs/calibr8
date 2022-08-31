@@ -47,7 +47,8 @@ void Driver::drive() {
     }
   }
   m_error->write_pvd(output, nadapt);
-  m_error->write_history(output, 0.);
+  double const J_exact = m_params->sublist("error").get<double>("J exact", 0.);
+  m_error->write_history(output, J_exact);
 }
 
 int main(int argc, char** argv) {

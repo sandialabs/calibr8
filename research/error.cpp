@@ -177,6 +177,10 @@ void R_zh::write_history(std::string const& file, double J_ex) {
       double const E = J_ex - m_JH[ctr];
       double const I = m_estimate[ctr] / E;
       double const Ibound = m_estimate[ctr] / E;
+      stream
+        << E << " "
+        << I << " "
+        << Ibound << " ";
     }
     stream << "\n";
   }
@@ -279,6 +283,10 @@ void R_zh_minus_zh_H::write_history(std::string const& file, double J_ex) {
       double const E = J_ex - m_JH[ctr];
       double const I = m_estimate[ctr] / E;
       double const Ibound = m_estimate[ctr] / E;
+      stream
+        << E << " "
+        << I << " "
+        << Ibound << " ";
     }
     stream << "\n";
   }
