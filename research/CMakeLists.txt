@@ -5,6 +5,7 @@ set(RESEARCH_SOURCES
   disc.cpp
   error.cpp
   linalg.cpp
+  nlpoisson.cpp
   residual.cpp
   physics.cpp
   qoi.cpp
