@@ -5,9 +5,8 @@
 
 namespace calibr8 {
 
-enum {EXPR, SIN, SIN_EXP};
+enum {EXPR, SIN_EXP};
 
-double eval_sin_body_force(apf::Vector3 const& x, double alpha);
 double eval_sin_exp_body_force(apf::Vector3 const& x, double alpha);
 
 template <typename T>
@@ -19,8 +18,7 @@ class NLPoisson : public Residual<T> {
       this->m_neqs = 1;
       m_alpha = params.get<double>("alpha");
       m_body_force = params.get<std::string>("body force");
-      if (m_body_force == "sin") m_body_force_type = SIN;
-      else if (m_body_force == "sin_exp") m_body_force_type = SIN_EXP;
+      if (m_body_force == "sin_exp") m_body_force_type = SIN_EXP;
       else m_body_force_type = EXPR;
     }
 
@@ -41,8 +39,6 @@ class NLPoisson : public Residual<T> {
       double b = 0.;
       if (m_body_force_type == EXPR) {
         b = eval(m_body_force, x[0], x[1], x[2], 0.);
-      } else if (m_body_force_type == SIN) {
-        b = eval_sin_body_force(x, m_alpha);
       } else if (m_body_force_type == SIN_EXP) {
         b = eval_sin_exp_body_force(x, m_alpha);
       }
@@ -58,8 +54,11 @@ class NLPoisson : public Residual<T> {
           double const grad_w = this->m_gBF[node][dim];
           this->m_resid[node][eq] += (1.0 + m_alpha*u*u)*grad_u*grad_w*wdetJ;
         }
+      }
+
+      for (int node = 0; node < this->m_nnodes; ++node) {
         double const w = this->m_BF[node];
-        this->m_resid[node][eq] += b*w*wdetJ;
+        this->m_resid[node][eq] -= b*w*wdetJ;
       }
 
     }
