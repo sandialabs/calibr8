@@ -104,8 +104,8 @@ void Residual<T>::interp_basis(apf::Vector3 const& xi, RCP<Disc> disc) {
 template <typename T>
 Array1D<T> Residual<T>::interp(apf::Vector3 const& xi) {
   Array1D<T> u(m_neqs, 0.);
-  for (int node = 0; node < m_nnodes; ++node) {
-    for (int eq = 0; eq < m_neqs; ++eq) {
+  for (int eq = 0; eq < m_neqs; ++eq) {
+    for (int node = 0; node < m_nnodes; ++node) {
       u[eq] += m_vals[node][eq] * m_BF[node];
     }
   }
@@ -117,8 +117,8 @@ Array2D<T> Residual<T>::interp_grad(apf::Vector3 const& xi) {
   Array2D<T> grad_u;
   resize(grad_u, m_neqs, m_ndims);
   zero(grad_u);
-  for (int node = 0; node < m_nnodes; ++node) {
-    for (int eq = 0; eq < m_neqs; ++eq) {
+  for (int eq = 0; eq < m_neqs; ++eq) {
+    for (int node = 0; node < m_nnodes; ++node) {
       for (int dim = 0; dim < m_ndims; ++dim) {
         grad_u[eq][dim] += m_vals[node][eq] * m_gBF[node][dim];
       }
