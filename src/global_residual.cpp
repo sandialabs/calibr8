@@ -3,6 +3,7 @@
 #include "disc.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
+#include "hypoelastic_mechanics.hpp"
 #include "macros.hpp"
 #include "mechanics.hpp"
 #include "thermoelastic.hpp"
@@ -527,7 +528,10 @@ template <typename T>
 RCP<GlobalResidual<T>> create_global_residual(
     ParameterList const& params, int ndims) {
   std::string const type = params.get<std::string>("type");
-  if (type == "mechanics") {
+  if (type == "hypoelastic_mechanics") {
+    return rcp(new HypoelasticMechanics<T>(params, ndims));
+  }
+  else if (type == "mechanics") {
     return rcp(new Mechanics<T>(params, ndims));
   }
   else if (type == "thermoelastic") {

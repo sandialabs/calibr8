@@ -8,6 +8,10 @@
 
 namespace calibr8 {
 
+using minitensor::inverse;
+using minitensor::trace;
+using minitensor::transpose;
+
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
   p.set<std::string>("type", "Hill");
@@ -140,11 +144,11 @@ Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
   Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
   Tensor<T> const F = grad_u + I;
   Tensor<T> const F_prev = grad_u_prev + I;
-  Tensor<T> const Finv = minitensor::inverse(F);
+  Tensor<T> const Finv = inverse(F);
   Tensor<T> const R = minitensor::polar_rotation(F);
   Tensor<T> const L = (F - F_prev) * Finv;
-  Tensor<T> const D = 0.5 * (L + minitensor::transpose(L));
-  Tensor<T> const d = minitensor::transpose(R) * D * R;
+  Tensor<T> const D = 0.5 * (L + transpose(L));
+  Tensor<T> const d = transpose(R) * D * R;
   return d;
 }
 
@@ -234,8 +238,7 @@ int Hill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     Tensor<FADT> const TC_old = this->sym_tensor_xi_prev(0);
     FADT const alpha_old = this->scalar_xi_prev(1);
     Tensor<FADT> const d = eval_d(global);
-    Tensor<FADT> const TC = TC_old + lambda * minitensor::trace(d) * I
-        + 2. * mu * d;
+    Tensor<FADT> const TC = TC_old + lambda * trace(d) * I + 2. * mu * d;
     FADT const alpha = alpha_old;
     this->set_sym_tensor_xi(0, TC);
     this->set_scalar_xi(1, alpha);
@@ -321,7 +324,7 @@ int Hill<T>::evaluate(
 
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const d = eval_d(global);
-  R_TC = TC - TC_old - lambda * minitensor::trace(d) * I - 2. * mu * d;
+  R_TC = TC - TC_old - lambda * trace(d) * I - 2. * mu * d;
 
   if (!force_path) {
     // plastic step
@@ -371,7 +374,7 @@ Tensor<T> Hill<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const F = grad_u + I;
   Tensor<T> const TC = this->sym_tensor_xi(0);
   Tensor<T> const R = minitensor::polar_rotation(F);
-  Tensor<T> const RC = R * TC * minitensor::transpose(R);
+  Tensor<T> const RC = R * TC * transpose(R);
   return RC;
 }
 
