@@ -14,6 +14,7 @@ set(CALIBR8_SOURCES
   femu_objective.cpp
   fields.cpp
   global_residual.cpp
+  Hill.cpp
   J2.cpp
   J2_plane_strain.cpp
   J2_small_strain.cpp
