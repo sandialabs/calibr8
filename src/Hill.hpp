@@ -46,6 +46,9 @@ class Hill : public LocalResidual<T> {
     //! \brief Do these equations correspond to finite deformation
     bool is_finite_deformation() { return true; }
 
+    //! \brief Is this material hypoelastic
+    bool is_hypoelastic() { return true; }
+
     //! \brief Get the rotated (not deviatoric) Cauchy stress tensor
     //! \param global The global residual equations
     Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global);

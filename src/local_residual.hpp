@@ -131,6 +131,10 @@ class LocalResidual {
     //! to finite deformation
     virtual bool is_finite_deformation() = 0;
 
+    //! \brief A flag to determine if these equations correspond
+    //! to a hypoelastic material
+    virtual bool is_hypoelastic() = 0;
+
     //! \brief Get the deviatoric part of the Cauchy stress tensor
     //! \param global The global residual equations
     virtual Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global) = 0;

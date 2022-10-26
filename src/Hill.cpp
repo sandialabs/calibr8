@@ -8,6 +8,7 @@
 
 namespace calibr8 {
 
+using minitensor::dev;
 using minitensor::inverse;
 using minitensor::trace;
 using minitensor::transpose;
@@ -383,7 +384,7 @@ Tensor<T> Hill<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   int const ndims = this->m_num_dims;
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const RC = this->dev_cauchy(global);
-  Tensor<T> const sigma = RC - p * I;
+  Tensor<T> const sigma = dev(RC) - p * I;
   return sigma;
 }
 

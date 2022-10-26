@@ -107,15 +107,22 @@ void Mechanics<T>::evaluate(
       }
     }
 
-    if(local->is_finite_deformation()) {
+    if (local->is_finite_deformation()) {
 
       // compute the linear part of the pressure residual
-      T const dU_dJ = 0.5 * (J - 1./J);
+      T hydro_cauchy;
+      if (local->is_hypoelastic()) {
+        // local->dev_cauchy is the rotated Cauchy stress
+        hydro_cauchy = trace(local->dev_cauchy(global)) / (3. * val(kappa));
+      } else {
+        hydro_cauchy = 0.5 * (J - 1./J);
+      }
+
       for (int n = 0; n < nnodes; ++n) {
         int const eq = 0;
         double const basis = this->weight(pressure_idx, n, eq);
         this->R_nodal(pressure_idx, n, eq) -=
-          dU_dJ * basis * w * dv;
+          hydro_cauchy * basis * w * dv;
       }
 
       // compute the stabilization to the pressure residual
@@ -166,12 +173,19 @@ void Mechanics<T>::evaluate(
     // gather variables from this residual quantities
     T const p = this->scalar_x(pressure_idx);
 
+    T pressure_term;
+    if (local->is_hypoelastic()) {
+      pressure_term = p / val(kappa);
+    } else {
+      pressure_term = p / kappa;
+    }
+
     // compute the linear part of the pressure residual
     for (int n = 0; n < nnodes; ++n) {
       int const eq = 0;
       double const basis = this->weight(pressure_idx, n, eq);
       this->R_nodal(pressure_idx, n, eq) -=
-        p / kappa * basis * w * dv;
+        pressure_term * basis * w * dv;
     }
   }
 

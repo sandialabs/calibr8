@@ -15,7 +15,6 @@ set(CALIBR8_SOURCES
   fields.cpp
   global_residual.cpp
   Hill.cpp
-  hypoelastic_mechanics.cpp
   J2.cpp
   J2_plane_strain.cpp
   J2_small_strain.cpp

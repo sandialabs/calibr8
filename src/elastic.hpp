@@ -20,6 +20,7 @@ class Elastic : public LocalResidual<T> {
         bool force_path = false,
         int path = 0);
     bool is_finite_deformation() { return false; }
+    bool is_hypoelastic() { return false; }
     Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global);
     Tensor<T> cauchy(RCP<GlobalResidual<T>> global, T p);
 };

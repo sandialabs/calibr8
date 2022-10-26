@@ -46,6 +46,9 @@ class J2_plane_strain : public LocalResidual<T> {
     //! \brief Do these equations correspond to finite deformation
     bool is_finite_deformation() { return true; }
 
+    //! \brief Is this material hypoelastic
+    bool is_hypoelastic() { return false; }
+
     //! \brief Get the deviatoric part of the Cauchy stress tensor
     //! \param global The global residual equations
     Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global);
