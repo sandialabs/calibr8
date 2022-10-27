@@ -154,17 +154,19 @@ Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-Vector<T> compute_hill_params(T const& Y,
-    T const& R00, T const& R11, T const& R22,
+Vector<T> compute_hill_params(T const& R00, T const& R11, T const& R22,
     T const& R01, T const& R02, T const& R12) {
 
   Vector<T> hill_params = minitensor::Vector<T>(6);
-  hill_params[0] = 0.5 * (R11 * R11 + R22 * R22 - R00 * R00);
-  hill_params[1] = 0.5 * (R22 * R22 + R00 * R00 - R11 * R11);
-  hill_params[2] = 0.5 * (R00 * R00 + R11 * R11 - R22 * R22);
-  hill_params[3] = 1.5 * R12 * R12;
-  hill_params[4] = 1.5 * R02 * R02;
-  hill_params[5] = 1.5 * R01 * R01;
+  hill_params[0] = 0.5 * (std::pow(R11, -2) + std::pow(R22, -2)
+     - std::pow(R00, -2));
+  hill_params[1] = 0.5 * (std::pow(R22, -2) + std::pow(R00, -2)
+     - std::pow(R11, -2));
+  hill_params[2] = 0.5 * (std::pow(R00, -2) + std::pow(R11, -2)
+     - std::pow(R22, -2));
+  hill_params[3] = 1.5 * std::pow(R12, -2);
+  hill_params[4] = 1.5 * std::pow(R02, -2);
+  hill_params[5] = 1.5 * std::pow(R01, -2);
 
   return hill_params;
 }
@@ -206,9 +208,9 @@ Tensor<T> compute_hill_normal(Tensor<T> const& TC,
   n(0, 0) = (G + H) * TC(0, 0) - H * TC(1, 1) - G * TC(2, 2);
   n(1, 1) = (F + H) * TC(1, 1) - H * TC(0, 0) - F * TC(2, 2);
   n(2, 2) = (G + F) * TC(2, 2) - G * TC(0, 0) - F * TC(1, 1);
-  n(0, 1) = N * TC(0, 1);
-  n(0, 2) = M * TC(0, 2);
-  n(1, 2) = L * TC(1, 2);
+  n(0, 1) = 2. * N * TC(0, 1);
+  n(0, 2) = 2. * M * TC(0, 2);
+  n(1, 2) = 2. * L * TC(1, 2);
   n(1, 0) = n(0, 1);
   n(2, 0) = n(0, 2);
   n(2, 1) = n(1, 2);
@@ -307,7 +309,7 @@ int Hill<T>::evaluate(
   T const lambda = compute_lambda(E, nu);
   T const mu = compute_mu(E, nu);
 
-  Vector<T> const hill_params = compute_hill_params(Y, R00, R11, R22,
+  Vector<T> const hill_params = compute_hill_params(R00, R11, R22,
       R01, R02, R12);
 
   Tensor<T> const TC_old = this->sym_tensor_xi_prev(0);
