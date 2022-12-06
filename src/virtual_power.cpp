@@ -17,9 +17,9 @@ VirtualPower::VirtualPower(
   m_params = params_in;
   m_state = state_in;
   m_disc = disc_in;
-  // get this to fill in measured fields?
   m_disc->create_primal(m_state->residuals, 0);
-  //m_disc->create_virtual_field(params_in);
+  ParameterList& vf_list = m_params->sublist("virtual fields", true);
+  m_disc->create_virtual(m_state->residuals, vf_list);
   m_state->residuals->local->init_variables(m_state);
   m_state->d_residuals->local->init_variables(m_state);
 }
@@ -32,18 +32,15 @@ double VirtualPower::compute_at_step(int step, double t, double) {
   ParameterList& resids = m_params->sublist("residuals", true);
   ParameterList& global = resids.sublist("global residual", true);
   bool const do_print = global.get<bool>("print step", false);
+  bool const use_measured = true;
 
   // print the step information
   if (do_print) print("ON VIRTUAL POWER STEP (%d)", step);
 
   // fill in the measured field
-  if (m_disc->type() == COARSE || m_disc->type() == TRUTH) {
-    m_disc->create_primal(m_state->residuals, step);
-  }
+  m_disc->create_primal(m_state->residuals, step, use_measured);
 
   // evaluate the residual
-
-  // might not work with only residual
   m_state->la->zero_all();                       // zero all linear algebra containers
   eval_measured_residual(m_state, m_disc, step); // fill in dR_dx accordingly
 

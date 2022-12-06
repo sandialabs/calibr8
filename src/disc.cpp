@@ -112,6 +112,7 @@ Disc::~Disc() {
   destroy_data();
   destroy_primal();
   destroy_adjoint();
+  destroy_virtual();
   m_mesh->destroyNative();
   apf::destroyMesh(m_mesh);
   if (m_is_base) delete m_sets;
@@ -539,7 +540,8 @@ static int get_value_type(int neqs, int ndims) {
 
 void Disc::create_primal(
     RCP<Residuals<double>> R,
-    int step) {
+    int step,
+    bool use_measured) {
   DEBUG_ASSERT(m_primal.size() == size_t(step));
   Fields fields;
   int const ngr = R->global->num_residuals();
@@ -553,6 +555,11 @@ void Disc::create_primal(
     fields.global[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_gv_shape);
     if (step == 0) {
       apf::zeroField(fields.global[i]);
+    } else if (use_measured && i == 0) {
+      std::string name = "measured_" + std::to_string(step);
+      apf::Field* f_meas = m_mesh->findField(name.c_str());
+      ALWAYS_ASSERT(f_meas);
+      apf::copyData(fields.global[i], f_meas);
     } else {
       apf::copyData(fields.global[i], m_primal[step - 1].global[i]);
     }
@@ -572,12 +579,71 @@ void Disc::create_primal(
   m_primal.push_back(fields);
 }
 
+static Array1D<std::string> get_vf_expressions(
+    ParameterList const& vf_list) {
+  Array1D<std::string> vf_expressions;
+  for (auto it = vf_list.begin(); it != vf_list.end(); ++it) {
+    auto pentry = vf_list.entry(it);
+    std::string const val = Teuchos::getValue<std::string>(pentry);
+    vf_expressions.push_back(val);
+  }
+  return vf_expressions;
+}
+
+Array1D<double> Disc::get_vals(
+    Array1D<std::string> const& val_expressions,
+    apf::Node const& node) {
+  Array1D<double> vals;
+  apf::Vector3 x;
+  apf::MeshEntity* e = node.entity;
+  int const ent_node = node.node;
+  m_mesh->getPoint(e, ent_node, x);
+  for (auto& val : val_expressions) {
+    double const v = eval(val, x[0], x[1], x[2], 0.);
+    vals.push_back(v);
+  }
+  return vals;
+}
+
+void Disc::create_virtual(
+    RCP<Residuals<double>> R,
+    ParameterList const& vf_list) {
+  Fields fields;
+  int const ngr = R->global->num_residuals();
+  ALWAYS_ASSERT(ngr == 1);
+  resize(fields.virtual_field, ngr);
+  std::string const name = R->global->resid_name(0);
+  std::string const fname = "virtual_" + name;
+  int const vtype = get_value_type(R->global->num_eqs(0), m_num_dims);
+  fields.virtual_field[0] = apf::createField(
+      m_mesh, fname.c_str(), vtype, m_gv_shape);
+  Array1D<std::string> const vf_expressions = get_vf_expressions(vf_list);
+  ALWAYS_ASSERT(vf_expressions.size() == m_num_dims);
+  apf::Vector3 x(0., 0., 0.);
+  Array1D<double> vf_vals(m_num_dims);
+  apf::DynamicArray<apf::Node> owned;
+  apf::getNodes(m_owned_nmbr, owned);
+  for (size_t n = 0; n < owned.size(); ++n) {
+    apf::Node const node = owned[n];
+    apf::MeshEntity* ent = node.entity;
+    int const ent_node = node.node;
+    vf_vals = get_vals(vf_expressions, node);
+    apf::setComponents(fields.virtual_field[0], ent, ent_node, &(vf_vals[0]));
+  }
+  m_virtual.push_back(fields);
+}
+
+
+
 static void destroy_fields(Fields& fields) {
   for (size_t i = 0; i < fields.global.size(); ++i) {
     apf::destroyField(fields.global[i]);
   }
   for (size_t i = 0; i < fields.local.size(); ++i) {
     apf::destroyField(fields.local[i]);
+  }
+  for (size_t i = 0; i < fields.virtual_field.size(); ++i) {
+    apf::destroyField(fields.virtual_field[i]);
   }
 }
 
@@ -625,6 +691,14 @@ void Disc::destroy_adjoint() {
     destroy_fields(m_adjoint[n]);
   }
   m_adjoint.resize(0);
+}
+
+void Disc::destroy_virtual() {
+  int const num_steps = m_virtual.size();
+  for (int n = 0; n < num_steps; ++n) {
+    destroy_fields(m_virtual[n]);
+  }
+  m_virtual.resize(0);
 }
 
 void Disc::add_to_soln(

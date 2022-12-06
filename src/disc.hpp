@@ -55,6 +55,9 @@ class Fields {
     //! \brief The local fields stored by residual index
     Array1D<apf::Field*> local;
 
+    //! \brief The virtual field stored by residual index
+    Array1D<apf::Field*> virtual_field;
+
 };
 
 //! \brief A discretization object
@@ -214,9 +217,18 @@ class Disc {
     //! \brief Create the primal fields at a step
     //! \param R The global/local residuals defining the problem
     //! \param step The current load/time step
+    //! \param use_measured Fill in the values with the measured state field
     void create_primal(
         RCP<Residuals<double>> R,
-        int step);
+        int step,
+        bool use_measured = false);
+
+    //! \brief Create the virtual fields
+    //! \param R The global/local residuals defining the problem
+    //! \param vf_list The expressions for the virtual fields
+    void create_virtual(
+        RCP<Residuals<double>> R,
+        ParameterList const& vf_list);
 
     //! \brief Destroy the primal fields
     //! \param keep_ic Keep the initial condition?
@@ -232,11 +244,17 @@ class Disc {
     //! \brief Destroy the adjoint fields
     void destroy_adjoint();
 
+    //! \brief Destroy the virtual fields
+    void destroy_virtual();
+
     //! \brief Get the primal fields stored on this discretization
     Array1D<Fields>& primal() { return m_primal; }
 
     //! \brief Get the adjoint fields stored on this discretization
     Array1D<Fields>& adjoint() { return m_adjoint; }
+
+    //! \brief Get the virtual fields stored on this discretization
+    Array1D<Fields>& virtual_fields() { return m_virtual; }
 
     //! \brief Get the primal fields at a step
     Fields& primal(int step) { return m_primal[step]; }
@@ -255,6 +273,13 @@ class Disc {
 
     //! \brief Is the geometric model '.null'
     bool is_null() { return m_is_null_model; }
+
+    //! \brief Get a values at a point from a vector of expressions
+    //! \param val_expressions String expressions for a field
+    //! \param node Evaluation point
+    Array1D<double> get_vals(
+        Array1D<std::string> const& val_expressions,
+        apf::Node const& node);
 
   protected:
 
@@ -298,6 +323,7 @@ class Disc {
 
     Array1D<Fields> m_primal;
     Array1D<Fields> m_adjoint;
+    Array1D<Fields> m_virtual;
 
     bool m_is_base = true;
     int m_disc_type = COARSE;
