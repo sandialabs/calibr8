@@ -431,7 +431,7 @@ void Disc::compute_field_node_sets() {
   }
   for (int i = 0; i < m_num_node_sets; ++i) {
     std::string const name = node_set_name(i);
-    std::string const fname = name;
+    std::string const fname = name + "_0";
     apf::Field* ns_field = m_mesh->findField(fname.c_str());
     ALWAYS_ASSERT(ns_field);
     apf::DynamicArray<apf::Node> owned;

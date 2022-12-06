@@ -23,6 +23,7 @@ set(CALIBR8_SOURCES
   linear_solve.cpp
   local_residual.cpp
   mechanics.cpp
+  mechanics_disp.cpp
   mesh_size.cpp
   nested.cpp
   normal_traction.cpp
@@ -35,6 +36,7 @@ set(CALIBR8_SOURCES
   surface_mismatch.cpp
   tbcs.cpp
   thermoelastic.cpp
+  virtual_power.cpp
   weight.cpp
 )
 
@@ -78,3 +80,7 @@ set_code_standards(verify)
 add_executable(exact_error main_exact_error.cpp)
 target_link_libraries(exact_error PRIVATE calibr8)
 set_code_standards(exact_error)
+
+add_executable(virtual_fields_method main_virtual_fields_method.cpp)
+target_link_libraries(virtual_fields_method PRIVATE calibr8)
+set_code_standards(virtual_fields_method)

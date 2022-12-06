@@ -12,6 +12,17 @@ namespace calibr8 {
 class Disc;
 class State;
 
+//! \brief Evaluate the residual vector given measured displacement data
+//! \param state The application state object
+//! \param disc The discretization object
+//! \param step The current load/time step
+//! \details This will populate:
+//!   state->la->b[GHOST] as the residual R
+void eval_measured_residual(
+    RCP<State> state,
+    RCP<Disc> disc,
+    int step);
+
 //! \brief Evaluate the Jacobian matrix and residual vector
 //! \param state The application state object
 //! \param disc The discretization object
