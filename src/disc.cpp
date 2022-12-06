@@ -759,4 +759,52 @@ void Disc::add_to_soln(
 
 }
 
+void Disc::populate_vector(
+    Array1D<apf::Field*>& v,
+    Array1D<RCP<VectorT>> const& vec) {
+
+  int const num_comps = v.size();
+  DEBUG_ASSERT(vec_v.size() == num_comps);
+
+  // get the nodes associated with the nodes in the mesh
+  apf::DynamicArray<apf::Node> nodes;
+  apf::getNodes(m_owned_nmbr, nodes);
+
+  // grab data from the blocked vector
+  Array1D<Teuchos::ArrayRCP<double>> vec_data(num_comps);
+  for (int i = 0; i < num_comps; ++i) {
+    vec_data[i] = vec[i]->get1dViewNonConst();
+  }
+
+  // storage used below
+  Array1D<double> sol_comps(3);
+
+  // loop over all the nodes in the discretization
+  for (size_t n = 0; n < nodes.size(); ++n) {
+
+    // get information about the current node
+    apf::Node node = nodes[n];
+    apf::MeshEntity* ent = node.entity;
+    int const ent_node = node.node;
+
+    // loop over the global residuals
+    for (int i = 0; i < num_comps; ++i) {
+
+      // get the field corresponding to this residual at this step
+      apf::Field* f = v[i];
+
+      // get the solution for the current residual at the node
+      apf::getComponents(f, ent, ent_node, &(sol_comps[0]));
+
+      // set the data in the parallel vector
+      for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
+        LO row = get_lid(node, i, eq);
+        vec_data[i][row] = sol_comps[eq];
+      }
+    }
+
+  }
+
+}
+
 }

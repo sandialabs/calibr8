@@ -262,6 +262,9 @@ class Disc {
     //! \brief Get the adjoint fields at a step
     Fields& adjoint(int step) { return m_adjoint[step]; }
 
+    //! \brief Get the adjoint fields at a step
+    Fields& virtual_fields(int step) { return m_virtual[step]; }
+
     //! \brief Add a solution increment at the current step
     //! \param x The solution fields (of global variables)
     //! \param dx The solution increment (of global variables)
@@ -270,6 +273,13 @@ class Disc {
         Array1D<apf::Field*>& x,
         Array1D<RCP<VectorT>> const& dx,
         double const alpha = 1.);
+
+    //! \brief Fill a VectorT with field data
+    //! \param x The field (of global variables)
+    //! \param dx The VectorT
+    void populate_vector(
+        Array1D<apf::Field*>& v,
+        Array1D<RCP<VectorT>> const& vec);
 
     //! \brief Is the geometric model '.null'
     bool is_null() { return m_is_null_model; }
