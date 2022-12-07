@@ -29,7 +29,7 @@ AdjointWeight::AdjointWeight(apf::FieldShape* PU, apf::Field* z) :
   Weight(PU),
   m_z(z)
 {
-  if (apf::getValueType(z) != apf::SCALAR) {
+  if (apf::countComponents(z) != 1) {
     throw std::runtime_error("not a scalar weight");
   }
 }

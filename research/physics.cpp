@@ -372,9 +372,8 @@ static apf::Field* evaluate_residual(
   Vector R(space, disc);
   System ghost_sys; ghost_sys.b = R.val[GHOST];
   System owned_sys; owned_sys.b = R.val[OWNED];
-  fill_vector(FINE, disc, u_space, U);
+  fill_vector(space, disc, u_space, U);
   R.zero();
-  //TODO: make this an adjoint weight that takes the adjoint field
   RCP<Weight> W = rcp(new Weight(disc->shape(space)));
   assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
   R.gather(Tpetra::ADD);
@@ -382,6 +381,36 @@ static apf::Field* evaluate_residual(
   std::string const name = "R" + disc->space_name(space);
   int const neqs = residual->num_eqs();
   apf::FieldShape* shape = disc->shape(space);
+  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
+  apf::zeroField(f);
+  fill_field(space, disc, R.val[OWNED], f);
+  return f;
+}
+
+static apf::Field* evaluate_PU_residual(
+    int space,
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<double>> residual,
+    apf::Field* u_space,
+    apf::Field* z_space) {
+  apf::Mesh2* mesh = disc->apf_mesh();
+  disc->change_shape(space);
+  ParameterList const dbcs = params->sublist("dbcs");
+  Vector U(space, disc);
+  Vector R(space, disc);
+  System ghost_sys; ghost_sys.b = R.val[GHOST];
+  System owned_sys; owned_sys.b = R.val[OWNED];
+  fill_vector(FINE, disc, u_space, U);
+  R.zero();
+  RCP<Weight> W = rcp(new AdjointWeight(disc->shape(space), z_space));
+  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
+  R.gather(Tpetra::ADD);
+  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
+  std::string const name = "R" + disc->space_name(space);
+  int const neqs = residual->num_eqs();
+  apf::FieldShape* shape = disc->shape(space);
+  std::cout << name << "\n";
   apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
   apf::zeroField(f);
   fill_field(space, disc, R.val[OWNED], f);
@@ -536,6 +565,16 @@ apf::Field* Physics::evaluate_residual(int space, apf::Field* u) {
       m_disc,
       m_residual,
       u);
+}
+
+apf::Field* Physics::evaluate_PU_residual(int space, apf::Field* u, apf::Field* z) {
+  return calibr8::evaluate_PU_residual(
+      space,
+      m_params,
+      m_disc,
+      m_residual,
+      u,
+      z);
 }
 
 apf::Field* Physics::localize_error(apf::Field* R, apf::Field* z) {

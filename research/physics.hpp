@@ -22,6 +22,7 @@ class Physics {
     apf::Field* restrict_z_fine_onto_fine(apf::Field* z);
     apf::Field* subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH);
     apf::Field* evaluate_residual(int space, apf::Field* u);
+    apf::Field* evaluate_PU_residual(int space, apf::Field* u, apf::Field* z);
     apf::Field* localize_error(apf::Field* R, apf::Field* z);
     double estimate_error(apf::Field* eta);
     double estimate_error_bound(apf::Field* eta);
