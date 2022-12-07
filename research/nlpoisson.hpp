@@ -51,13 +51,13 @@ class NLPoisson : public Residual<T> {
         for (int dim = 0; dim < this->m_ndims; ++dim) {
           T const u = vals[eq];
           T const grad_u = dvals[eq][dim];
-          double const grad_w = this->m_gBF[node][dim];
+          double const grad_w = this->m_weight->grad(node, eq, dim);
           this->m_resid[node][eq] += (1.0 + m_alpha*u*u)*grad_u*grad_w*wdetJ;
         }
       }
 
       for (int node = 0; node < this->m_nnodes; ++node) {
-        double const w = this->m_BF[node];
+        double const w = this->m_weight->val(node, eq);
         this->m_resid[node][eq] -= b*w*wdetJ;
       }
 

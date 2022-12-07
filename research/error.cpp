@@ -131,8 +131,14 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
   double const Jh = physics->compute_qoi(FINE, m_uh);
   m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
   m_zh = physics->solve_adjoint(FINE, m_uH_h);
-  m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
-  m_eta = physics->localize_error(m_Rh_uH_h, m_zh);
+  //if (localization_type == SIMPLE) {
+    m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
+    m_eta = physics->localize_error(m_Rh_uH_h, m_zh);
+  //} else if (localization_type == PU) {
+  //  m_eta = physics->evaluate_PU_residual(FINE, m_uH_h, m_zh);
+  //} else {
+  //  throw std::runtime_error("invalid localization type");
+  //}
   double const eta = physics->estimate_error(m_eta);
   double const eta_bound = physics->estimate_error_bound(m_eta);
 
@@ -176,7 +182,7 @@ void R_zh::write_history(std::string const& file, double J_ex) {
     if (J_ex != 0.0) {
       double const E = J_ex - m_JH[ctr];
       double const I = m_estimate[ctr] / E;
-      double const Ibound = m_estimate[ctr] / E;
+      double const Ibound = m_estimate_bound[ctr] / E;
       stream
         << E << " "
         << I << " "
@@ -188,12 +194,12 @@ void R_zh::write_history(std::string const& file, double J_ex) {
 }
 
 void R_zh::destroy_intermediate_fields() {
-  apf::destroyField(m_uH);
-  apf::destroyField(m_uh);
-  apf::destroyField(m_uH_h);
-  apf::destroyField(m_zh);
-  apf::destroyField(m_Rh_uH_h);
-  apf::destroyField(m_eta);
+  if (m_uH) apf::destroyField(m_uH);
+  if (m_uh) apf::destroyField(m_uh);
+  if (m_uH_h) apf::destroyField(m_uH_h);
+  if (m_zh) apf::destroyField(m_zh);
+  if (m_Rh_uH_h) apf::destroyField(m_Rh_uH_h);
+  if (m_eta) apf::destroyField(m_eta);
   m_uH = nullptr;
   m_uh = nullptr;
   m_uH_h = nullptr;
@@ -282,7 +288,7 @@ void R_zh_minus_zh_H::write_history(std::string const& file, double J_ex) {
     if (J_ex != 0.0) {
       double const E = J_ex - m_JH[ctr];
       double const I = m_estimate[ctr] / E;
-      double const Ibound = m_estimate[ctr] / E;
+      double const Ibound = m_estimate_bound[ctr] / E;
       stream
         << E << " "
         << I << " "

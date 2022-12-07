@@ -2,6 +2,7 @@
 
 #include "disc.hpp"
 #include "linalg.hpp"
+#include "weight.hpp"
 
 namespace calibr8 {
 
@@ -28,6 +29,7 @@ class Residual {
     int num_eqs() { return m_neqs; }
     void set_space(int space, RCP<Disc> disc);
     void set_mode(int mode) { m_mode = mode; }
+    void set_weight(RCP<Weight> weight) { m_weight = weight; }
     virtual void before_elems(int es_idx, RCP<Disc> disc) {}
     void in_elem(apf::MeshElement* me, RCP<Disc> disc);
     void gather(RCP<Disc> disc, RCP<VectorT> u);
@@ -54,6 +56,7 @@ class Residual {
     apf::NewArray<apf::Vector3> m_gBF;
     Array2D<T> m_vals;
     Array2D<T> m_resid;
+    RCP<Weight> m_weight;
   private:
     void scatter_residual(RCP<Disc> disc, RCP<VectorT> r);
     void scatter_jacobian(RCP<Disc> disc, RCP<MatrixT> J);

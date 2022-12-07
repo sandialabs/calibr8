@@ -125,9 +125,11 @@ void assemble_residual(
     RCP<Disc> disc,
     RCP<Residual<T>> r,
     RCP<VectorT> U,
+    RCP<Weight> W,
     System& sys) {
   r->set_space(space, disc);
   r->set_mode(mode);
+  r->set_weight(W);
   apf::Mesh2* mesh = disc->apf_mesh();
   int order = 6;
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
@@ -144,6 +146,7 @@ void assemble_residual(
         apf::getIntPoint(me, order, pt, xi);
         double const w = apf::getIntWeight(me, order, pt);
         double const dv = apf::getDV(me, xi);
+        W->at_point(me, xi);
         r->at_point(xi, w, dv, disc);
       }
       r->scatter(disc, sys);
@@ -154,6 +157,7 @@ void assemble_residual(
   // apply tbcs here
   r->set_space(-1, disc);
   r->set_mode(-1);
+  r->set_weight(Teuchos::null);
 }
 
 template <typename T>
@@ -263,13 +267,14 @@ static apf::Field* solve_primal(
   bool converged = false;
   int const max_iters = newton.get<int>("max iters");
   double const tolerance = newton.get<double>("tolerance");
+  RCP<Weight> W = rcp(new Weight(disc->shape(space)));
   while ((iter <= max_iters) && (!converged)) {
     print(" > (%d) Newton iteration", iter);
     dRdU.begin_fill();
     dU.zero();
     R.zero();
     dRdU.zero();
-    assemble_residual(space, JACOBIAN, disc, jacobian, U.val[GHOST], ghost_sys);
+    assemble_residual(space, JACOBIAN, disc, jacobian, U.val[GHOST], W, ghost_sys);
     dRdU.gather(Tpetra::ADD);
     R.gather(Tpetra::ADD);
     apply_jacob_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys, false);
@@ -279,7 +284,7 @@ static apf::Field* solve_primal(
     U.val[OWNED]->update(1.0, *(dU.val[OWNED]), 1.0);
     U.scatter(Tpetra::INSERT);
     R.zero();
-    assemble_residual(space, RESIDUAL, disc, residual, U.val[GHOST], ghost_sys);
+    assemble_residual(space, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
     R.gather(Tpetra::ADD);
     apply_resid_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys);
     double const R_norm = R.val[OWNED]->norm2();
@@ -337,7 +342,8 @@ static apf::Field* solve_adjoint(
   dRdUT.begin_fill();
   dJdUT.zero();
   Z.zero();
-  assemble_residual(space, ADJOINT, disc, jacobian, U.val[GHOST], ghost_sys);
+  RCP<Weight> W = rcp(new Weight(disc->shape(space)));
+  assemble_residual(space, ADJOINT, disc, jacobian, U.val[GHOST], W, ghost_sys);
   assemble_qoi(space, disc, jacobian, qoi, U.val[GHOST], &ghost_sys);
   dRdUT.gather(Tpetra::ADD);
   dJdUT.gather(Tpetra::ADD);
@@ -368,7 +374,9 @@ static apf::Field* evaluate_residual(
   System owned_sys; owned_sys.b = R.val[OWNED];
   fill_vector(FINE, disc, u_space, U);
   R.zero();
-  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], ghost_sys);
+  //TODO: make this an adjoint weight that takes the adjoint field
+  RCP<Weight> W = rcp(new Weight(disc->shape(space)));
+  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
   R.gather(Tpetra::ADD);
   apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
   std::string const name = "R" + disc->space_name(space);
@@ -380,8 +388,7 @@ static apf::Field* evaluate_residual(
   return f;
 }
 
-// work on below
-
+#if 0
 static apf::Field* compute_linearization_error(
     RCP<ParameterList> params,
     RCP<Disc> disc,
@@ -406,7 +413,7 @@ static apf::Field* compute_linearization_error(
   dRdU.zero();
   fill_vector(FINE, disc, uH_h, U);
   fill_vector(FINE, disc, uh_minus_uH_h, U_diff);
-  assemble_residual(FINE, JACOBIAN, disc, jacobian, U.val[GHOST], ghost_sys);
+  assemble_residual(FINE, JACOBIAN, disc, jacobian, U.val[GHOST], W, ghost_sys);
   R.gather(Tpetra::ADD);
   dRdU.gather(Tpetra::ADD);
   apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, false);
@@ -437,6 +444,7 @@ static double compute_eta_L(
   print(" > eta_L = %.15e", eta_L);
   return eta_L;
 }
+#endif
 
 Physics::Physics(RCP<ParameterList> params) {
   m_params = params;
@@ -551,8 +559,7 @@ double Physics::estimate_error_bound(apf::Field* eta) {
   return estimate;
 }
 
-// work on the below
-
+#if 0
 apf::Field* Physics::compute_linearization_error(
     apf::Field* uH_h,
     apf::Field* uh_minus_uH_h,
@@ -578,5 +585,6 @@ double Physics::compute_eta_L(apf::Field* z, apf::Field* E_L) {
   print("computing linearization error estimate");
   return calibr8::compute_eta_L(m_disc, z, E_L);
 }
+#endif
 
 }

@@ -8,7 +8,6 @@
 
 namespace calibr8 {
 
-
 class Physics {
   public:
     Physics(RCP<ParameterList> params);
