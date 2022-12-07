@@ -1,11 +1,8 @@
 #include <PCU.h>
-#include "adjoint.hpp"
 #include "adjoint_objective.hpp"
-#include "control.hpp"
 #include "evaluations.hpp"
+#include "control.hpp"
 #include "local_residual.hpp"
-#include "primal.hpp"
-#include "state.hpp"
 
 namespace calibr8 {
 

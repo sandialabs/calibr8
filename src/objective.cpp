@@ -1,9 +1,6 @@
 #include "control.hpp"
-#include "evaluations.hpp"
-#include "local_residual.hpp"
 #include "objective.hpp"
-#include "primal.hpp"
-#include "state.hpp"
+#include "local_residual.hpp"
 
 namespace calibr8 {
 

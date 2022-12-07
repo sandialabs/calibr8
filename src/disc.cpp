@@ -110,7 +110,7 @@ Disc::Disc(ParameterList const& params) {
 
 Disc::~Disc() {
   destroy_data();
-  destroy_primal();
+  destroy_primal(false);
   destroy_adjoint();
   destroy_virtual();
   m_mesh->destroyNative();
@@ -655,7 +655,12 @@ void Disc::destroy_primal(bool keep_ic) {
   for (int n = start; n < num_steps; ++n) {
     destroy_fields(m_primal[n]);
   }
-  m_primal.resize(1);
+  if (keep_ic) {
+    m_primal.resize(1);
+  } else {
+    m_primal.resize(0);
+  }
+
 }
 
 void Disc::create_adjoint(

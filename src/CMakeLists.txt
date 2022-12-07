@@ -12,6 +12,7 @@ set(CALIBR8_SOURCES
   error_weight.cpp
   evaluations.cpp
   femu_objective.cpp
+  fd_vfm_objective.cpp
   fields.cpp
   global_residual.cpp
   Hill.cpp
@@ -84,3 +85,7 @@ set_code_standards(exact_error)
 add_executable(virtual_fields_method main_virtual_fields_method.cpp)
 target_link_libraries(virtual_fields_method PRIVATE calibr8)
 set_code_standards(virtual_fields_method)
+
+add_executable(vfm main_vfm.cpp)
+target_link_libraries(vfm PRIVATE calibr8)
+set_code_standards(vfm)

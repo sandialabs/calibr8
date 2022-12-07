@@ -2,13 +2,14 @@
 
 #include "defines.hpp"
 
-//! \file primal.hpp
+//! \file virtual_power.hpp
 //! \brief The interface for solving primal problems
 
 namespace calibr8 {
 
 //! \cond
 // forward declarations
+class Disc;
 class State;
 //! \endcond
 
