@@ -407,10 +407,9 @@ static apf::Field* evaluate_PU_residual(
   assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
   R.gather(Tpetra::ADD);
   apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
-  std::string const name = "R" + disc->space_name(space);
+  std::string const name = "eta";
   int const neqs = residual->num_eqs();
   apf::FieldShape* shape = disc->shape(space);
-  std::cout << name << "\n";
   apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
   apf::zeroField(f);
   fill_field(space, disc, R.val[OWNED], f);
@@ -575,6 +574,10 @@ apf::Field* Physics::evaluate_PU_residual(int space, apf::Field* u, apf::Field* 
       m_residual,
       u,
       z);
+}
+
+double Physics::compute_eta2(apf::Field* u, apf::Field* z) {
+  return m_residual->assemble(u, z);
 }
 
 apf::Field* Physics::localize_error(apf::Field* R, apf::Field* z) {

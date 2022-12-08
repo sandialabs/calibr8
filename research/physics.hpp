@@ -27,6 +27,9 @@ class Physics {
     double estimate_error(apf::Field* eta);
     double estimate_error_bound(apf::Field* eta);
 
+    // debug
+    double compute_eta2(apf::Field* u, apf::Field* z);
+
 // work on the below
     apf::Field* compute_linearization_error(
         apf::Field* uH_h,

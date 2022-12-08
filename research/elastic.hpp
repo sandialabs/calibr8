@@ -95,6 +95,11 @@ class Elastic : public Residual<T> {
 
     }
 
+    // debug
+    double assemble(apf::Field* u, apf::Field* z) override {
+      return 1.;
+    }
+
     void destroy_data() override {
       if (m_sigma_field) {
         apf::destroyField(m_sigma_field);

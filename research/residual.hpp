@@ -44,6 +44,8 @@ class Residual {
     void scatter(RCP<Disc> disc, System const& sys);
     void out_elem();
     virtual void destroy_data() {}
+    // debug
+    virtual double assemble(apf::Field* u, apf::Field* z) = 0;
   protected:
     int m_neqs = -1;
     int m_ndims = -1;

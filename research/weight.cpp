@@ -42,9 +42,16 @@ void AdjointWeight::at_point(apf::MeshElement* me, apf::Vector3 const& xi) {
   auto entity_type = mesh->getType(entity);
   int const nnodes = m_shape->getEntityShape(entity_type)->countNodes();
   int const ndims = mesh->getDimension();
-
   m_vals.resize(nnodes);
   m_grads.resize(nnodes);
+
+  // bng - debug
+  //m_vals.resize(6);
+  //m_grads.resize(6);
+  //for (int i = 0; i < 6; ++i) {
+  //  m_vals[i] = 0.;
+  //  m_grads[i] = apf::Vector3(0,0,0);
+  //}
 
   apf::getBF(m_shape, me, xi, m_basis);
   apf::getGradBF(m_shape, me, xi, m_grad_basis);

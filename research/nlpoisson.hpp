@@ -25,6 +25,20 @@ class NLPoisson : public Residual<T> {
     ~NLPoisson() override {
     }
 
+    double eval_body_force(
+        apf::MeshElement* mesh_elem,
+        apf::Vector3 const& xi) {
+      apf::Vector3 x;
+      apf::mapLocalToGlobal(mesh_elem, xi, x);
+      double b = 0.;
+      if (m_body_force_type == EXPR) {
+        b = eval(m_body_force, x[0], x[1], x[2], 0.);
+      } else if (m_body_force_type == SIN_EXP) {
+        b = eval_sin_exp_body_force(x, m_alpha);
+      }
+      return b;
+    }
+
     void at_point(
         apf::Vector3 const& xi,
         double w,
@@ -33,15 +47,7 @@ class NLPoisson : public Residual<T> {
 
       int const eq = 0;
       double const wdetJ = w*dv;
-
-      apf::Vector3 x;
-      apf::mapLocalToGlobal(this->m_mesh_elem, xi, x);
-      double b = 0.;
-      if (m_body_force_type == EXPR) {
-        b = eval(m_body_force, x[0], x[1], x[2], 0.);
-      } else if (m_body_force_type == SIN_EXP) {
-        b = eval_sin_exp_body_force(x, m_alpha);
-      }
+      double const b = eval_body_force(this->m_mesh_elem, xi);
 
       this->interp_basis(xi, disc);
       Array1D<T> const vals = this->interp(xi);
@@ -61,6 +67,44 @@ class NLPoisson : public Residual<T> {
         this->m_resid[node][eq] -= b*w*wdetJ;
       }
 
+    }
+
+    // debug
+    double assemble(apf::Field* u_field, apf::Field* z_field) override {
+      apf::Mesh* mesh = apf::getMesh(u_field);
+      int const ndims = mesh->getDimension();
+      int q_order = 6;
+      auto elems = mesh->begin(ndims);
+      apf::Vector3 grad_u;
+      apf::Vector3 grad_z;
+      apf::MeshEntity* elem;
+      double integral = 0.;
+      while ((elem = mesh->iterate(elems))) {
+        apf::MeshElement* mesh_elem = apf::createMeshElement(mesh, elem);
+        apf::Element* u_elem = apf::createElement(u_field, mesh_elem);
+        apf::Element* z_elem = apf::createElement(z_field, mesh_elem);
+        int const npts = apf::countIntPoints(mesh_elem, q_order);
+        for (int pt = 0; pt < npts; ++pt) {
+          apf::Vector3 xi;
+          apf::getIntPoint(mesh_elem, q_order, pt, xi);
+          double const w = apf::getIntWeight(mesh_elem, q_order, pt);
+          double const dv = apf::getDV(mesh_elem, xi);
+          double const u = apf::getScalar(u_elem, xi);
+          double const z = apf::getScalar(z_elem, xi);
+          double const b = eval_body_force(mesh_elem, xi);
+          apf::getGrad(u_elem, xi, grad_u);
+          apf::getGrad(z_elem, xi, grad_z);
+          for (int dim = 0; dim < ndims; ++dim) {
+            integral += (1.0 + m_alpha*u*u)*grad_u[dim]*grad_z[dim]*w*dv;
+          }
+          integral -= b*z*w*dv;
+        }
+        apf::destroyElement(z_elem);
+        apf::destroyElement(u_elem);
+        apf::destroyMeshElement(mesh_elem);
+      }
+      mesh->end(elems);
+      return integral;
     }
 
   private:
