@@ -49,6 +49,9 @@ class Hill : public LocalResidual<T> {
     //! \brief Is this material hypoelastic
     bool is_hypoelastic() { return true; }
 
+    //! \brief Is this material plane stress
+    bool is_plane_stress() { return false; }
+
     //! \brief Get the rotated (not deviatoric) Cauchy stress tensor
     //! \param global The global residual equations
     Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global);

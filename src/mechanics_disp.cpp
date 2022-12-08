@@ -70,7 +70,14 @@ void MechanicsDisp<T>::evaluate(
   // Cauchy for hypoelastic models is dev_cauchy
   Tensor<T> stress = local->dev_cauchy(global);
 
-  if (local->is_finite_deformation()) stress = J * stress * F_invT;
+  if (local->is_finite_deformation()) {
+    stress = J * stress * F_invT;
+    if (local->is_plane_stress()) {
+      const int lambda_z_idx = 2;
+      T const lambda_z = local->scalar_xi(lambda_z_idx);
+      stress *= lambda_z;
+    }
+  }
 
   // compute the balance of linear momentum residual
   for (int n = 0; n < nnodes; ++n) {
