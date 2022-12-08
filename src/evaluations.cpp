@@ -20,12 +20,13 @@ void eval_measured_residual(RCP<State> state, RCP<Disc> disc, int step) {
   // only need the double version of this (just seed nothing?)
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
   Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
-  Array2D<RCP<MatrixT>>& LHS = state->la->A[GHOST];
 
+  // measured displacement field
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
-
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
+
+  // local state variables
+  Array1D<apf::Field*> xi = disc->primal(step).local;
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
 
   // perform initializations of the residual objects
@@ -57,52 +58,37 @@ void eval_measured_residual(RCP<State> state, RCP<Disc> disc, int step) {
 
       // loop over domain ip sets
       // ip_set = 0 -> coupled
-      // ip_set > 0 -> global only
       Array1D<int> ip_sets = global->ip_sets();
       int const num_ip_sets = ip_sets.size();
+      ALWAYS_ASSERT(num_ip_sets == 1);
+      int const ip_set = 0;
 
-      for (int ip_set = 0; ip_set < num_ip_sets; ++ip_set) {
+      // get the quadrature order for the ip set
+      int const q_order = ip_sets[ip_set];
+      // loop over all integration points in the current element
+      int const npts = apf::countIntPoints(me, q_order);
 
-        // get the quadrature order for the ip set
-        int const q_order = ip_sets[ip_set];
-        // loop over all integration points in the current element
-        int const npts = apf::countIntPoints(me, q_order);
+      for (int pt = 0; pt < npts; ++pt) {
 
-        for (int pt = 0; pt < npts; ++pt) {
+        // get integration point specific information
+        apf::Vector3 iota;
+        apf::getIntPoint(me, q_order, pt, iota);
+        double const w = apf::getIntWeight(me, q_order, pt);
+        double const dv = apf::getDV(me, iota);
 
-          // get integration point specific information
-          apf::Vector3 iota;
-          apf::getIntPoint(me, q_order, pt, iota);
-          double const w = apf::getIntWeight(me, q_order, pt);
-          double const dv = apf::getDV(me, iota);
+        // solve the local constitutive equations at the integration point
+        // and store the resultant local residual and state variables
+        global->interpolate(iota);
+        local->gather(pt, xi, xi_prev);
+        nderivs = local->seed_wrt_xi();
+        int path = local->solve_nonlinear(global);
+        local->scatter(pt, xi);
+        local->unseed_wrt_xi();
 
-          if (ip_set == 0) {
-
-            // solve the local constitutive equations at the integration point
-            // and store the resultant local residual and its derivatives (dC_dxi)
-            global->interpolate(iota);
-            local->gather(pt, xi, xi_prev);
-            nderivs = local->seed_wrt_xi();
-            int path = local->solve_nonlinear(global);
-            local->scatter(pt, xi);
-            local->unseed_wrt_xi();
-
-          }
-
-          else {
-
-            nderivs = global->seed_wrt_x();
-            global->interpolate(iota);
-
-          }
-
-          global->zero_residual();
-          global->evaluate(local, iota, w, dv, ip_set);
-          EMatrix const elem_resid = global->eigen_residual();
-          global->scatter_rhs(disc, elem_resid, RHS);
-          global->unseed_wrt_x();
-
-        }
+        global->zero_residual();
+        global->evaluate(local, iota, w, dv, ip_set);
+        EMatrix const elem_resid = global->eigen_residual();
+        global->scatter_rhs(disc, elem_resid, RHS);
 
       }
 
