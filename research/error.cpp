@@ -143,21 +143,14 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
     m_eta = physics->localize_error(m_Rh_uH_h, m_zh);
   } else if (localization == PU) {
     print("using localization: PU");
-    m_eta = physics->evaluate_PU_residual(FINE, m_uH_h, m_zh);
-
-    // bng - debug
-    apf::Field* m_eta2 = physics->compute_eta2(m_uH_h, m_zh);
-    print("--debug estimates--");
-    double const eta2 = physics->estimate_error(m_eta2);
-    double const eta2_bound = physics->estimate_error_bound(m_eta2);
-    print("--end debug estimates--");
-
+    // debug - below doesn't work yet
+    //m_eta = physics->evaluate_PU_residual(FINE, m_uH_h, m_zh);
+    m_eta = physics->compute_eta2(m_uH_h, m_zh);
   } else {
     throw std::runtime_error("invalid localization type");
   }
   double const eta = physics->estimate_error(m_eta);
   double const eta_bound = physics->estimate_error_bound(m_eta);
-
 
   // collect the data
   m_nelems.push_back(get_nelems(physics));
@@ -270,15 +263,9 @@ apf::Field* R_zh_minus_zh_H::compute_error(RCP<Physics> physics) {
     m_eta = physics->localize_error(m_Rh_uH_h, m_zh_minus_zh_H);
   } else if (localization == PU) {
     print("using localization: PU");
-    m_eta = physics->evaluate_PU_residual(FINE, m_uH_h, m_zh_minus_zh_H);
-
-    // bng - debug
-    apf::Field* m_eta2 = physics->compute_eta2(m_uH_h, m_zh_minus_zh_H);
-    print("--debug estimates--");
-    double const eta2 = physics->estimate_error(m_eta2);
-    double const eta2_bound = physics->estimate_error_bound(m_eta2);
-    print("--end debug estimates--");
-
+    // debug - below does not work yet
+    //m_eta = physics->evaluate_PU_residual(FINE, m_uH_h, m_zh_minus_zh_H);
+    m_eta = physics->compute_eta2(m_uH_h, m_zh_minus_zh_H);
   } else {
     throw std::runtime_error("invalid localization type");
   }

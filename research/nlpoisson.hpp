@@ -86,7 +86,6 @@ class NLPoisson : public Residual<T> {
       apf::NewArray<apf::Vector3> grad_psi;
       apf::Downward verts;
       apf::MeshEntity* elem;
-      double integral = 0.;
       while ((elem = mesh->iterate(elems))) {
         apf::MeshElement* mesh_elem = apf::createMeshElement(mesh, elem);
         apf::Element* u_elem = apf::createElement(u_field, mesh_elem);
@@ -106,33 +105,23 @@ class NLPoisson : public Residual<T> {
           apf::getGrad(z_elem, xi, grad_z);
           apf::getBF(PU, mesh_elem, xi, psi);
           apf::getGradBF(PU, mesh_elem, xi, grad_psi);
-
-          // old
-          for (int dim = 0; dim < ndims; ++dim) {
-            integral += (1.0 + m_alpha*u*u)*grad_u[dim]*grad_z[dim]*w*dv;
-          }
-          integral -= b*z*w*dv;
-
-          // new
           mesh->getDownward(elem, 0, verts);
           for (int n = 0; n < nnodes; ++n) {
             apf::MeshEntity* vert = verts[n];
             double assembled = apf::getScalar(eta, vert, 0);
-            assembled -= b*z*psi[n]*w*dv;
+            assembled += b*z*psi[n]*w*dv;
             for (int dim = 0; dim < ndims; ++dim) {
-              assembled += (1.0 + m_alpha*u*u)*grad_u[dim]*(grad_z[dim]*psi[n] + z*grad_psi[n][dim])*w*dv;
+              assembled -= (1.0 + m_alpha*u*u)*grad_u[dim]*(grad_z[dim]*psi[n] + z*grad_psi[n][dim])*w*dv;
             }
             apf::setScalar(eta, vert, 0, assembled);
           }
-
         }
         apf::destroyElement(z_elem);
         apf::destroyElement(u_elem);
         apf::destroyMeshElement(mesh_elem);
       }
       mesh->end(elems);
-
-      print("integral > %.15e", integral);
+      apf::synchronize(eta);
       return eta;
     }
 
