@@ -120,7 +120,7 @@ class NLPoisson : public Residual<T> {
             double assembled = apf::getScalar(eta, vert, 0);
             assembled -= b*z*psi[n]*w*dv;
             for (int dim = 0; dim < ndims; ++dim) {
-              assembled += (1.0 + m_alpha*u*u)*grad_u[dim]*grad_z[dim]*psi[n]*w*dv;
+              assembled += (1.0 + m_alpha*u*u)*grad_u[dim]*(grad_z[dim]*psi[n] + z*grad_psi[n][dim])*w*dv;
             }
             apf::setScalar(eta, vert, 0, assembled);
           }
