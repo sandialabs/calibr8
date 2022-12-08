@@ -21,20 +21,4 @@ double eval_sin_exp_body_force(apf::Vector3 const& pt, double alpha) {
     (-4*pow(pi, 2)*sin(2*pi*y) + sin(2*pi*y) + 4*pi*cos(2*pi*y))*exp(x + y)*sin(2*pi*x);
 }
 
-void concat(
-    int nverts,
-    int nedges,
-    apf::Downward const& verts,
-    apf::Downward const& edges,
-    std::vector<apf::MeshEntity*>& ents) {
-  ents.resize(nverts + nedges);
-  int ctr = 0;
-  for (int i = 0; i < nverts; ++i) {
-    ents[ctr++] = verts[i];
-  }
-  for (int i = 0; i < nedges; ++i) {
-    ents[ctr++] = edges[i];
-  }
-}
-
 }
