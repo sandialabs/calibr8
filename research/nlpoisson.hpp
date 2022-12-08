@@ -11,6 +11,13 @@ enum {EXPR, SIN_EXP};
 
 double eval_sin_exp_body_force(apf::Vector3 const& x, double alpha);
 
+void concat(
+    int nverts,
+    int nedges,
+    apf::Downward const& verts,
+    apf::Downward const& edges,
+    std::vector<apf::MeshEntity*>& ents);
+
 template <typename T>
 class NLPoisson : public Residual<T> {
 
@@ -74,7 +81,7 @@ class NLPoisson : public Residual<T> {
     // debug
     apf::Field* assemble(apf::Field* u_field, apf::Field* z_field) override {
       apf::Mesh* mesh = apf::getMesh(u_field);
-      apf::FieldShape* PU = apf::getLagrange(1);
+      apf::FieldShape* PU = apf::getSerendipity();
       apf::Field* eta = apf::createPackedField(mesh, "eta2", this->m_neqs, PU);
       apf::zeroField(eta);
       int const ndims = mesh->getDimension();
@@ -85,6 +92,8 @@ class NLPoisson : public Residual<T> {
       apf::NewArray<double> psi;
       apf::NewArray<apf::Vector3> grad_psi;
       apf::Downward verts;
+      apf::Downward edges;
+      std::vector<apf::MeshEntity*> ents;
       apf::MeshEntity* elem;
       while ((elem = mesh->iterate(elems))) {
         apf::MeshElement* mesh_elem = apf::createMeshElement(mesh, elem);
@@ -105,15 +114,17 @@ class NLPoisson : public Residual<T> {
           apf::getGrad(z_elem, xi, grad_z);
           apf::getBF(PU, mesh_elem, xi, psi);
           apf::getGradBF(PU, mesh_elem, xi, grad_psi);
-          mesh->getDownward(elem, 0, verts);
+          int const nverts = mesh->getDownward(elem, 0, verts);
+          int const nedges = mesh->getDownward(elem, 1, edges);
+          concat(nverts, nedges, verts, edges, ents);
           for (int n = 0; n < nnodes; ++n) {
-            apf::MeshEntity* vert = verts[n];
-            double assembled = apf::getScalar(eta, vert, 0);
+            apf::MeshEntity* ent = ents[n];
+            double assembled = apf::getScalar(eta, ent, 0);
             assembled += b*z*psi[n]*w*dv;
             for (int dim = 0; dim < ndims; ++dim) {
               assembled -= (1.0 + m_alpha*u*u)*grad_u[dim]*(grad_z[dim]*psi[n] + z*grad_psi[n][dim])*w*dv;
             }
-            apf::setScalar(eta, vert, 0, assembled);
+            apf::setScalar(eta, ent, 0, assembled);
           }
         }
         apf::destroyElement(z_elem);
