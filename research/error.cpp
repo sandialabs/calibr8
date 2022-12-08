@@ -146,8 +146,9 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
     m_eta = physics->evaluate_PU_residual(FINE, m_uH_h, m_zh);
 
     // bng - debug
-    double const eta2 = physics->compute_eta2(m_uH_h, m_zh);
-    print("eta2 = %.15e", eta2);
+    apf::Field* m_eta2 = physics->compute_eta2(m_uH_h, m_zh);
+    double const eta2 = physics->estimate_error(m_eta2);
+    print("> eta2 = %.15e", eta2);
 
   } else {
     throw std::runtime_error("invalid localization type");
@@ -268,6 +269,12 @@ apf::Field* R_zh_minus_zh_H::compute_error(RCP<Physics> physics) {
   } else if (localization == PU) {
     print("- using localization: PU");
     m_eta = physics->evaluate_PU_residual(FINE, m_uH_h, m_zh_minus_zh_H);
+
+    // bng - debug
+    apf::Field* m_eta2 = physics->compute_eta2(m_uH_h, m_zh_minus_zh_H);
+    double const eta2 = physics->estimate_error(m_eta2);
+    print("> eta2 = %.15e", eta2);
+
   } else {
     throw std::runtime_error("invalid localization type");
   }

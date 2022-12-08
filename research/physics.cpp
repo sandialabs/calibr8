@@ -576,7 +576,7 @@ apf::Field* Physics::evaluate_PU_residual(int space, apf::Field* u, apf::Field* 
       z);
 }
 
-double Physics::compute_eta2(apf::Field* u, apf::Field* z) {
+apf::Field* Physics::compute_eta2(apf::Field* u, apf::Field* z) {
   return m_residual->assemble(u, z);
 }
 

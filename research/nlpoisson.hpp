@@ -1,5 +1,7 @@
 #pragma once
 
+#include <apf.h>
+
 #include "control.hpp"
 #include "residual.hpp"
 
@@ -70,13 +72,19 @@ class NLPoisson : public Residual<T> {
     }
 
     // debug
-    double assemble(apf::Field* u_field, apf::Field* z_field) override {
+    apf::Field* assemble(apf::Field* u_field, apf::Field* z_field) override {
       apf::Mesh* mesh = apf::getMesh(u_field);
+      apf::FieldShape* PU = apf::getLagrange(1);
+      apf::Field* eta = apf::createPackedField(mesh, "eta2", this->m_neqs, PU);
+      apf::zeroField(eta);
       int const ndims = mesh->getDimension();
       int q_order = 6;
       auto elems = mesh->begin(ndims);
       apf::Vector3 grad_u;
       apf::Vector3 grad_z;
+      apf::NewArray<double> psi;
+      apf::NewArray<apf::Vector3> grad_psi;
+      apf::Downward verts;
       apf::MeshEntity* elem;
       double integral = 0.;
       while ((elem = mesh->iterate(elems))) {
@@ -84,6 +92,8 @@ class NLPoisson : public Residual<T> {
         apf::Element* u_elem = apf::createElement(u_field, mesh_elem);
         apf::Element* z_elem = apf::createElement(z_field, mesh_elem);
         int const npts = apf::countIntPoints(mesh_elem, q_order);
+        int const entity_type = mesh->getType(elem);
+        int const nnodes = PU->getEntityShape(entity_type)->countNodes();
         for (int pt = 0; pt < npts; ++pt) {
           apf::Vector3 xi;
           apf::getIntPoint(mesh_elem, q_order, pt, xi);
@@ -94,17 +104,36 @@ class NLPoisson : public Residual<T> {
           double const b = eval_body_force(mesh_elem, xi);
           apf::getGrad(u_elem, xi, grad_u);
           apf::getGrad(z_elem, xi, grad_z);
+          apf::getBF(PU, mesh_elem, xi, psi);
+          apf::getGradBF(PU, mesh_elem, xi, grad_psi);
+
+          // old
           for (int dim = 0; dim < ndims; ++dim) {
             integral += (1.0 + m_alpha*u*u)*grad_u[dim]*grad_z[dim]*w*dv;
           }
           integral -= b*z*w*dv;
+
+          // new
+          mesh->getDownward(elem, 0, verts);
+          for (int n = 0; n < nnodes; ++n) {
+            apf::MeshEntity* vert = verts[n];
+            double assembled = apf::getScalar(eta, vert, 0);
+            assembled -= b*z*psi[n]*w*dv;
+            for (int dim = 0; dim < ndims; ++dim) {
+              assembled += (1.0 + m_alpha*u*u)*grad_u[dim]*grad_z[dim]*psi[n]*w*dv;
+            }
+            apf::setScalar(eta, vert, 0, assembled);
+          }
+
         }
         apf::destroyElement(z_elem);
         apf::destroyElement(u_elem);
         apf::destroyMeshElement(mesh_elem);
       }
       mesh->end(elems);
-      return integral;
+
+      print("integral > %.15e", integral);
+      return eta;
     }
 
   private:
