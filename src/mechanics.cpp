@@ -87,14 +87,21 @@ void Mechanics<T>::evaluate(
     Tensor<T> const F = grad_u + I;
     Tensor<T> const F_inv = inverse(F);
     Tensor<T> const F_invT = transpose(F_inv);
-    T const J = det(F);
+    T J = det(F);
 
     // compute stress measures
     RCP<GlobalResidual<T>> global = rcp(this, false);
     Tensor<T> stress = local->cauchy(global, p);
 
 
-    if (local->is_finite_deformation()) stress = J * stress * F_invT;
+    if (local->is_finite_deformation()) {
+      if (local->is_plane_stress()) {
+        const int lambda_z_idx = 2;
+        T const lambda_z = local->scalar_xi(lambda_z_idx);
+        J *= lambda_z;
+      }
+      stress = J * stress * F_invT;
+    }
 
     // compute the balance of linear momentum residual
     for (int n = 0; n < nnodes; ++n) {
@@ -127,7 +134,8 @@ void Mechanics<T>::evaluate(
 
       // compute the stabilization to the pressure residual
       double const h = get_size(this->m_mesh, this->m_mesh_elem);
-      T const tau = 0.5 * h * h / mu;
+      //T const tau = 0.5 * h * h / mu;
+      T const tau = 0.0 * h * h / mu;
       Tensor<T> const C_inv = inverse(transpose(F) * F);
       for (int n = 0; n < nnodes; ++n) {
         for (int i = 0; i < ndims; ++i) {

@@ -186,10 +186,10 @@ int J2HypoPlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     FADT const alpha_old = this->scalar_xi_prev(1);
     FADT const lambda_z_old = this->scalar_xi_prev(2);
     Tensor<FADT> const d = eval_d(global);
-    Tensor<FADT> const TC = TC_old + lambda * trace(d) * I + 2. * mu * d;
+    FADT const d_zz = -lambda * (d(0, 0) + d(1, 1)) / (lambda +  2. * mu);
+    Tensor<FADT> const TC = TC_old + lambda * (trace(d) + d_zz) * I + 2. * mu * d;
     FADT const alpha = alpha_old;
     // TODO Fill in what lambda_z should be
-    FADT const d_zz = -lambda * (d(0, 0) + d(1, 1)) / (lambda +  2. * mu);
     FADT const lambda_z = lambda_z_old / (1. - d_zz);
     this->set_sym_tensor_xi(0, TC);
     this->set_scalar_xi(1, alpha);
@@ -208,6 +208,7 @@ int J2HypoPlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     path = this->evaluate(global);
 
     double const R_norm = this->norm_residual();
+    //print("C residual norm = %e", R_norm);
     if (iter == 1) R_norm_0 = R_norm;
     double const R_norm_rel = R_norm / R_norm_0;
     if ((R_norm_rel < m_rel_tol) || (R_norm < m_abs_tol)) {
@@ -217,6 +218,12 @@ int J2HypoPlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
     EMatrix const J = this->eigen_jacobian(this->m_num_dofs);
     EVector const R = this->eigen_residual();
+    //if (iter > 1) {
+    if (false) {
+      print("R norm = %e", R_norm);
+      std::cout << "C residual = " << R << "\n";
+    }
+
     EVector const dxi = J.fullPivLu().solve(-R);
 
     this->add_to_sym_tensor_xi(0, dxi);
@@ -263,11 +270,23 @@ int J2HypoPlaneStress<T>::evaluate(
   T const alpha = this->scalar_xi(1);
   T const lambda_z = this->scalar_xi(2);
 
+  /*
   Tensor<T> const TC_3D = insert_2D_tensor_into_3D(TC);
   Tensor<T> const s_3D = dev(TC_3D);
   T const s_3D_mag = minitensor::norm(s_3D);
   T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
   T const f = s_3D_mag - sqrt_23 * sigma_yield;
+  */
+
+  //T const phi = std::sqrt(0.5 * (std::pow(TC(0, 0) - TC(1, 1), 2)
+  //    + std::pow(TC(0, 0), 2) + std::pow(TC(1, 1), 2))
+  //    + 3. * std::pow(TC(0, 1), 2));
+  T const phi = std::sqrt(std::pow(TC(0, 0), 2) + std::pow(TC(1, 1), 2)
+      - TC(0, 0) * TC(1, 1)
+      + 3. / 2. * std::pow(TC(0, 1), 2)
+      + 3. / 2. * std::pow(TC(1, 0), 2));
+  T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
+  T const f = phi - sigma_yield;
 
   Tensor<T> R_TC;
   T R_alpha;
@@ -276,11 +295,12 @@ int J2HypoPlaneStress<T>::evaluate(
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const d = eval_d(global);
   T const d_zz = -lambda * (d(0, 0) + d(1, 1)) / (lambda +  2. * mu);
-  R_TC = TC - TC_old - lambda * trace(d) * I - 2. * mu * d;
+  R_TC = TC - TC_old - lambda * (trace(d) + d_zz) * I - 2. * mu * d;
 
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
+      /*
       T const dgam = sqrt_32 * (alpha - alpha_old);
       Tensor<T> const n_3D = s_3D / s_3D_mag;
       Tensor<T> const n_2D = extract_2D_tensor_from_3D(n_3D);
@@ -288,6 +308,20 @@ int J2HypoPlaneStress<T>::evaluate(
       R_alpha = f;
       T const dp_zz = 2. * mu * dgam * n_3D(2, 2) / (lambda + 2. * mu);
       R_lambda_z = lambda_z - lambda_z_old / (1. - (d_zz + dp_zz));
+      */
+      T const dgam = alpha - alpha_old;
+      T const dp_xx = dgam * (2. * TC(0, 0) - TC(1, 1)) / (2. * phi);
+      T const dp_yy = dgam * (2. * TC(1, 1) - TC(0, 0)) / (2. * phi);
+      T const dp_xy = dgam * 3. * TC(0, 1) / (2. * phi);
+      //print("dp_xx = %e, dp_yy = %e, dp_xy = %e", val(dp_xx), val(dp_yy), val(dp_xy));
+      T const dp_zz = -(dp_xx + dp_yy);
+      R_TC(0, 0) += 2. * mu * dp_xx;
+      R_TC(1, 1) += 2. * mu * dp_yy;
+      R_TC(0, 1) += 2. * mu * dp_xy;
+      // not needed
+      R_TC(1, 0) += 2. * mu * dp_xy;
+      R_alpha = f;
+      R_lambda_z = lambda_z - lambda_z_old / (1. - (d_zz + 2. * mu * dp_zz / (2. * mu + lambda)));
       path = PLASTIC;
     }
     // elastic step
@@ -303,6 +337,7 @@ int J2HypoPlaneStress<T>::evaluate(
     path = path_in;
     // plastic step
     if (path == PLASTIC) {
+      /*
       T const dgam = sqrt_32 * (alpha - alpha_old);
       Tensor<T> const n_3D = s_3D / s_3D_mag;
       Tensor<T> const n_2D = extract_2D_tensor_from_3D(n_3D);
@@ -310,6 +345,19 @@ int J2HypoPlaneStress<T>::evaluate(
       R_alpha = f;
       T const dp_zz = 2. * mu * dgam * n_3D(2, 2) / (lambda + 2. * mu);
       R_lambda_z = lambda_z - lambda_z_old / (1. - (d_zz + dp_zz));
+      */
+      T const dgam = alpha - alpha_old;
+      T const dp_xx = dgam * (2. * TC(0, 0) - TC(1, 1)) / (2. * phi);
+      T const dp_yy = dgam * (2. * TC(1, 1) - TC(0, 0)) / (2. * phi);
+      T const dp_xy = dgam * 3. * TC(0, 1) / (2. * phi);
+      T const dp_zz = -(dp_xx + dp_yy);
+      R_TC(0, 0) += 2. * mu * dp_xx;
+      R_TC(1, 1) += 2. * mu * dp_yy;
+      R_TC(0, 1) += 2. * mu * dp_xy;
+      // not needed
+      R_TC(1, 0) += 2. * mu * dp_xy;
+      R_alpha = f;
+      R_lambda_z = lambda_z - lambda_z_old / (1. - d_zz + dp_zz / (2. * mu + lambda));
     }
     // elastic step
     else {
@@ -344,7 +392,7 @@ Tensor<T> J2HypoPlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   int const ndims = this->m_num_dims;
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const RC = this->dev_cauchy(global);
-  Tensor<T> const sigma = dev(RC) - p * I;
+  Tensor<T> const sigma = RC - trace(RC) / 3. * I - p * I;
   return sigma;
 }
 
