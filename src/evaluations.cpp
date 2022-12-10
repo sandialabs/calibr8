@@ -1461,8 +1461,13 @@ apf::Field* eval_cauchy(RCP<State> state, int step) {
         // evaluate the cauchy stress tensor at the point
         global->interpolate(iota);
         local->gather(pt, xi, xi_prev);
-        double const p = global->scalar_x(pressure_idx);
-        Tensor<double> const sigma = local->cauchy(global, p);
+        Tensor<double> sigma;
+        if (local->is_plane_stress()) {
+          sigma = local->dev_cauchy(global);
+        } else {
+          double const p = global->scalar_x(pressure_idx);
+          sigma = local->cauchy(global, p);
+        }
 
         // set the cauchy stress tensor to a field
         apf::Matrix3x3 apf_sigma(0, 0, 0, 0, 0, 0, 0, 0, 0);
