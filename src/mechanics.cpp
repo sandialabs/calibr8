@@ -134,8 +134,7 @@ void Mechanics<T>::evaluate(
 
       // compute the stabilization to the pressure residual
       double const h = get_size(this->m_mesh, this->m_mesh_elem);
-      //T const tau = 0.5 * h * h / mu;
-      T const tau = 0.0 * h * h / mu;
+      T const tau = 0.5 * h * h / mu;
       Tensor<T> const C_inv = inverse(transpose(F) * F);
       for (int n = 0; n < nnodes; ++n) {
         for (int i = 0; i < ndims; ++i) {
