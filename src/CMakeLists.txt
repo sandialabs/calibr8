@@ -19,6 +19,7 @@ set(CALIBR8_SOURCES
   J2.cpp
   J2_hypo_plane_stress.cpp
   J2_plane_strain.cpp
+  J2_plane_stress.cpp
   J2_small_strain.cpp
   load_mismatch.cpp
   linear_alg.cpp
