@@ -63,17 +63,17 @@ void MechanicsDisp<T>::evaluate(
   Tensor<T> const F_inv = inverse(F);
   Tensor<T> const F_invT = transpose(F_inv);
   T const J = det(F);
-  T const p = 0.;
 
   // compute stress measures
   RCP<GlobalResidual<T>> global = rcp(this, false);
-  // Cauchy for hypoelastic models is dev_cauchy
+  // Cauchy for these models is dev_cauchy
   Tensor<T> stress = local->dev_cauchy(global);
 
   if (local->is_finite_deformation()) {
     stress = J * stress * F_invT;
     if (local->is_plane_stress()) {
-      const int lambda_z_idx = 2;
+      //const int lambda_z_idx = 2;
+      const int lambda_z_idx = 4;
       T const lambda_z = local->scalar_xi(lambda_z_idx);
       stress *= lambda_z;
     }

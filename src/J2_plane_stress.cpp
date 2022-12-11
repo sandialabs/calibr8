@@ -164,19 +164,33 @@ void eval_be_bar_plane_stress(
     T const& zeta_zz,
     T const& lambda_z_prev,
     T const& lambda_z,
-    T J_2D,
+    T& J_2D,
     Tensor<T>& be_bar_2D,
     T& be_bar_zz) {
+  Tensor<T> const I_2D = minitensor::eye<T>(2);
   Tensor<T> const I = minitensor::eye<T>(3);
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
-  Tensor<T> const F_2D = grad_u + I;
+  Tensor<T> const F_2D = grad_u + I_2D;
   J_2D = minitensor::det(F_2D);
-  Tensor<T> const F_prev_2D = grad_u_prev + I;
+  Tensor<T> const F_prev_2D = grad_u_prev + I_2D;
   Tensor<T> F_3D = insert_2D_tensor_into_3D(F_2D);
   Tensor<T> F_prev_3D = insert_2D_tensor_into_3D(F_prev_2D);
   F_3D(2, 2) = lambda_z;
   F_prev_3D(2, 2) = lambda_z_prev;
+  /*
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      std::cout << "F_3D(" << i << "," << j << ") = " << F_3D(i, j) << "\n";
+    }
+  }
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      std::cout << "F_prev_3D(" << i << "," << j << ") = " << F_prev_3D(i, j) << "\n";
+    }
+  }
+  */
+
   Tensor<T> const rF = F_3D * minitensor::inverse(F_prev_3D);
   T const det_rF = minitensor::det(rF);
   T const det_rF_13 = cbrt(det_rF);
@@ -261,6 +275,12 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     EVector const R = this->eigen_residual();
     EVector const dxi = J.fullPivLu().solve(-R);
 
+    if (iter > 5) {
+      print("\niter %d: R_norm = %e", iter, R_norm);
+      std::cout << "  R = " << R << "\n";
+      std::cout << "  J = " << J << "\n";
+    }
+
     this->add_to_sym_tensor_xi(0, dxi);
     this->add_to_scalar_xi(1, dxi);
     this->add_to_scalar_xi(2, dxi);
@@ -336,8 +356,18 @@ int J2_plane_stress<T>::evaluate(
   T R_lambda_z;
 
   T const mat_factor = kappa / (2. * mu);
-  R_lambda_z = std::pow(lambda_z, 2)
-      - (1. + zeta_zz / mat_factor) / std::pow(J_2D, 2);
+  //R_lambda_z = std::pow(lambda_z, 2)
+  //    - (1. + zeta_zz / mat_factor) / std::pow(J_2D, 2);
+
+  R_lambda_z = lambda_z
+      - std::sqrt((1. - zeta_zz / mat_factor) / std::pow(J_2D, 2));
+  /*
+  std::cout << "J_2D = " << J_2D << "\n";
+  std::cout << "mat_factor = " << mat_factor << "\n";
+  std::cout << "lambda_z**2 = " << std::pow(lambda_z, 2) << "\n";
+  std::cout << "zeta_zz = " << zeta_zz << "\n";
+  std::cout << "R_lambda_z = " << R_lambda_z << "\n";
+  */
 
   if (!force_path) {
     // plastic step

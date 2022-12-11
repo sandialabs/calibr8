@@ -50,7 +50,7 @@ class J2_plane_stress : public LocalResidual<T> {
     bool is_hypoelastic() { return false; }
 
     //! \brief Is this material plane stress
-    bool is_plane_stress() { return false; }
+    bool is_plane_stress() { return true; }
 
     //! \brief Get the deviatoric part of the Cauchy stress tensor
     //! \param global The global residual equations
