@@ -22,7 +22,6 @@ static ParameterList get_valid_material_params() {
   ParameterList p;
   p.set<double>("E", 0.);
   p.set<double>("nu", 0.);
-  p.set<double>("K", 0.);
   p.set<double>("Y", 0.);
   p.set<double>("S", 0.);
   p.set<double>("D", 0.);
@@ -197,6 +196,7 @@ void eval_be_bar_plane_stress(
   Tensor<T> const rF_bar = rF / det_rF_13;
   Tensor<T> const rF_barT = minitensor::transpose(rF_bar);
   Tensor<T> zeta_3D = insert_2D_tensor_into_3D(zeta_2D);
+  zeta_3D(2, 2) = zeta_zz;
   Tensor<T> const be_bar_3D = rF_bar * (zeta_3D + Ie * I) * rF_barT;
   be_bar_2D = extract_2D_tensor_from_3D(be_bar_3D);
   be_bar_zz = be_bar_3D(2, 2);
