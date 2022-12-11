@@ -246,6 +246,11 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     Tensor<FADT> const zeta_trial = be_bar_2D_trial - Ie_trial * I;
     FADT const zeta_zz_trial = be_bar_zz_trial - Ie_trial;
     FADT const alpha_trial = alpha_old;
+    double const E = val(this->m_params[0]);
+    double const nu = val(this->m_params[1]);
+    double const mu = compute_mu(E, nu);
+    double const kappa = compute_kappa(E, nu);
+    double const mat_factor = kappa / (2. * mu);
     this->set_sym_tensor_xi(0, zeta_trial);
     this->set_scalar_xi(1, Ie_trial);
     this->set_scalar_xi(2, alpha_trial);
@@ -275,10 +280,12 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     EVector const R = this->eigen_residual();
     EVector const dxi = J.fullPivLu().solve(-R);
 
-    if (iter > 5) {
+    if (iter > 100) {
       print("\niter %d: R_norm = %e", iter, R_norm);
       std::cout << "  R = " << R << "\n";
       std::cout << "  J = " << J << "\n";
+      std::cout << "  dxi = " << dxi << "\n";
+      std::cout << "  det(J) = " << J.determinant() << "\n";
     }
 
     this->add_to_sym_tensor_xi(0, dxi);
@@ -286,6 +293,80 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     this->add_to_scalar_xi(2, dxi);
     this->add_to_scalar_xi(3, dxi);
     this->add_to_scalar_xi(4, dxi);
+
+# if 1
+    {
+      // backtracking line search parameters
+      int const max_line_search_evals = 20;
+      bool const do_print = true;
+      double const beta = 1.0e-4;
+      double const eta = 0.5;
+
+      double const R_0 = R_norm;
+      double const psi_0 = 0.5 * R_0 * R_0;
+      double const psi_0_deriv = -2. * psi_0;
+
+      this->evaluate(global, true, path);
+
+      int j = 1;
+      double alpha_prev = 1.;
+      double alpha_j = 1.;
+      double R_j = this->norm_residual();
+      double psi_j = 0.5 * R_j * R_j;
+
+      while (psi_j >= ((1. - 2. * beta * alpha_j) * psi_0)) {
+
+        alpha_prev = alpha_j;
+        alpha_j  = std::max(eta * alpha_j,
+            -(std::pow(alpha_j, 2) * psi_0_deriv) /
+             (2. * (psi_j - psi_0 - alpha_j * psi_0_deriv)));
+
+        //if (do_print) {
+        if (false) {
+          print(" >> CE residual iter %d norm = %e, orig_norm = %e", j, R_j, R_0);
+          print(" >> CE residual increase -- line search alpha_%d = %.2e",
+              j, alpha_j);
+        }
+
+        if (j == max_line_search_evals) {
+          break;
+        }
+
+        ++j;
+
+        //double const alpha_diff = alpha_j - alpha_prev;
+        //dxi *= alpha_diff;
+
+        this->add_to_sym_tensor_xi(0, -alpha_prev * dxi);
+        this->add_to_scalar_xi(1, -alpha_prev * dxi);
+        this->add_to_scalar_xi(2, -alpha_prev * dxi);
+        this->add_to_scalar_xi(3, -alpha_prev * dxi);
+        this->add_to_scalar_xi(4, -alpha_prev * dxi);
+
+        //if (do_print) {
+        if (false) {
+          path = this->evaluate(global, true, path);
+          double const orig_norm = this->norm_residual();
+          print(" >> orig_norm check = %e", orig_norm);
+        }
+
+        this->add_to_sym_tensor_xi(0, alpha_j * dxi);
+        this->add_to_scalar_xi(1, alpha_j * dxi);
+        this->add_to_scalar_xi(2, alpha_j * dxi);
+        this->add_to_scalar_xi(3, alpha_j * dxi);
+        this->add_to_scalar_xi(4, alpha_j * dxi);
+
+        path = this->evaluate(global, true, path);
+
+        R_j = this->norm_residual();
+        psi_j = 0.5 * R_j * R_j;
+
+      }
+    }
+
+#endif
+
+
 
     iter++;
 
@@ -347,7 +428,7 @@ int J2_plane_stress<T>::evaluate(
   Tensor<T> const n_2D = s_2D / s_mag;
   T const n_zz = s_zz / s_mag;
   T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
-  T const f = s_mag - sqrt_23 * sigma_yield;
+  T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
   Tensor<T> R_zeta;
   T R_Ie;
@@ -375,7 +456,7 @@ int J2_plane_stress<T>::evaluate(
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
       R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield);
+      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
       R_zeta_zz = zeta_zz - zeta_zz_trial + 2. * dgam * Ie * n_zz;
       path = PLASTIC;
     }
@@ -397,7 +478,7 @@ int J2_plane_stress<T>::evaluate(
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
       R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield);
+      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
       R_zeta_zz = zeta_zz - zeta_zz_trial + 2. * dgam * Ie * n_zz;
     }
     // elastic step

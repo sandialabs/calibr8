@@ -143,6 +143,7 @@ void Primal::solve_at_step(int step, double t, double) {
         }
 
         if (j == max_line_search_evals) {
+          print(" > Reached max line search evals");
           break;
         }
 
