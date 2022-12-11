@@ -133,30 +133,59 @@ void J2_plane_stress<T>::init_variables_impl() {
 
 }
 
+template <typename T>
+Tensor<T> insert_2D_tensor_into_3D(Tensor<T> const& t_2D) {
+  Tensor<T> t_3D = minitensor::zero<T>(3);
+  for (int i = 0; i < 2; ++i) {
+    for (int j = 0; j < 2; ++j) {
+      t_3D(i, j) = t_2D(i, j);
+    }
+  }
+  return t_3D;
+}
+
+template <typename T>
+Tensor<T> extract_2D_tensor_from_3D(Tensor<T> const& t_3D) {
+  Tensor<T> t_2D = minitensor::zero<T>(2);
+  for (int i = 0; i < 2 ; ++i) {
+    for (int j = 0; j < 2; ++j) {
+      t_2D(i, j) = t_3D(i, j);
+    }
+  }
+  return t_2D;
+}
+
 // TODO: change to plane stress
 template <typename T>
-void eval_be_bar_plane_strain(
+void eval_be_bar_plane_stress(
     RCP<GlobalResidual<T>> global,
-    Tensor<T> const& zeta,
+    Tensor<T> const& zeta_2D,
     T const& Ie,
     T const& zeta_zz,
+    T const& lambda_z_prev,
+    T const& lambda_z,
+    T J_2D,
     Tensor<T>& be_bar_2D,
     T& be_bar_zz) {
-  int const ndims = global->num_dims();
-  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const I = minitensor::eye<T>(3);
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
   Tensor<T> const F_2D = grad_u + I;
+  J_2D = minitensor::det(F_2D);
   Tensor<T> const F_prev_2D = grad_u_prev + I;
-  Tensor<T> F_3D = minitensor::zero<T>(ndims);
+  Tensor<T> F_3D = insert_2D_tensor_into_3D(F_2D);
+  Tensor<T> F_prev_3D = insert_2D_tensor_into_3D(F_prev_2D);
   F_3D(2, 2) = lambda_z;
-  Tensor<T> const rF = F * minitensor::inverse(F_prev);
+  F_prev_3D(2, 2) = lambda_z_prev;
+  Tensor<T> const rF = F_3D * minitensor::inverse(F_prev_3D);
   T const det_rF = minitensor::det(rF);
   T const det_rF_13 = cbrt(det_rF);
   Tensor<T> const rF_bar = rF / det_rF_13;
   Tensor<T> const rF_barT = minitensor::transpose(rF_bar);
-  be_bar_2D = rF_bar * (zeta + Ie * I) * rF_barT;
-  be_bar_zz = (zeta_zz + Ie) / (det_rF_13 * det_rF_13);
+  Tensor<T> zeta_3D = insert_2D_tensor_into_3D(zeta_2D);
+  Tensor<T> const be_bar_3D = rF_bar * (zeta_3D + Ie * I) * rF_barT;
+  be_bar_2D = extract_2D_tensor_from_3D(be_bar_3D);
+  be_bar_zz = be_bar_3D(2, 2);
 }
 
 template <typename T>
@@ -187,12 +216,16 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     FADT const Ie_old = this->scalar_xi_prev(1);
     FADT const alpha_old = this->scalar_xi_prev(2);
     FADT const zeta_zz_old = this->scalar_xi_prev(3);
+    FADT const lambda_z_old = this->scalar_xi_prev(4);
 
     int const ndims = global->num_dims();
+    FADT J_2D;
     Tensor<FADT> be_bar_2D_trial;
     FADT be_bar_zz_trial;
-    eval_be_bar_plane_strain(global, zeta_old, Ie_old, zeta_zz_old,
-        be_bar_2D_trial, be_bar_zz_trial);
+    FADT const lambda_z = this->scalar_xi(4);
+    eval_be_bar_plane_stress(global, zeta_old, Ie_old, zeta_zz_old,
+        lambda_z_old, lambda_z,
+        J_2D, be_bar_2D_trial, be_bar_zz_trial);
     FADT const Ie_trial = (minitensor::trace(be_bar_2D_trial)
         + be_bar_zz_trial) / 3.;
     Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
@@ -264,6 +297,7 @@ int J2_plane_stress<T>::evaluate(
   T const S = this->m_params[3];
   T const D = this->m_params[4];
   T const mu = compute_mu(E, nu);
+  T const kappa  = compute_kappa(E, nu);
 
   Tensor<T> const zeta_old = this->sym_tensor_xi_prev(0);
   T const Ie_old = this->scalar_xi_prev(1);
@@ -280,8 +314,9 @@ int J2_plane_stress<T>::evaluate(
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> be_bar_trial_2D;
   T be_bar_trial_zz;
-  eval_be_bar_plane_strain(global, zeta_old, Ie_old, zeta_zz_old,
-      lambda_z_old, be_bar_trial_2D, be_bar_trial_zz);
+  T J_2D;
+  eval_be_bar_plane_stress(global, zeta_old, Ie_old, zeta_zz_old,
+      lambda_z_old, lambda_z, J_2D, be_bar_trial_2D, be_bar_trial_zz);
   T const Ie_trial = (minitensor::trace(be_bar_trial_2D)
       + be_bar_trial_zz) / 3.;
   Tensor<T> const zeta_trial = be_bar_trial_2D - Ie_trial * I;
@@ -291,14 +326,18 @@ int J2_plane_stress<T>::evaluate(
   T const s_mag = norm_s_3D(s_2D, s_zz);
   Tensor<T> const n_2D = s_2D / s_mag;
   T const n_zz = s_zz / s_mag;
-  T const sigma_yield = Y + K * alpha + (Y_inf - Y)
-      * (1. - std::exp(-delta * alpha));
+  T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
   T const f = s_mag - sqrt_23 * sigma_yield;
 
   Tensor<T> R_zeta;
   T R_Ie;
   T R_alpha;
   T R_zeta_zz;
+  T R_lambda_z;
+
+  T const mat_factor = kappa / (2. * mu);
+  R_lambda_z = std::pow(lambda_z, 2)
+      - (1. + zeta_zz / mat_factor) / std::pow(J_2D, 2);
 
   if (!force_path) {
     // plastic step
@@ -312,10 +351,10 @@ int J2_plane_stress<T>::evaluate(
     }
     // elastic step
     else {
-      R_zeta = (0. * mu + 1.) * zeta - zeta_trial;
-      R_Ie = Ie - Ie_trial + 0. * mu;
-      R_alpha = alpha - alpha_old + 0. * mu;
-      R_zeta_zz = zeta_zz - zeta_zz_trial + 0. * mu;
+      R_zeta = zeta - zeta_trial;
+      R_Ie = Ie - Ie_trial;
+      R_alpha = alpha - alpha_old;
+      R_zeta_zz = zeta_zz - zeta_zz_trial;
       path = ELASTIC;
     }
   }
@@ -344,25 +383,30 @@ int J2_plane_stress<T>::evaluate(
   this->set_scalar_R(1, R_Ie);
   this->set_scalar_R(2, R_alpha);
   this->set_scalar_R(3, R_zeta_zz);
+  this->set_scalar_R(4, R_lambda_z);
 
   return path;
 
 }
 
+// returns actual cauchy
 template <typename T>
 Tensor<T> J2_plane_stress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
-  T const mu = E / (2. * (1. + nu));
+  T const mu = compute_mu(E, nu);
+  T const kappa = compute_kappa(E, nu);
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const F = grad_u + I;
+  T const lambda_z = this->scalar_xi(4);
+  T const J = minitensor::det(F) * lambda_z;
   Tensor<T> const zeta = this->sym_tensor_xi(0);
-  T const J = minitensor::det(F);
-  return mu * zeta / J;
+  return mu * zeta / J + kappa / 2. * (J - 1. / J) * I;
 }
 
+// not used
 template <typename T>
 Tensor<T> J2_plane_stress<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   int const ndims = global->num_dims();
