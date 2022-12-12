@@ -118,9 +118,17 @@ void Mechanics<T>::evaluate(
 
       // compute the linear part of the pressure residual
       T hydro_cauchy;
+      // local->dev_cauchy is the rotated Cauchy stress for hypoelastic models
       if (local->is_hypoelastic()) {
-        // local->dev_cauchy is the rotated Cauchy stress
-        hydro_cauchy = trace(local->dev_cauchy(global)) / (3. * val(kappa));
+        if (local->is_plane_stress()) {
+          hydro_cauchy = trace(local->dev_cauchy(global)) / (3. * val(kappa));
+        } else {
+          Tensor<T> const cauchy_2D = local->dev_cauchy(global);
+          const int TC_zz_idx = 2;
+          T const cauchy_zz = local->scalar_xi(TC_zz_idx);
+          T const trace_cauchy = trace(cauchy_2D) + cauchy_zz;
+          hydro_cauchy = trace_cauchy / (3. * val(kappa));
+        }
       } else {
         hydro_cauchy = 0.5 * (J - 1./J);
       }

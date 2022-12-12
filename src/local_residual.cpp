@@ -4,6 +4,7 @@
 #include "fad.hpp"
 #include "Hill.hpp"
 #include "J2.hpp"
+#include "J2_hypo_plane_strain.hpp"
 #include "J2_hypo_plane_stress.hpp"
 #include "J2_plane_strain.hpp"
 #include "J2_plane_stress.hpp"
@@ -712,6 +713,8 @@ RCP<LocalResidual<T>> create_local_residual(
     return rcp(new Hill<T>(params, ndims));
   } else if (type == "J2") {
     return rcp(new J2<T>(params, ndims));
+  } else if (type == "J2_hypo_plane_strain") {
+    return rcp(new J2HypoPlaneStrain<T>(params, ndims));
   } else if (type == "J2_hypo_plane_stress") {
     return rcp(new J2HypoPlaneStress<T>(params, ndims));
   } else if (type == "J2_plane_strain") {
