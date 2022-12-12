@@ -214,15 +214,15 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
   {
     Tensor<FADT> const zeta_old = this->sym_tensor_xi_prev(0);
     FADT const Ie_old = this->scalar_xi_prev(1);
-    FADT const alpha_old = this->scalar_xi_prev(2);
-    FADT const zeta_zz_old = this->scalar_xi_prev(3);
-    FADT const lambda_z_old = this->scalar_xi_prev(4);
+    FADT const lambda_z_old = this->scalar_xi_prev(2);
+    FADT const alpha_old = this->scalar_xi_prev(3);
+    FADT const zeta_zz_old = this->scalar_xi_prev(4);
 
     int const ndims = global->num_dims();
     FADT J_2D;
     Tensor<FADT> be_bar_2D_trial;
     FADT be_bar_zz_trial;
-    FADT const lambda_z = this->scalar_xi(4);
+    FADT const lambda_z = this->scalar_xi(2);
     eval_be_bar_plane_stress(global, zeta_old, Ie_old, zeta_zz_old,
         lambda_z_old, lambda_z,
         J_2D, be_bar_2D_trial, be_bar_zz_trial);
@@ -232,11 +232,6 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     Tensor<FADT> const zeta_trial = be_bar_2D_trial - Ie_trial * I;
     FADT const zeta_zz_trial = be_bar_zz_trial - Ie_trial;
     FADT const alpha_trial = alpha_old;
-    double const E = val(this->m_params[0]);
-    double const nu = val(this->m_params[1]);
-    double const mu = compute_mu(E, nu);
-    double const kappa = compute_kappa(E, nu);
-    double const mat_factor = kappa / (2. * mu);
     this->set_sym_tensor_xi(0, zeta_trial);
     this->set_scalar_xi(1, Ie_trial);
     this->set_scalar_xi(3, alpha_trial);
@@ -307,7 +302,6 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
             -(std::pow(alpha_j, 2) * psi_0_deriv) /
              (2. * (psi_j - psi_0 - alpha_j * psi_0_deriv)));
 
-        //if (do_print) {
         if (false) {
           print(" >> CE residual iter %d norm = %e, orig_norm = %e", j, R_j, R_0);
           print(" >> CE residual increase -- line search alpha_%d = %.2e",
@@ -468,9 +462,9 @@ int J2_plane_stress<T>::evaluate(
 
   this->set_sym_tensor_R(0, R_zeta);
   this->set_scalar_R(1, R_Ie);
-  this->set_scalar_R(2, R_alpha);
-  this->set_scalar_R(3, R_zeta_zz);
-  this->set_scalar_R(4, R_lambda_z);
+  this->set_scalar_R(2, R_lambda_z);
+  this->set_scalar_R(3, R_alpha);
+  this->set_scalar_R(4, R_zeta_zz);
 
   return path;
 
@@ -487,7 +481,7 @@ Tensor<T> J2_plane_stress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const F = grad_u + I;
-  T const lambda_z = this->scalar_xi(4);
+  T const lambda_z = this->scalar_xi(2);
   T const J = minitensor::det(F) * lambda_z;
   Tensor<T> const zeta = this->sym_tensor_xi(0);
   return mu * zeta / J + kappa / 2. * (J - 1. / J) * I;
