@@ -34,20 +34,25 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
     int const nsteps = problem_params.get<int>("num steps");
     double const dt = problem_params.get<double>("step size");
     double const thickness = problem_params.get<double>("thickness", 1.);
+    double const internal_power_scale_factor
+        = problem_params.get<double>("internal power scale factor", 1.);
     double t = 0.;
     double J = 0.;
     double internal_virtual_power;
     double load_at_step;
+    double volume_internal_virtual_power;
     m_state->disc->destroy_primal();
     for (int step = 1; step <= nsteps; ++step) {
       t += dt;
-      internal_virtual_power = m_virtual_power->compute_at_step(step, t, dt) / 1e3;
+      internal_virtual_power = m_virtual_power->compute_at_step(step, t, dt)
+          * internal_power_scale_factor;
       load_at_step = m_load_data[step - 1];
       PCU_Add_Double(internal_virtual_power);
-      //print("\nstep = %d", step);
-      //print("  internal_power = %e", internal_virtual_power);
-      //print("  load = %e", load_at_step);
-      J += 0.5 * std::pow(thickness * internal_virtual_power - load_at_step, 2);
+      print("\nstep = %d", step);
+      volume_internal_virtual_power = thickness * internal_virtual_power;
+      print("  internal_power = %e", volume_internal_virtual_power);
+      print("  load = %e", load_at_step);
+      J += 0.5 * std::pow(volume_internal_virtual_power - load_at_step, 2);
 
     }
     m_J_old = J;

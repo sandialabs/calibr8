@@ -263,20 +263,6 @@ int J2HypoPlaneStress<T>::evaluate(
   T const alpha = this->scalar_xi(1);
   T const lambda_z = this->scalar_xi(2);
 
-  // TODO: see if the 3D projected approach is equivalent
-
-  /*
-  Tensor<T> const TC_3D = insert_2D_tensor_into_3D(TC);
-  Tensor<T> const s_3D = dev(TC_3D);
-  T const s_3D_mag = minitensor::norm(s_3D);
-  T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
-  T const f = s_3D_mag - sqrt_23 * sigma_yield;
-  */
-
-  //T const phi = std::sqrt(0.5 * (std::pow(TC(0, 0) - TC(1, 1), 2)
-  //    + std::pow(TC(0, 0), 2) + std::pow(TC(1, 1), 2))
-  //    + 3. * std::pow(TC(0, 1), 2));
-
   T const phi = std::sqrt(std::pow(TC(0, 0), 2) + std::pow(TC(1, 1), 2)
       - TC(0, 0) * TC(1, 1)
       + 3. / 2. * std::pow(TC(0, 1), 2)
@@ -296,16 +282,6 @@ int J2HypoPlaneStress<T>::evaluate(
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
-      // TODO: update 3D approach
-      /*
-      T const dgam = sqrt_32 * (alpha - alpha_old);
-      Tensor<T> const n_3D = s_3D / s_3D_mag;
-      Tensor<T> const n_2D = extract_2D_tensor_from_3D(n_3D);
-      R_TC += 2. * mu * dgam * n_2D;
-      R_alpha = f;
-      T const dp_zz = 2. * mu * dgam * n_3D(2, 2) / (lambda + 2. * mu);
-      R_lambda_z = lambda_z - lambda_z_old / (1. - (d_zz + dp_zz));
-      */
       T const dgam = alpha - alpha_old;
       T const dp_xx = dgam * (2. * TC(0, 0) - TC(1, 1)) / (2. * phi);
       T const dp_yy = dgam * (2. * TC(1, 1) - TC(0, 0)) / (2. * phi);

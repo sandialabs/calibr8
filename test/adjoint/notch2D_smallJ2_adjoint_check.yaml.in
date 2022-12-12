@@ -35,7 +35,7 @@ cube hyperJ2:
     type: 'average displacement'
 
   inverse:
-    gradient type: "adjoint"
+    objective type: "adjoint"
     check gradient: true
     iteration limit: 0
     materials:

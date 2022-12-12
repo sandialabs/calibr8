@@ -34,7 +34,7 @@ notch hyperJ2 FEMU:
     side set: 'zmax'
 
   inverse:
-    gradient type: "FEMU"
+    objective type: "FEMU"
     iteration limit: 0
     materials:
       body:

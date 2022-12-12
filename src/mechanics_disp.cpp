@@ -72,8 +72,7 @@ void MechanicsDisp<T>::evaluate(
   if (local->is_finite_deformation()) {
     stress = J * stress * F_invT;
     if (local->is_plane_stress()) {
-      //const int lambda_z_idx = 2;
-      const int lambda_z_idx = 4;
+      const int lambda_z_idx = 2;
       T const lambda_z = local->scalar_xi(lambda_z_idx);
       stress *= lambda_z;
     }

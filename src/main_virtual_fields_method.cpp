@@ -101,8 +101,8 @@ void Solver::write_at_step(int step, bool has_adjoint) {
     apf::renameField(f, name.c_str());
   }
   // some mechanics specific stuff below
-  //apf::Field* sigma = eval_cauchy(m_state, step);
-  //names.push_back("sigma");
+  apf::Field* sigma = eval_cauchy(m_state, step);
+  names.push_back("sigma");
   if (m_write_measured) {
     std::string const meas_name = "measured";
     std::string const name_step = meas_name + "_" + std::to_string(step);
@@ -111,8 +111,8 @@ void Solver::write_at_step(int step, bool has_adjoint) {
     names.push_back(meas_name);
   }
   apf::writeVtkFiles(out_name.c_str(), mesh, names);
-  //names.pop_back();
-  //apf::destroyField(sigma);
+  names.pop_back();
+  apf::destroyField(sigma);
   if (m_write_measured) {
     std::string const meas_name = "measured";
     std::string const name_step = meas_name + "_" + std::to_string(step);
