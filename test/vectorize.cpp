@@ -70,10 +70,16 @@ void vectorize_scalar_fields(apf::Mesh2* m) {
   printf("Removing extraneous node set fields:\n");
   for (auto node_set_name : node_set_names) {
     printf("  %s\n", node_set_name.c_str());
-    for (int step = 1; step < numVectorFields; ++step) {
+    for (int step = 0; step < numVectorFields; ++step) {
       std::string const fname = node_set_name + "_" + std::to_string(step);
       apf::Field* node_set_field = m->findField(fname.c_str());
-      apf::destroyField(node_set_field);
+      if (step == 0) {
+        std::string fname_brief = fname;
+        fname_brief.replace(fname.length() - 2, 2, "");
+        apf::renameField(node_set_field, fname_brief.c_str());
+      } else {
+        apf::destroyField(node_set_field);
+      }
     }
   }
 }
