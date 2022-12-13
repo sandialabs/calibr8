@@ -14,9 +14,6 @@ FD_VFM_Objective::FD_VFM_Objective(RCP<ParameterList> params) : Objective(params
   while (getline(in_file, line)) {
     m_load_data.push_back(std::stod(line));
   }
-  //for (int i = 0; i < m_load_data.size(); ++i) {
-  //  print("load at step %d = %e", i, m_load_data[i]);
-  //}
 }
 
 FD_VFM_Objective::~FD_VFM_Objective() {}
@@ -31,11 +28,14 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
     m_state->d_residuals->local->set_params(unscaled_params);
 
     ParameterList& problem_params = m_params->sublist("problem", true);
+    ParameterList& inverse_params = m_params->sublist("inverse", true);
     int const nsteps = problem_params.get<int>("num steps");
     double const dt = problem_params.get<double>("step size");
-    double const thickness = problem_params.get<double>("thickness", 1.);
+    double const thickness = inverse_params.get<double>("thickness", 1.);
     double const internal_power_scale_factor
-        = problem_params.get<double>("internal power scale factor", 1.);
+        = inverse_params.get<double>("internal power scale factor", 1.);
+    bool const print_vfm_mismatch
+        = inverse_params.get<bool>("print vfm mismatch", false);
     double t = 0.;
     double J = 0.;
     double internal_virtual_power;
@@ -48,10 +48,12 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
           * internal_power_scale_factor;
       load_at_step = m_load_data[step - 1];
       PCU_Add_Double(internal_virtual_power);
-      print("\nstep = %d", step);
       volume_internal_virtual_power = thickness * internal_virtual_power;
-      print("  internal_power = %e", volume_internal_virtual_power);
-      print("  load = %e", load_at_step);
+      if (print_vfm_mismatch) {
+        print("\nstep = %d", step);
+        print("  internal_power = %e", volume_internal_virtual_power);
+        print("  load = %e", load_at_step);
+      }
       J += 0.5 * std::pow(volume_internal_virtual_power - load_at_step, 2);
 
     }

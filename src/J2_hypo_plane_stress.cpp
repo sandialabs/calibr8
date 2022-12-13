@@ -268,7 +268,7 @@ int J2HypoPlaneStress<T>::evaluate(
       + 3. / 2. * std::pow(TC(0, 1), 2)
       + 3. / 2. * std::pow(TC(1, 0), 2));
   T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
-  T const f = phi - sigma_yield;
+  T const f = (phi - sigma_yield) / val(mu);
 
   Tensor<T> R_TC;
   T R_alpha;
