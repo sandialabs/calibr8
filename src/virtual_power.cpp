@@ -51,6 +51,7 @@ double VirtualPower::compute_at_step(int step, double t, double) {
   // gather the parallel objects to their OWNED state
   m_state->la->gather_b();  // gather the residual R
 
+  auto R_int = VectorT(*R[0], Teuchos::Copy);
   double const internal_virtual_power = R[0]->dot(*m_vf_vec[0]);
 
   return internal_virtual_power;
