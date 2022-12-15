@@ -117,7 +117,8 @@ void Solver::write_at_step(int step, bool has_adjoint) {
   mkdir(out_dir.c_str());
   std::string const out_name = base_name() + "_viz/out_" + std::to_string(step);
   RCP<GlobalResidual<double>> global = m_state->residuals->global;
-  RCP<LocalResidual<double>> local = m_state->residuals->local;
+  int const model_form = m_state->model_form;
+  RCP<LocalResidual<double>> local = m_state->residuals->local[model_form];
   apf::Mesh* mesh = m_state->disc->apf_mesh();
   Array1D<std::string> names = get_names(global, local, has_adjoint);
   for (std::string const& name : names) {

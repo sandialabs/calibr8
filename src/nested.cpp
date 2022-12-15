@@ -138,7 +138,8 @@ void NestedDisc::create_primal(RCP<Disc> disc) {
   int const nsteps = base_primal.size();
   for (int step = 0; step < nsteps; ++step) {
     int const ngr = base_primal[0].global.size();
-    int const nlr = base_primal[0].local.size();
+    int const model_form = 0;
+    int const nlr = base_primal[0].local[model_form].size();
     Fields fields;
     for (int i = 0; i < ngr; ++i) {
       const char* name = apf::getName(base_primal[step].global[i]);
@@ -147,10 +148,10 @@ void NestedDisc::create_primal(RCP<Disc> disc) {
       fields.global.push_back(f);
     }
     for (int i = 0; i < nlr; ++i) {
-      const char* name = apf::getName(base_primal[step].local[i]);
+      const char* name = apf::getName(base_primal[step].local[model_form][i]);
       apf::Field* f = m_mesh->findField(name);
       ALWAYS_ASSERT(f);
-      fields.local.push_back(f);
+      fields.local[model_form].push_back(f);
     }
     m_primal.push_back(fields);
   }
@@ -161,7 +162,8 @@ void NestedDisc::create_verification_data() {
   // gather some data
   int const nsteps = m_primal.size();
   int const ngr = m_primal[0].global.size();
-  int const nlr = m_primal[0].local.size();
+  int model_form = 0;
+  int const nlr = m_primal[0].local[model_form].size();
 
   // create the fine fields by copying the prolonged coarse fields
   for (int step = 0; step < nsteps; ++step) {
@@ -176,7 +178,7 @@ void NestedDisc::create_verification_data() {
       fields.global.push_back(fine);
     }
     for (int i = 0; i < nlr; ++i) {
-      std::string name = apf::getName(m_primal[step].local[i]);
+      std::string name = apf::getName(m_primal[step].local[model_form][i]);
       apf::Field* coarse = m_mesh->findField(name.c_str());
       name = "fine_" + name;
       int const vtype = apf::getValueType(coarse);
@@ -190,7 +192,7 @@ void NestedDisc::create_verification_data() {
         }
         m_mesh->end(elems);
       }
-      fields.local.push_back(fine);
+      fields.local[model_form].push_back(fine);
     }
     m_primal_fine.push_back(fields);
   }
@@ -240,16 +242,18 @@ void NestedDisc::initialize_primal_fine(
     RCP<Residuals<double>> R,
     int step) {
   int const ngr = R->global->num_residuals();
-  int const nlr = R->local->num_residuals();
+  int const model_form = 0;
+  int const nlr = R->local[model_form]->num_residuals();
   for (int i = 0; i < ngr; ++i) {
     std::string const name = R->global->resid_name(i);
     std::string const fname = "fine_" + name + "_" + std::to_string(step);
     apf::copyData(m_primal_fine[step].global[i], m_primal_fine[step - 1].global[i]);
   }
   for (int i = 0; i < nlr; ++i) {
-    std::string const name = R->local->resid_name(i);
+    std::string const name = R->local[model_form]->resid_name(i);
     std::string const fname = name + "_" + std::to_string(step);
-    apf::copyData(m_primal_fine[step].local[i], m_primal_fine[step - 1].local[i]);
+    apf::copyData(m_primal_fine[step].local[model_form][i],
+        m_primal_fine[step - 1].local[model_form][i]);
   }
 }
 

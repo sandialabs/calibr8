@@ -33,7 +33,8 @@ void LocalResidual<T>::init_variables(RCP<State> state) {
   }
   this->init_params();
 
-  Array1D<apf::Field*>& xi = state->disc->primal(/*step=*/ 0).local;
+  int const model_form = state->model_form;
+  Array1D<apf::Field*>& xi = state->disc->primal(/*step=*/ 0).local[model_form];
   int const q_order = state->disc->lv_shape()->getOrder();
   apf::MeshEntity* elem = nullptr;
   apf::Mesh* mesh = state->disc->apf_mesh();

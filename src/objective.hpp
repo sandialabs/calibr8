@@ -52,6 +52,8 @@ class Objective : public ROL::Objective<double> {
     std::vector<double> m_p_old;
     double const m_difftol = 1.0e-15;
 
+    int const m_model_form = 0;
+
 };
 
 }

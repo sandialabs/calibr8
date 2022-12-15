@@ -16,8 +16,8 @@ void eval_measured_residual(RCP<State> state, RCP<Disc> disc, int step) {
   apf::Mesh* mesh = disc->apf_mesh();
 
   // gather information from the state object
-  RCP<LocalResidual<FADT>> local = state->d_residuals->local;
-  // only need the double version of this (just seed nothing?)
+  int const model_form = state->model_form;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
   Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
 
@@ -26,8 +26,8 @@ void eval_measured_residual(RCP<State> state, RCP<Disc> disc, int step) {
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
 
   // local state variables
-  Array1D<apf::Field*> xi = disc->primal(step).local;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // perform initializations of the residual objects
   global->before_elems(disc);
@@ -113,14 +113,15 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
   apf::Mesh* mesh = disc->apf_mesh();
 
   // gather information from the state object
-  RCP<LocalResidual<FADT>> local = state->d_residuals->local;
+  int const model_form = state->model_form;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
   Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
   Array2D<RCP<MatrixT>>& LHS = state->la->A[GHOST];
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // modify the fields if we are doing a verification
   RCP<NestedDisc> nested;
@@ -129,9 +130,9 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
     nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
     ALWAYS_ASSERT(nested != Teuchos::null);
     x = nested->primal_fine(step).global;
-    xi = nested->primal_fine(step).local;
+    xi = nested->primal_fine(step).local[model_form];
     x_prev = nested->primal_fine(step - 1).global;
-    xi_prev = nested->primal_fine(step - 1).local;
+    xi_prev = nested->primal_fine(step - 1).local[model_form];
   }
 
   // perform initializations of the residual objects
@@ -258,19 +259,20 @@ void preprocess_qoi(RCP<QoI<T>> qoi,
   int const q_order = disc->lv_shape()->getOrder();
 
   // gather information from the state object
+  int const model_form = state->model_form;
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   RCP<NestedDisc> nested;
   if (disc->type() == VERIFICATION) {
     nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
     ALWAYS_ASSERT(nested != Teuchos::null);
     x = nested->primal_fine(step).global;
-    xi = nested->primal_fine(step).local;
+    xi = nested->primal_fine(step).local[model_form];
     x_prev = nested->primal_fine(step - 1).global;
-    xi_prev = nested->primal_fine(step - 1).local;
+    xi_prev = nested->primal_fine(step - 1).local[model_form];
   }
 
   // perform initializations of the residual objects
@@ -346,7 +348,8 @@ void eval_adjoint_jacobian(
   apf::Mesh* mesh = disc->apf_mesh();
 
   // preprocess the QoI
-  RCP<LocalResidual<FADT>> local = state->d_residuals->local;
+  int const model_form = state->model_form;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
   RCP<QoI<FADT>> qoi = state->d_qoi;
   preprocess_qoi(qoi, local, global, state, disc, step);
@@ -355,9 +358,9 @@ void eval_adjoint_jacobian(
   Array2D<RCP<MatrixT>>& LHS = state->la->A[GHOST];
   Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // determine if we are doing verification
   RCP<NestedDisc> nested;
@@ -525,14 +528,15 @@ void solve_adjoint_local(
   int const q_order = disc->lv_shape()->getOrder();
 
   // gather information from the state object
-  RCP<LocalResidual<FADT>> local = state->d_residuals->local;
+  int const model_form = state->model_form;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
   Array1D<apf::Field*> z = disc->adjoint(step).global;
-  Array1D<apf::Field*> phi = disc->adjoint(step).local;
+  Array1D<apf::Field*> phi = disc->adjoint(step).local[model_form];
 
   // determine if we are doing verification
   RCP<NestedDisc> nested;
@@ -648,25 +652,26 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
   int const q_order = disc->lv_shape()->getOrder();
 
   // preprocess the QoI
-  RCP<LocalResidual<double>> local = state->residuals->local;
+  int const model_form = state->model_form;
+  RCP<LocalResidual<double>> local = state->residuals->local[model_form];
   RCP<GlobalResidual<double>> global = state->residuals->global;
   RCP<QoI<double>> qoi = state->qoi;
   preprocess_qoi(qoi, local, global, state, disc, step);
 
   // gather information from the state object
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   RCP<NestedDisc> nested;
   if (disc->type() == VERIFICATION) {
     nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
     ALWAYS_ASSERT(nested != Teuchos::null);
     x = nested->primal_fine(step).global;
-    xi = nested->primal_fine(step).local;
+    xi = nested->primal_fine(step).local[model_form];
     x_prev = nested->primal_fine(step - 1).global;
-    xi_prev = nested->primal_fine(step - 1).local;
+    xi_prev = nested->primal_fine(step - 1).local[model_form];
   }
 
   // perform initializations of the residual objects
@@ -740,7 +745,8 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
 
 Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
 
-  int const num_active_params = state->residuals->local->num_active_params();
+  int const model_form = state->model_form;
+  int const num_active_params = state->residuals->local[model_form]->num_active_params();
   Array1D<double> grad(num_active_params);
   EVector Egrad = EVector::Zero(num_active_params);
 
@@ -749,18 +755,18 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   apf::Mesh* mesh = disc->apf_mesh();
 
   // preprocess the QoI
-  RCP<LocalResidual<FADT>> local = state->d_residuals->local;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
   RCP<QoI<FADT>> qoi = state->d_qoi;
   preprocess_qoi(qoi, local, global, state, disc, step);
 
   // gather information from the state object
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
   Array1D<apf::Field*> z = disc->adjoint(step).global;
-  Array1D<apf::Field*> phi = disc->adjoint(step).local;
+  Array1D<apf::Field*> phi = disc->adjoint(step).local[model_form];
 
   // perform initializations of the residual objects
   global->before_elems(disc);
@@ -875,7 +881,8 @@ void eval_error_contributions(
     int step) {
 
   // gather the residuals from the state object
-  RCP<LocalResidual<double>> local = state->residuals->local;
+  int const model_form = state->model_form;
+  RCP<LocalResidual<double>> local = state->residuals->local[model_form];
   RCP<GlobalResidual<double>> global = state->residuals->global;
   Array1D<RCP<VectorT>>& resid_vec = state->la->b[GHOST];
   Array1D<RCP<VectorT>>& z_vec = state->la->x[GHOST];
@@ -885,13 +892,13 @@ void eval_error_contributions(
 
   // gather the prolonged forward state variables
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // gather the enriched adjoint state variables
   Array1D<apf::Field*> z = disc->adjoint(step).global;
-  Array1D<apf::Field*> phi = disc->adjoint(step).local;
+  Array1D<apf::Field*> phi = disc->adjoint(step).local[model_form];
 
   // determine if we are doing verification
   RCP<NestedDisc> nested;
@@ -1026,7 +1033,8 @@ void eval_linearization_errors(
   bool force_path = true;
 
   // gather the residuals from the state object
-  RCP<LocalResidual<FADT>> local = state->d_residuals->local;
+  int const model_form = state->model_form;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
 
   // gather discretization information
@@ -1034,19 +1042,19 @@ void eval_linearization_errors(
 
   // gather the prolonged forward state variables
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // gather the enriched forward state variables
   Array1D<apf::Field*> x_fine = nested->primal_fine(step).global;
-  Array1D<apf::Field*> xi_fine = nested->primal_fine(step).local;
+  Array1D<apf::Field*> xi_fine = nested->primal_fine(step).local[model_form];
   Array1D<apf::Field*> x_prev_fine = nested->primal_fine(step - 1).global;
-  Array1D<apf::Field*> xi_prev_fine = nested->primal_fine(step - 1).local;
+  Array1D<apf::Field*> xi_prev_fine = nested->primal_fine(step - 1).local[model_form];
 
   // gather the enriched adjoint state variables
   Array1D<apf::Field*> z = disc->adjoint(step).global;
-  Array1D<apf::Field*> phi = disc->adjoint(step).local;
+  Array1D<apf::Field*> phi = disc->adjoint(step).local[model_form];
 
   // perform initializations of the residual objects
   global->before_elems(disc);
@@ -1218,7 +1226,8 @@ void eval_exact_errors(
   bool force_path = true;
 
   // gather the residuals from the state object
-  RCP<LocalResidual<FADT>> local = state->d_residuals->local;
+  int const model_form = state->model_form;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
 
   // gather discretization information
@@ -1226,19 +1235,19 @@ void eval_exact_errors(
 
   // gather the prolonged forward state variables
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // gather the enriched forward state variables
   Array1D<apf::Field*> x_fine = nested->primal_fine(step).global;
-  Array1D<apf::Field*> xi_fine = nested->primal_fine(step).local;
+  Array1D<apf::Field*> xi_fine = nested->primal_fine(step).local[model_form];
   Array1D<apf::Field*> x_prev_fine = nested->primal_fine(step - 1).global;
-  Array1D<apf::Field*> xi_prev_fine = nested->primal_fine(step - 1).local;
+  Array1D<apf::Field*> xi_prev_fine = nested->primal_fine(step - 1).local[model_form];
 
   // gather the enriched adjoint state variables
   Array1D<apf::Field*> z = disc->adjoint(step).global;
-  Array1D<apf::Field*> phi = disc->adjoint(step).local;
+  Array1D<apf::Field*> phi = disc->adjoint(step).local[model_form];
 
   // perform initializations of the residual objects
   global->before_elems(disc);
@@ -1413,12 +1422,13 @@ apf::Field* eval_cauchy(RCP<State> state, int step) {
   int const q_order = disc->lv_shape()->getOrder();
 
   // gather information from the state object
-  RCP<LocalResidual<double>> local = state->residuals->local;
+  int const model_form = state->model_form;
+  RCP<LocalResidual<double>> local = state->residuals->local[model_form];
   RCP<GlobalResidual<double>> global = state->residuals->global;
   Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> xi = disc->primal(step).local;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // create the field to fill in
   apf::FieldShape* shape = state->disc->lv_shape();

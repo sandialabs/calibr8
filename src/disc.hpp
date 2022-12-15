@@ -52,8 +52,9 @@ class Fields {
     //! \brief The global fields stored by residual index
     Array1D<apf::Field*> global;
 
-    //! \brief The local fields stored by residual index
-    Array1D<apf::Field*> local;
+    //! \brief The local fields stored by residual index for
+    //! the base and fine constitutive models
+    Array1D<apf::Field*> local[2];
 
     //! \brief The virtual field stored by residual index
     Array1D<apf::Field*> virtual_field;

@@ -545,9 +545,10 @@ void Disc::create_primal(
   DEBUG_ASSERT(m_primal.size() == size_t(step));
   Fields fields;
   int const ngr = R->global->num_residuals();
-  int const nlr = R->local->num_residuals();
+  int const model_form = 0;
+  int const nlr = R->local[model_form]->num_residuals();
   resize(fields.global, ngr);
-  resize(fields.local, nlr);
+  resize(fields.local[model_form], nlr);
   for (int i = 0; i < ngr; ++i) {
     std::string const name = R->global->resid_name(i);
     std::string const fname = name + "_" + std::to_string(step);
@@ -565,15 +566,15 @@ void Disc::create_primal(
     }
   }
   for (int i = 0; i < nlr; ++i) {
-    std::string const name = R->local->resid_name(i);
+    std::string const name = R->local[model_form]->resid_name(i);
     std::string const fname = name + "_" + std::to_string(step);
-    int const vtype = get_value_type(R->local->num_eqs(i), m_num_dims);
-    fields.local[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
-    apf::zeroField(fields.local[i]);
+    int const vtype = get_value_type(R->local[model_form]->num_eqs(i), m_num_dims);
+    fields.local[model_form][i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
+    apf::zeroField(fields.local[model_form][i]);
     if (step == 0) {
-      apf::zeroField(fields.local[i]);
+      apf::zeroField(fields.local[model_form][i]);
     } else {
-      apf::copyData(fields.local[i], m_primal[step - 1].local[i]);
+      apf::copyData(fields.local[model_form][i], m_primal[step - 1].local[model_form][i]);
     }
   }
   m_primal.push_back(fields);
@@ -638,8 +639,10 @@ static void destroy_fields(Fields& fields) {
   for (size_t i = 0; i < fields.global.size(); ++i) {
     apf::destroyField(fields.global[i]);
   }
-  for (size_t i = 0; i < fields.local.size(); ++i) {
-    apf::destroyField(fields.local[i]);
+  for (size_t m = 0; m < 2; ++m) {
+    for (size_t i = 0; i < fields.local[m].size(); ++i) {
+      apf::destroyField(fields.local[m][i]);
+    }
   }
   for (size_t i = 0; i < fields.virtual_field.size(); ++i) {
     apf::destroyField(fields.virtual_field[i]);
@@ -668,9 +671,10 @@ void Disc::create_adjoint(
   for (int step = 0; step <= num_steps; ++step) {
     Fields fields;
     int const ngr = R->global->num_residuals();
-    int const nlr = R->local->num_residuals();
+    int const model_form = 0;
+    int const nlr = R->local[model_form]->num_residuals();
     resize(fields.global, ngr);
-    resize(fields.local, nlr);
+    resize(fields.local[model_form], nlr);
     for (int i = 0; i < ngr; ++i) {
       std::string const name = R->global->resid_name(i);
       std::string const fname = "adjoint_" + name + "_" + std::to_string(step);
@@ -679,11 +683,11 @@ void Disc::create_adjoint(
       apf::zeroField(fields.global[i]);
     }
     for (int i = 0; i < nlr; ++i) {
-      std::string const name = R->local->resid_name(i);
+      std::string const name = R->local[model_form]->resid_name(i);
       std::string const fname = "adjoint_" + name + "_" + std::to_string(step);
-      int const vtype = get_value_type(R->local->num_eqs(i), m_num_dims);
-      fields.local[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
-      apf::zeroField(fields.local[i]);
+      int const vtype = get_value_type(R->local[model_form]->num_eqs(i), m_num_dims);
+      fields.local[model_form][i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
+      apf::zeroField(fields.local[model_form][i]);
     }
     m_adjoint.push_back(fields);
   }

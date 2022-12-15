@@ -13,7 +13,13 @@ RCP<Residuals<T>> create_residuals(ParameterList const& params, int ndims) {
   ParameterList const local_params = params.sublist("local residual");
   RCP<Residuals<T>> R = rcp(new Residuals<T>);
   R->global = create_global_residual<T>(global_params, ndims);
-  R->local = create_local_residual<T>(local_params, ndims);
+  int const model_form = 0;
+  R->local[model_form] = create_local_residual<T>(local_params, ndims);
+  if (params.isSublist("fine local residual")) {
+    ParameterList const fine_local_params = params.sublist("fine local residual");
+    int const fine_model_form = 1;
+    R->local[fine_model_form] = create_local_residual<T>(fine_local_params, ndims);
+  }
   return R;
 }
 
