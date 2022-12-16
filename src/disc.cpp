@@ -545,7 +545,7 @@ void Disc::create_primal(
   DEBUG_ASSERT(m_primal.size() == size_t(step));
   Fields fields;
   int const ngr = R->global->num_residuals();
-  int const model_form = 0;
+  int const model_form = BASE_MODEL;
   int const nlr = R->local[model_form]->num_residuals();
   resize(fields.global, ngr);
   resize(fields.local[model_form], nlr);
@@ -671,7 +671,7 @@ void Disc::create_adjoint(
   for (int step = 0; step <= num_steps; ++step) {
     Fields fields;
     int const ngr = R->global->num_residuals();
-    int const model_form = 0;
+    int const model_form = BASE_MODEL;
     int const nlr = R->local[model_form]->num_residuals();
     resize(fields.global, ngr);
     resize(fields.local[model_form], nlr);

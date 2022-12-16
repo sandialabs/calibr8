@@ -20,7 +20,7 @@ void write_synthetic(
 
     Fields& fields = disc->primal(step);
     // BASE MODEL
-    int const model_form = 0;
+    int const model_form = BASE_MODEL;
     int const nlocal_fields = fields.local[model_form].size();
     int const nglobal_fields = fields.global.size();
 

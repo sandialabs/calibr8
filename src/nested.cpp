@@ -138,7 +138,7 @@ void NestedDisc::create_primal(RCP<Disc> disc) {
   int const nsteps = base_primal.size();
   for (int step = 0; step < nsteps; ++step) {
     int const ngr = base_primal[0].global.size();
-    int const model_form = 0;
+    int const model_form = BASE_MODEL;
     int const nlr = base_primal[0].local[model_form].size();
     Fields fields;
     for (int i = 0; i < ngr; ++i) {
@@ -242,7 +242,7 @@ void NestedDisc::initialize_primal_fine(
     RCP<Residuals<double>> R,
     int step) {
   int const ngr = R->global->num_residuals();
-  int const model_form = 0;
+  int const model_form = BASE_MODEL;
   int const nlr = R->local[model_form]->num_residuals();
   for (int i = 0; i < ngr; ++i) {
     std::string const name = R->global->resid_name(i);
