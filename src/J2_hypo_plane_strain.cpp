@@ -60,6 +60,7 @@ J2HypoPlaneStrain<T>::J2HypoPlaneStrain(ParameterList const& inputs, int ndims) 
   this->m_resid_names[2] = "TC_zz";
   this->m_var_types[2] = SCALAR;
   this->m_num_eqs[2] = get_num_eqs(SCALAR, ndims);
+  this->m_z_stress_idx = 2;
 
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
@@ -345,8 +346,7 @@ Tensor<T> J2HypoPlaneStrain<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   int const ndims = this->m_num_dims;
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const RC = this->dev_cauchy(global);
-  const int TC_zz_idx = 2;
-  T const TC_zz = this->scalar_xi(TC_zz_idx);
+  T const TC_zz = this->scalar_xi(this->m_z_stress_idx);
   Tensor<T> const sigma = RC - (trace(RC) + TC_zz) / 3. * I - p * I;
   return sigma;
 }

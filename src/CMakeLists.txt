@@ -27,7 +27,7 @@ set(CALIBR8_SOURCES
   linear_solve.cpp
   local_residual.cpp
   mechanics.cpp
-  mechanics_disp.cpp
+  mechanics_plane_stress.cpp
   mesh_size.cpp
   nested.cpp
   normal_traction.cpp

@@ -383,6 +383,9 @@ class LocalResidual {
       }
     }
 
+    int z_stress_idx() const { return m_z_stress_idx; }
+    int z_stretch_idx() const { return m_z_stretch_idx; }
+
   protected:
 
     //! \cond
@@ -405,6 +408,9 @@ class LocalResidual {
     int m_num_dims = -1;
     int m_num_nodes = -1;
     int m_num_dofs = -1;
+
+    int m_z_stress_idx = -1;
+    int m_z_stretch_idx = -1;
 
     Array1D<int> m_dxi_offsets;
 

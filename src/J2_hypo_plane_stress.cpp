@@ -60,6 +60,7 @@ J2HypoPlaneStress<T>::J2HypoPlaneStress(ParameterList const& inputs, int ndims) 
   this->m_resid_names[2] = "lambda_z";
   this->m_var_types[2] = SCALAR;
   this->m_num_eqs[2] = get_num_eqs(SCALAR, ndims);
+  this->m_z_stretch_idx = 2;
 
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");

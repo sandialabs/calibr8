@@ -8,6 +8,11 @@
 
 namespace calibr8 {
 
+using minitensor::det;
+using minitensor::inverse;
+using minitensor::trace;
+using minitensor::transpose;
+
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
   p.set<std::string>("type", "J2_plane_strain");
@@ -116,10 +121,10 @@ void J2_plane_strain<T>::init_variables_impl() {
   int const alpha_idx = 2;
   int const zeta_zz_idx = 3;
 
-  T const Ie = 1.0;
-  T const alpha = 0.0;
+  T const Ie = 1.;
+  T const alpha = 0.;
   Tensor<T> const zeta = minitensor::zero<T>(ndims);
-  T const zeta_zz = 0.0;
+  T const zeta_zz = 0.;
 
   this->set_scalar_xi(Ie_idx, Ie);
   this->set_scalar_xi(alpha_idx, alpha);
@@ -142,11 +147,11 @@ void eval_be_bar_plane_strain(
   Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
   Tensor<T> const F = grad_u + I;
   Tensor<T> const F_prev = grad_u_prev + I;
-  Tensor<T> const rF = F * minitensor::inverse(F_prev);
-  T const det_rF = minitensor::det(rF);
+  Tensor<T> const rF = F * inverse(F_prev);
+  T const det_rF = det(rF);
   T const det_rF_13 = cbrt(det_rF);
   Tensor<T> const rF_bar = rF / det_rF_13;
-  Tensor<T> const rF_barT = minitensor::transpose(rF_bar);
+  Tensor<T> const rF_barT = transpose(rF_bar);
   be_bar_2D = rF_bar * (zeta + Ie * I) * rF_barT;
   be_bar_zz = (zeta_zz + Ie) / (det_rF_13 * det_rF_13);
 }
@@ -185,7 +190,7 @@ int J2_plane_strain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     FADT be_bar_zz_trial;
     eval_be_bar_plane_strain(global, zeta_old, Ie_old, zeta_zz_old,
         be_bar_2D_trial, be_bar_zz_trial);
-    FADT const Ie_trial = (minitensor::trace(be_bar_2D_trial)
+    FADT const Ie_trial = (trace(be_bar_2D_trial)
         + be_bar_zz_trial) / 3.;
     Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
     Tensor<FADT> const zeta_trial = be_bar_2D_trial - Ie_trial * I;
@@ -272,7 +277,7 @@ int J2_plane_strain<T>::evaluate(
   T be_bar_trial_zz;
   eval_be_bar_plane_strain(global, zeta_old, Ie_old, zeta_zz_old,
       be_bar_trial_2D, be_bar_trial_zz);
-  T const Ie_trial = (minitensor::trace(be_bar_trial_2D)
+  T const Ie_trial = (trace(be_bar_trial_2D)
       + be_bar_trial_zz) / 3.;
   Tensor<T> const zeta_trial = be_bar_trial_2D - Ie_trial * I;
   T const zeta_zz_trial = be_bar_trial_zz - Ie_trial;
@@ -280,10 +285,9 @@ int J2_plane_strain<T>::evaluate(
   T const s_zz = mu * zeta_zz;
   T const s_mag = norm_s_3D(s_2D, s_zz);
   Tensor<T> const n_2D = s_2D / s_mag;
-  T const n_zz = s_zz / s_mag;
   T const sigma_yield = Y + K * alpha + (Y_inf - Y)
       * (1. - std::exp(-delta * alpha));
-  T const f = s_mag - sqrt_23 * sigma_yield;
+  T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
   Tensor<T> R_zeta;
   T R_Ie;
@@ -296,16 +300,16 @@ int J2_plane_strain<T>::evaluate(
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
       R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield);
-      R_zeta_zz = zeta_zz - zeta_zz_trial + 2. * dgam * Ie * n_zz;
+      R_alpha = f;
+      R_zeta_zz = zeta_zz + trace(zeta);
       path = PLASTIC;
     }
     // elastic step
     else {
-      R_zeta = (0. * mu + 1.) * zeta - zeta_trial;
-      R_Ie = Ie - Ie_trial + 0. * mu;
-      R_alpha = alpha - alpha_old + 0. * mu;
-      R_zeta_zz = zeta_zz - zeta_zz_trial + 0. * mu;
+      R_zeta = zeta - zeta_trial;
+      R_Ie = Ie - Ie_trial;
+      R_alpha = alpha - alpha_old;
+      R_zeta_zz = zeta_zz - zeta_zz_trial;
       path = ELASTIC;
     }
   }
@@ -318,8 +322,8 @@ int J2_plane_strain<T>::evaluate(
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
       R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield);
-      R_zeta_zz = zeta_zz - zeta_zz_trial + 2. * dgam * Ie * n_zz;
+      R_alpha = f;
+      R_zeta_zz = zeta_zz + trace(zeta);
     }
     // elastic step
     else {
@@ -349,7 +353,7 @@ Tensor<T> J2_plane_strain<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const F = grad_u + I;
   Tensor<T> const zeta = this->sym_tensor_xi(0);
-  T const J = minitensor::det(F);
+  T const J = det(F);
   return mu * zeta / J;
 }
 
