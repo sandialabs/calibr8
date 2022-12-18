@@ -29,6 +29,10 @@ notch hypoJ2_plane_strain:
           Y: 2.
           S: 10.
           D: 2.
+          R00: 1.
+          R11: 1.
+          R22: 1.
+          R01: 1.
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
@@ -41,7 +45,7 @@ notch hypoJ2_plane_strain:
     type: 'average displacement'
 
   regression:
-    QoI: 6.8489886985628624e-03
+    QoI: 7.10226176768509899e-03
     relative error tol: 1.0e-4
 
   linear algebra:
