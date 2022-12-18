@@ -30,6 +30,10 @@ static ParameterList get_valid_material_params() {
   p.set<double>("Y", 0.);
   p.set<double>("S", 0.);
   p.set<double>("D", 0.);
+  p.set<double>("R00", 0.);
+  p.set<double>("R11", 0.);
+  p.set<double>("R22", 0.);
+  p.set<double>("R01", 0.);
   return p;
 }
 
@@ -75,7 +79,7 @@ J2HypoPlaneStress<T>::~J2HypoPlaneStress() {
 template <typename T>
 void J2HypoPlaneStress<T>::init_params() {
 
-  int const num_params = 5;
+  int const num_params = 9;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
 
@@ -85,6 +89,10 @@ void J2HypoPlaneStress<T>::init_params() {
   this->m_param_names[2] = "Y";
   this->m_param_names[3] = "S";
   this->m_param_names[4] = "D";
+  this->m_param_names[5] = "R00";
+  this->m_param_names[6] = "R11";
+  this->m_param_names[7] = "R22";
+  this->m_param_names[8] = "R01";
 
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
@@ -102,6 +110,10 @@ void J2HypoPlaneStress<T>::init_params() {
     this->m_param_values[es][2] = material_params.get<double>("Y");
     this->m_param_values[es][3] = material_params.get<double>("S");
     this->m_param_values[es][4] = material_params.get<double>("D");
+    this->m_param_values[es][5] = material_params.get<double>("R00");
+    this->m_param_values[es][6] = material_params.get<double>("R11");
+    this->m_param_values[es][7] = material_params.get<double>("R22");
+    this->m_param_values[es][8] = material_params.get<double>("R01");
   }
 
   this->m_active_indices.resize(1);
@@ -141,6 +153,73 @@ Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
   Tensor<T> const D = 0.5 * (L + transpose(L));
   Tensor<T> const d = transpose(R) * D * R;
   return d;
+}
+
+template <typename T>
+Vector<T> compute_hill_params(T const& R00, T const& R11, T const& R22,
+    T const& R01, T const& R02, T const& R12) {
+
+  Vector<T> hill_params = minitensor::Vector<T>(6);
+  hill_params[0] = 0.5 * (std::pow(R11, -2) + std::pow(R22, -2)
+     - std::pow(R00, -2));
+  hill_params[1] = 0.5 * (std::pow(R22, -2) + std::pow(R00, -2)
+     - std::pow(R11, -2));
+  hill_params[2] = 0.5 * (std::pow(R00, -2) + std::pow(R11, -2)
+     - std::pow(R22, -2));
+  hill_params[3] = 1.5 * std::pow(R12, -2);
+  hill_params[4] = 1.5 * std::pow(R02, -2);
+  hill_params[5] = 1.5 * std::pow(R01, -2);
+
+  return hill_params;
+}
+
+template <typename T>
+T compute_hill_value(Tensor<T> const& TC,
+    Vector<T> const& hill_params) {
+
+  T const F = hill_params[0];
+  T const G = hill_params[1];
+  T const H = hill_params[2];
+  T const L = hill_params[3];
+  T const M = hill_params[4];
+  T const N = hill_params[5];
+
+  T const hill = std::sqrt(F * pow(TC(1, 1) - TC(2, 2), 2)
+      + G * pow(TC(2, 2) - TC(0, 0), 2)
+      + H * pow(TC(0, 0) - TC(1, 1), 2)
+      + 2. * (L * pow(TC(1, 2), 2)
+      + M * pow(TC(0, 2), 2)
+      + N * pow(TC(0, 1), 2)));
+
+  return hill;
+}
+
+template <typename T>
+Tensor<T> compute_hill_normal(Tensor<T> const& TC,
+    Vector<T> const& hill_params,
+    T const& hill_value) {
+
+  T const F = hill_params[0];
+  T const G = hill_params[1];
+  T const H = hill_params[2];
+  T const L = hill_params[3];
+  T const M = hill_params[4];
+  T const N = hill_params[5];
+
+  Tensor<T> n = minitensor::zero<T>(3);
+  n(0, 0) = (G + H) * TC(0, 0) - H * TC(1, 1) - G * TC(2, 2);
+  n(1, 1) = (F + H) * TC(1, 1) - H * TC(0, 0) - F * TC(2, 2);
+  n(2, 2) = (G + F) * TC(2, 2) - G * TC(0, 0) - F * TC(1, 1);
+  n(0, 1) = N * TC(0, 1);
+  n(0, 2) = M * TC(0, 2);
+  n(1, 2) = L * TC(1, 2);
+  n(1, 0) = n(0, 1);
+  n(2, 0) = n(0, 2);
+  n(2, 1) = n(1, 2);
+
+  n /= hill_value;
+
+  return n;
 }
 
 template <typename T>
@@ -253,6 +332,10 @@ int J2HypoPlaneStress<T>::evaluate(
   T const Y = this->m_params[2];
   T const S = this->m_params[3];
   T const D = this->m_params[4];
+  T const R00 = this->m_params[5];
+  T const R11 = this->m_params[6];
+  T const R22 = this->m_params[7];
+  T const R01 = this->m_params[8];
   T const lambda = compute_lambda(E, nu);
   T const mu = compute_mu(E, nu);
 
@@ -264,10 +347,15 @@ int J2HypoPlaneStress<T>::evaluate(
   T const alpha = this->scalar_xi(1);
   T const lambda_z = this->scalar_xi(2);
 
-  T const phi = std::sqrt(std::pow(TC(0, 0), 2) + std::pow(TC(1, 1), 2)
-      - TC(0, 0) * TC(1, 1)
-      + 3. / 2. * std::pow(TC(0, 1), 2)
-      + 3. / 2. * std::pow(TC(1, 0), 2));
+
+  Tensor<T> TC_3D = insert_2D_tensor_into_3D(TC);
+  // out-of-plane shear coefficients
+  T const R02 = 1.;
+  T const R12 = 1.;
+  Vector<T> const hill_params = compute_hill_params(R00, R11, R22,
+      R01, R02, R12);
+  T const phi = compute_hill_value(TC_3D, hill_params);
+
   T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
   T const f = (phi - sigma_yield) / val(mu);
 
@@ -277,23 +365,22 @@ int J2HypoPlaneStress<T>::evaluate(
 
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const d = eval_d(global);
-  T const d_zz = -lambda * (d(0, 0) + d(1, 1)) / (lambda +  2. * mu);
+  T const d_zz = -lambda * trace(d) / (lambda +  2. * mu);
   R_TC = TC - TC_old - lambda * (trace(d) + d_zz) * I - 2. * mu * d;
 
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
+      Tensor<T> n_3D = compute_hill_normal(TC_3D, hill_params, phi);
+      Tensor<T> const n_2D = extract_2D_tensor_from_3D(n_3D);
       T const dgam = alpha - alpha_old;
-      T const dp_xx = dgam * (2. * TC(0, 0) - TC(1, 1)) / (2. * phi);
-      T const dp_yy = dgam * (2. * TC(1, 1) - TC(0, 0)) / (2. * phi);
-      T const dp_xy = dgam * 3. * TC(0, 1) / (2. * phi);
-      T const dp_zz = -(dp_xx + dp_yy);
+      Tensor<T> const dp_2D = dgam * n_2D;
+      T const dp_zz = -trace(dp_2D);
       // correction from return map
       T const corr_dp_zz = 2. * mu * dp_zz / (2. * mu + lambda);
-      R_TC(0, 0) += 2. * mu * dp_xx - lambda * corr_dp_zz;
-      R_TC(1, 1) += 2. * mu * dp_yy - lambda * corr_dp_zz;
-      R_TC(0, 1) += 2. * mu * dp_xy;
-      R_TC(1, 0) += 2. * mu * dp_xy;
+      R_TC(0, 0) += 2. * mu * dp_2D(0, 0) - lambda * corr_dp_zz;
+      R_TC(1, 1) += 2. * mu * dp_2D(1, 1) - lambda * corr_dp_zz;
+      R_TC(0, 1) += 2. * mu * dp_2D(0, 1);
       R_alpha = f;
       R_lambda_z = lambda_z - lambda_z_old / (1. - (d_zz + corr_dp_zz));
       path = PLASTIC;
@@ -311,17 +398,16 @@ int J2HypoPlaneStress<T>::evaluate(
     path = path_in;
     // plastic step
     if (path == PLASTIC) {
+      Tensor<T> n_3D = compute_hill_normal(TC_3D, hill_params, phi);
+      Tensor<T> const n_2D = extract_2D_tensor_from_3D(n_3D);
       T const dgam = alpha - alpha_old;
-      T const dp_xx = dgam * (2. * TC(0, 0) - TC(1, 1)) / (2. * phi);
-      T const dp_yy = dgam * (2. * TC(1, 1) - TC(0, 0)) / (2. * phi);
-      T const dp_xy = dgam * 3. * TC(0, 1) / (2. * phi);
-      T const dp_zz = -(dp_xx + dp_yy);
+      Tensor<T> const dp_2D = dgam * n_2D;
+      T const dp_zz = -trace(dp_2D);
       // correction from return map
       T const corr_dp_zz = 2. * mu * dp_zz / (2. * mu + lambda);
-      R_TC(0, 0) += 2. * mu * dp_xx - lambda * corr_dp_zz;
-      R_TC(1, 1) += 2. * mu * dp_yy - lambda * corr_dp_zz;
-      R_TC(0, 1) += 2. * mu * dp_xy;
-      R_TC(1, 0) += 2. * mu * dp_xy;
+      R_TC(0, 0) += 2. * mu * dp_2D(0, 0) - lambda * corr_dp_zz;
+      R_TC(1, 1) += 2. * mu * dp_2D(1, 1) - lambda * corr_dp_zz;
+      R_TC(0, 1) += 2. * mu * dp_2D(0, 1);
       R_alpha = f;
       R_lambda_z = lambda_z - lambda_z_old / (1. - (d_zz + corr_dp_zz));
     }
