@@ -46,7 +46,6 @@ J2<T>::J2(ParameterList const& inputs, int ndims) {
   this->m_var_types.resize(num_residuals);
   this->m_resid_names.resize(num_residuals);
 
-
   this->m_resid_names[0] = "zeta";
   this->m_var_types[0] = SYM_TENSOR;
   this->m_num_eqs[0] = get_num_eqs(SYM_TENSOR, ndims);

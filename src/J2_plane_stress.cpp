@@ -5,6 +5,7 @@
 #include "global_residual.hpp"
 #include "J2_plane_stress.hpp"
 #include "material_params.hpp"
+#include "yield_functions.hpp"
 
 namespace calibr8 {
 
@@ -133,27 +134,6 @@ void J2_plane_stress<T>::init_variables_impl() {
 
 }
 
-template <typename T>
-Tensor<T> insert_2D_tensor_into_3D(Tensor<T> const& t_2D) {
-  Tensor<T> t_3D = minitensor::zero<T>(3);
-  for (int i = 0; i < 2; ++i) {
-    for (int j = 0; j < 2; ++j) {
-      t_3D(i, j) = t_2D(i, j);
-    }
-  }
-  return t_3D;
-}
-
-template <typename T>
-Tensor<T> extract_2D_tensor_from_3D(Tensor<T> const& t_3D) {
-  Tensor<T> t_2D = minitensor::zero<T>(2);
-  for (int i = 0; i < 2 ; ++i) {
-    for (int j = 0; j < 2; ++j) {
-      t_2D(i, j) = t_3D(i, j);
-    }
-  }
-  return t_2D;
-}
 
 template <typename T>
 void eval_be_bar_plane_stress(

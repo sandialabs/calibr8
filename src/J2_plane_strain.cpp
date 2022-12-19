@@ -5,6 +5,7 @@
 #include "global_residual.hpp"
 #include "J2_plane_strain.hpp"
 #include "material_params.hpp"
+#include "yield_functions.hpp"
 
 namespace calibr8 {
 
