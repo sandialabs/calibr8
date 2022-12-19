@@ -5,6 +5,7 @@
 #include "Hill.hpp"
 #include "Hill_plane_strain.hpp"
 #include "Hill_plane_stress.hpp"
+#include "isotropic_elastic.hpp"
 #include "J2.hpp"
 #include "J2_plane_strain.hpp"
 #include "J2_plane_stress.hpp"
@@ -716,6 +717,8 @@ RCP<LocalResidual<T>> create_local_residual(
     return rcp(new HillPlaneStrain<T>(params, ndims));
   } else if (type == "Hill_plane_stress") {
     return rcp(new HillPlaneStress<T>(params, ndims));
+  } else if (type == "isotropic_elastic") {
+    return rcp(new IsotropicElastic<T>(params, ndims));
   } else if (type == "J2") {
     return rcp(new J2<T>(params, ndims));
   } else if (type == "J2_plane_strain") {

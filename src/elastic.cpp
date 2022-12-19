@@ -95,7 +95,6 @@ Tensor<T> Elastic<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const mu = compute_mu(E, nu);
-  T const lambda = compute_kappa(E, nu);
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const grad_u_T = minitensor::transpose(grad_u);

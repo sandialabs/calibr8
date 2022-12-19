@@ -18,6 +18,7 @@ set(CALIBR8_SOURCES
   Hill.cpp
   Hill_plane_strain.cpp
   Hill_plane_stress.cpp
+  isotropic_elastic.cpp
   J2.cpp
   J2_plane_strain.cpp
   J2_plane_stress.cpp
