@@ -580,6 +580,27 @@ void Disc::create_primal(
   m_primal.push_back(fields);
 }
 
+// TODO: add in local residual prolong operation
+void Disc::create_primal_fine_model(
+    RCP<Residuals<double>> R,
+    int num_steps) {
+  int const base_model_form = BASE_MODEL;
+  int const fine_model_form = FINE_MODEL;
+  int const nlr = R->local[base_model_form]->num_residuals();
+  for (int step = 0; step < num_steps; ++step ) {
+    resize(m_primal[step].local[fine_model_form], nlr);
+    for (int i = 0; i < nlr; ++i) {
+      std::string const name = R->local[base_model_form]->resid_name(i);
+      std::string const fname = "fine_" + name + "_" + std::to_string(step);
+      int const vtype = get_value_type(R->local[base_model_form]->num_eqs(i), m_num_dims);
+      m_primal[step].local[fine_model_form][i] = apf::createField(m_mesh,
+          fname.c_str(), vtype, m_lv_shape);
+      apf::copyData(m_primal[step].local[fine_model_form][i], 
+          m_primal[step].local[base_model_form][i]);
+    }
+  }
+}
+
 static Array1D<std::string> get_vf_expressions(
     ParameterList const& vf_list) {
   Array1D<std::string> vf_expressions;

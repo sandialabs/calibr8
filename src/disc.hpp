@@ -224,6 +224,13 @@ class Disc {
         int step,
         bool use_measured = false);
 
+    //! \brief Create the fine model primal fields
+    //! \param R The global/local residuals defining the problem
+    //! \param step The total number of time steps
+    void create_primal_fine_model(
+        RCP<Residuals<double>> R,
+        int num_steps);
+
     //! \brief Create the virtual fields
     //! \param R The global/local residuals defining the problem
     //! \param vf_list The expressions for the virtual fields
