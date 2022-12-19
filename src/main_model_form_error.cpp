@@ -28,6 +28,8 @@ class Driver {
     double solve_primal();
     void prepare_fine_space();
     void solve_adjoint();
+    void compute_local_errors();
+    double sum_local_errors();
   private:
     int m_ncycles = 1;
     RCP<ParameterList> m_params;
@@ -62,7 +64,7 @@ double Driver::solve_primal() {
 }
 
 void Driver::prepare_fine_space() {
-  print("PREPARING FINE MODEL");
+  print("PREPARING FINE MODEL\n");
   auto disc = m_state->disc;
   int const nsteps = disc->primal().size();
   auto residuals = m_state->residuals;
@@ -85,10 +87,51 @@ void Driver::solve_adjoint() {
   m_adjoint = Teuchos::null;
 }
 
+void Driver::compute_local_errors() {
+  print("COMPUTING LOCAL ERRORS");
+  auto disc = m_state->disc;
+  apf::Mesh* m = disc->apf_mesh();
+  apf::Field* R_error = apf::createStepField(m, "R_error", apf::SCALAR);
+  apf::Field* C_error = apf::createStepField(m, "C_error", apf::SCALAR);
+  apf::zeroField(R_error);
+  apf::zeroField(C_error);
+  int const nsteps = disc->primal().size();
+  for (int step = 1; step < nsteps; ++step) {
+    Array1D<apf::Field*> zfields = disc->adjoint(step).global;
+    eval_error_contributions(m_state, disc, R_error, C_error, step);
+  }
+}
+
+double Driver::sum_local_errors() {
+  auto disc = m_state->disc;
+  apf::Mesh* m = disc->apf_mesh();
+  apf::Field* R_error = m->findField("R_error");
+  apf::Field* C_error = m->findField("C_error");
+  double eta = 0;
+  double eta_bound = 0.;
+  apf::MeshEntity* elem;
+  apf::MeshIterator* elems = m->begin(m->getDimension());
+  while ((elem = m->iterate(elems))) {
+    double const R_val = apf::getScalar(R_error, elem, 0);
+    double const C_val = apf::getScalar(C_error, elem, 0);
+    double const val = R_val + C_val;
+    eta += val;
+    eta_bound += std::abs(val);
+  }
+  eta = PCU_Add_Double(eta);
+  eta_bound = PCU_Add_Double(eta_bound);
+  m->end(elems);
+  print("eta ~ %.16e", eta);
+  print("|eta| < %.16e", eta_bound);
+  return eta;
+}
+
 void Driver::drive() {
   double const J = solve_primal();
   prepare_fine_space();
   solve_adjoint();
+  compute_local_errors();
+  double const eta = sum_local_errors();
 }
 
 int main(int argc, char** argv) {
