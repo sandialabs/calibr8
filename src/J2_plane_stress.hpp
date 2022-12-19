@@ -1,7 +1,7 @@
 #pragma once
 
 //! \file J2_plane_stress.hpp
-//! \brief The interface for J2_plane_stress local plasticity residuals
+//! \brief The interface for J2PlaneStress local plasticity residuals
 
 #include "local_residual.hpp"
 
@@ -12,17 +12,17 @@ namespace calibr8 {
 //! \details This implements a concrete instance of the LocalResidual
 //! base class for a finite deformation J2 plane strain plasticity model
 template <typename T>
-class J2_plane_stress : public LocalResidual<T> {
+class J2PlaneStress : public LocalResidual<T> {
 
   public:
 
-    //! \brief The J2_plane_stress constructor
+    //! \brief The J2PlaneStress constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    J2_plane_stress(ParameterList const& inputs, int ndims);
+    J2PlaneStress(ParameterList const& inputs, int ndims);
 
-    //! \brief The J2_plane_stress destructor
-    ~J2_plane_stress();
+    //! \brief The J2PlaneStress destructor
+    ~J2PlaneStress();
 
     //! \brief Initialize the parameters
     void init_params();

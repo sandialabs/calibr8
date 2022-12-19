@@ -8,6 +8,12 @@
 
 namespace calibr8 {
 
+using minitensor::det;
+using minitensor::dev;
+using minitensor::inverse;
+using minitensor::trace;
+using minitensor::transpose;
+
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
   p.set<std::string>("type", "J2");
@@ -39,7 +45,6 @@ J2<T>::J2(ParameterList const& inputs, int ndims) {
   this->m_num_eqs.resize(num_residuals);
   this->m_var_types.resize(num_residuals);
   this->m_resid_names.resize(num_residuals);
-
 
   this->m_resid_names[0] = "zeta";
   this->m_var_types[0] = SYM_TENSOR;
@@ -127,11 +132,11 @@ Tensor<T> eval_be_bar(
   Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
   Tensor<T> const F = grad_u + I;
   Tensor<T> const F_prev = grad_u_prev + I;
-  Tensor<T> const rF = F * minitensor::inverse(F_prev);
-  T const det_rF = minitensor::det(rF);
+  Tensor<T> const rF = F * inverse(F_prev);
+  T const det_rF = det(rF);
   T const det_rF_13 = cbrt(det_rF);
   Tensor<T> const rF_bar = rF / det_rF_13;
-  Tensor<T> const rF_barT = minitensor::transpose(rF_bar);
+  Tensor<T> const rF_barT = transpose(rF_bar);
   Tensor<T> const be_bar = rF_bar * (zeta + Ie * I) * rF_barT;
   return be_bar;
 }
@@ -152,8 +157,8 @@ int J2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     FADT const Ie_old = this->scalar_xi_prev(1);
     FADT const alpha_old = this->scalar_xi_prev(2);
     Tensor<FADT> const be_bar_trial = eval_be_bar(global, zeta_old, Ie_old);
-    Tensor<FADT> const zeta = minitensor::dev(be_bar_trial);
-    FADT const Ie = minitensor::trace(be_bar_trial) / 3.;
+    Tensor<FADT> const zeta = dev(be_bar_trial);
+    FADT const Ie = trace(be_bar_trial) / 3.;
     FADT const alpha = alpha_old;
     this->set_sym_tensor_xi(0, zeta);
     this->set_scalar_xi(1, Ie);
@@ -229,9 +234,8 @@ int J2<T>::evaluate(
   Tensor<T> const be_bar_trial = eval_be_bar(global, zeta_old, Ie_old);
   Tensor<T> const s = mu * zeta;
   T const s_mag = minitensor::norm(s);
-  Tensor<T> const n = s / s_mag;
   T const sigma_yield = Y + K * alpha;
-  T const f = s_mag - sqrt_23 * sigma_yield;
+  T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
   Tensor<T> R_zeta;
   T R_Ie;
@@ -240,16 +244,17 @@ int J2<T>::evaluate(
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
+      Tensor<T> const n = s / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_zeta = zeta - minitensor::dev(be_bar_trial) + 2. * dgam * Ie * n;
-      R_Ie = minitensor::det(zeta + Ie * I) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
+      R_zeta = zeta - dev(be_bar_trial) + 2. * dgam * Ie * n;
+      R_Ie = det(zeta + Ie * I) - 1.;
+      R_alpha = f;
       path = PLASTIC;
     }
     // elastic step
     else {
-      R_zeta = zeta - minitensor::dev(be_bar_trial);
-      R_Ie = Ie - minitensor::trace(be_bar_trial) / 3.;
+      R_zeta = zeta - dev(be_bar_trial);
+      R_Ie = Ie - trace(be_bar_trial) / 3.;
       R_alpha = alpha - alpha_old;
       path = ELASTIC;
     }
@@ -260,15 +265,16 @@ int J2<T>::evaluate(
     path = path_in;
     // plastic step
     if (path == PLASTIC) {
+      Tensor<T> const n = s / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_zeta = zeta - minitensor::dev(be_bar_trial) + 2. * dgam * Ie * n;
-      R_Ie = minitensor::det(zeta + Ie * I) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
+      R_zeta = zeta - dev(be_bar_trial) + 2. * dgam * Ie * n;
+      R_Ie = det(zeta + Ie * I) - 1.;
+      R_alpha = f;
     }
     // elastic step
     else {
-      R_zeta = zeta - minitensor::dev(be_bar_trial);
-      R_Ie = Ie - minitensor::trace(be_bar_trial) / 3.;
+      R_zeta = zeta - dev(be_bar_trial);
+      R_Ie = Ie - trace(be_bar_trial) / 3.;
       R_alpha = alpha - alpha_old;
     }
   }
@@ -286,12 +292,12 @@ Tensor<T> J2<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
-  T const mu = E / (2. * (1. + nu));
+  T const mu = compute_mu(E, nu);
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const F = grad_u + I;
   Tensor<T> const zeta = this->sym_tensor_xi(0);
-  T const J = minitensor::det(F);
+  T const J = det(F);
   return mu * zeta / J;
 }
 

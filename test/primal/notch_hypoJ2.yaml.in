@@ -1,24 +1,24 @@
-notch hypoJ2_plane_stress:
+notch J2_hypo:
 
   problem:
-    name: notch_hypoJ2_plane_stress
+    name: J2_hypo
     num steps: 4
     step size: 1.
 
   discretization:
-    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'
-    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.smb'
-    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.txt'
+    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
+    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.smb'
+    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.txt'
 
   residuals:
     global residual:
-      type: 'mechanics_plane_stress'
-      nonlinear max iters: 30
-      nonlinear absolute tol: 1.e-12
-      nonlinear relative tol: 1.e-12
+      type: 'mechanics'
+      nonlinear max iters: 15
+      nonlinear absolute tol: 1.e-8
+      nonlinear relative tol: 1.e-8
       print convergence: true
     local residual:
-      type: 'Hill_plane_stress'
+      type: 'Hill'
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
@@ -33,19 +33,22 @@ notch hypoJ2_plane_stress:
           R11: 1.
           R22: 1.
           R01: 1.
+          R02: 1.
+          R12: 1.
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
     expression:
       bc 1: [0, 0, xmin, 0.0]
       bc 2: [0, 1, ymin, 0.0]
-      bc 3: [0, 1, ymax, 0.005 * t]
+      bc 3: [0, 2, zmin, 0.0]
+      bc 4: [0, 1, ymax, 0.005 * t]
 
   quantity of interest:
     type: 'average displacement'
 
   regression:
-    QoI: 1.1852379652063684e-02
+    QoI: 7.5441386985803955e-04
     relative error tol: 1.0e-4
 
   linear algebra:
@@ -76,11 +79,17 @@ notch hypoJ2_plane_stress:
           BGS2x2:
             Type: "Block Gauss-Seidel"
             Use Upper Triangle: false
-            Inverse Type 1: "AMG2"
-          AMG2:
+            Inverse Type 1: "AMG3"
+            Inverse Type 2: "AMG1"
+          AMG3:
             Type: "MueLu"
-            number of equations: 2
+            number of equations: 3
             verbosity: "none"
+            'problem: symmetric': false
+          AMG1:
+            Type: "MueLu"
+            verbosity: "none"
+            number of equations: 1
             'problem: symmetric': false
           GS:
             Type: "Ifpack2"

@@ -13,17 +13,17 @@ namespace calibr8 {
 //! base class for mechanics with a stabilized displacement/pressure
 //! formulation
 template <typename T>
-class MechanicsDisp : public GlobalResidual<T> {
+class MechanicsPlaneStress : public GlobalResidual<T> {
 
   public:
 
     //! \brief the mechanics constructor
     //! \param params The input global residual parameters
     //! \param ndims The number of spatial dimensions
-    MechanicsDisp(ParameterList const& params, int ndims);
+    MechanicsPlaneStress(ParameterList const& params, int ndims);
 
     //! \brief The mechanics destructor
-    ~MechanicsDisp();
+    ~MechanicsPlaneStress();
 
     //! \brief Evaluate the residual at an integration point
     //! \param local The local residual object

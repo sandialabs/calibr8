@@ -35,13 +35,13 @@ notch hyperJ2:
       bc 1: [0, 0, xmin, 0.0]
       bc 2: [0, 1, ymin, 0.0]
       bc 3: [0, 2, zmin, 0.0]
-      bc 4: [0, 1, ymax, 0.001 * t]
+      bc 4: [0, 1, ymax, 0.005 * t]
 
   quantity of interest:
     type: 'average displacement'
 
   regression:
-    QoI: 1.28957363496771601e-04
+    QoI: 7.0080671510235862e-04
     relative error tol: 1.0e-4
 
   linear algebra:

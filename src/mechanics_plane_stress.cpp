@@ -5,7 +5,7 @@
 #include "local_residual.hpp"
 #include "macros.hpp"
 #include "material_params.hpp"
-#include "mechanics_disp.hpp"
+#include "mechanics_plane_stress.hpp"
 
 namespace calibr8 {
 
@@ -14,7 +14,7 @@ using minitensor::inverse;
 using minitensor::transpose;
 
 template <typename T>
-MechanicsDisp<T>::MechanicsDisp(ParameterList const&, int ndims) {
+MechanicsPlaneStress<T>::MechanicsPlaneStress(ParameterList const&, int ndims) {
 
   int const num_residuals = 1;
 
@@ -35,11 +35,11 @@ MechanicsDisp<T>::MechanicsDisp(ParameterList const&, int ndims) {
 }
 
 template <typename T>
-MechanicsDisp<T>::~MechanicsDisp() {
+MechanicsPlaneStress<T>::~MechanicsPlaneStress() {
 }
 
 template <typename T>
-void MechanicsDisp<T>::evaluate(
+void MechanicsPlaneStress<T>::evaluate(
     RCP<LocalResidual<T>> local,
     apf::Vector3 const&,
     double w,
@@ -54,28 +54,26 @@ void MechanicsDisp<T>::evaluate(
   // coupled ip set (lowest quadrature order)
   ALWAYS_ASSERT(ip_set == 0);
 
-  // gather variables from this residual quantities
-  Tensor<T> const grad_u = this->grad_vector_x(momentum_idx);
-
-  // compute kinematic quantities
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const F = grad_u + I;
-  Tensor<T> const F_inv = inverse(F);
-  Tensor<T> const F_invT = transpose(F_inv);
-  T const J = det(F);
-
   // compute stress measures
   RCP<GlobalResidual<T>> global = rcp(this, false);
   // Cauchy for these models is dev_cauchy
   Tensor<T> stress = local->dev_cauchy(global);
 
   if (local->is_finite_deformation()) {
-    stress = J * stress * F_invT;
-    if (local->is_plane_stress()) {
-      const int lambda_z_idx = 2;
-      T const lambda_z = local->scalar_xi(lambda_z_idx);
-      stress *= lambda_z;
-    }
+    // gather variables from this residual quantities
+    Tensor<T> const grad_u = this->grad_vector_x(momentum_idx);
+
+    // compute kinematic quantities
+    Tensor<T> const I = minitensor::eye<T>(ndims);
+    Tensor<T> const F = grad_u + I;
+    Tensor<T> const F_inv = inverse(F);
+    Tensor<T> const F_invT = transpose(F_inv);
+    T const J = det(F);
+
+    int const z_stretch_idx = local->z_stretch_idx();
+    T const z_stretch = local->scalar_xi(z_stretch_idx);
+
+    stress = z_stretch * J * stress * F_invT;
   }
 
   // compute the balance of linear momentum residual
@@ -91,7 +89,7 @@ void MechanicsDisp<T>::evaluate(
 
 }
 
-template class MechanicsDisp<double>;
-template class MechanicsDisp<FADT>;
+template class MechanicsPlaneStress<double>;
+template class MechanicsPlaneStress<FADT>;
 
 }

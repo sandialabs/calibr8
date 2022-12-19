@@ -94,14 +94,7 @@ void Mechanics<T>::evaluate(
     Tensor<T> stress = local->cauchy(global, p);
 
 
-    if (local->is_finite_deformation()) {
-      if (local->is_plane_stress()) {
-        const int lambda_z_idx = 2;
-        T const lambda_z = local->scalar_xi(lambda_z_idx);
-        J *= lambda_z;
-      }
-      stress = J * stress * F_invT;
-    }
+    if (local->is_finite_deformation()) stress = J * stress * F_invT;
 
     // compute the balance of linear momentum residual
     for (int n = 0; n < nnodes; ++n) {
@@ -120,12 +113,12 @@ void Mechanics<T>::evaluate(
       T hydro_cauchy;
       // local->dev_cauchy is the rotated Cauchy stress for hypoelastic models
       if (local->is_hypoelastic()) {
-        if (local->is_plane_stress()) {
+        if (ndims == 3) {
           hydro_cauchy = trace(local->dev_cauchy(global)) / (3. * val(kappa));
         } else {
           Tensor<T> const cauchy_2D = local->dev_cauchy(global);
-          const int TC_zz_idx = 2;
-          T const cauchy_zz = local->scalar_xi(TC_zz_idx);
+          const int z_stress_idx = local->z_stress_idx();
+          T const cauchy_zz = local->scalar_xi(z_stress_idx);
           T const trace_cauchy = trace(cauchy_2D) + cauchy_zz;
           hydro_cauchy = trace_cauchy / (3. * val(kappa));
         }

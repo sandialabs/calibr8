@@ -16,9 +16,9 @@ set(CALIBR8_SOURCES
   fields.cpp
   global_residual.cpp
   Hill.cpp
+  Hill_plane_strain.cpp
+  Hill_plane_stress.cpp
   J2.cpp
-  J2_hypo_plane_strain.cpp
-  J2_hypo_plane_stress.cpp
   J2_plane_strain.cpp
   J2_plane_stress.cpp
   J2_small_strain.cpp
@@ -27,7 +27,7 @@ set(CALIBR8_SOURCES
   linear_solve.cpp
   local_residual.cpp
   mechanics.cpp
-  mechanics_disp.cpp
+  mechanics_plane_stress.cpp
   mesh_size.cpp
   nested.cpp
   normal_traction.cpp

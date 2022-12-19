@@ -5,6 +5,7 @@
 #include "global_residual.hpp"
 #include "J2_plane_stress.hpp"
 #include "material_params.hpp"
+#include "yield_functions.hpp"
 
 namespace calibr8 {
 
@@ -29,7 +30,7 @@ static ParameterList get_valid_material_params() {
 }
 
 template <typename T>
-J2_plane_stress<T>::J2_plane_stress(ParameterList const& inputs, int ndims) {
+J2PlaneStress<T>::J2PlaneStress(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
@@ -52,6 +53,7 @@ J2_plane_stress<T>::J2_plane_stress(ParameterList const& inputs, int ndims) {
   this->m_resid_names[2] = "lambda_z";
   this->m_var_types[2] = SCALAR;
   this->m_num_eqs[2] = get_num_eqs(SCALAR, ndims);
+  this->m_z_stretch_idx = 2;
 
   this->m_resid_names[3] = "alpha";
   this->m_var_types[3] = SCALAR;
@@ -68,7 +70,7 @@ J2_plane_stress<T>::J2_plane_stress(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-void J2_plane_stress<T>::init_params() {
+void J2PlaneStress<T>::init_params() {
 
   int const num_params = 5;
   this->m_params.resize(num_params);
@@ -105,11 +107,11 @@ void J2_plane_stress<T>::init_params() {
 }
 
 template <typename T>
-J2_plane_stress<T>::~J2_plane_stress() {
+J2PlaneStress<T>::~J2PlaneStress() {
 }
 
 template <typename T>
-void J2_plane_stress<T>::init_variables_impl() {
+void J2PlaneStress<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
   int const zeta_idx = 0;
@@ -132,27 +134,6 @@ void J2_plane_stress<T>::init_variables_impl() {
 
 }
 
-template <typename T>
-Tensor<T> insert_2D_tensor_into_3D(Tensor<T> const& t_2D) {
-  Tensor<T> t_3D = minitensor::zero<T>(3);
-  for (int i = 0; i < 2; ++i) {
-    for (int j = 0; j < 2; ++j) {
-      t_3D(i, j) = t_2D(i, j);
-    }
-  }
-  return t_3D;
-}
-
-template <typename T>
-Tensor<T> extract_2D_tensor_from_3D(Tensor<T> const& t_3D) {
-  Tensor<T> t_2D = minitensor::zero<T>(2);
-  for (int i = 0; i < 2 ; ++i) {
-    for (int j = 0; j < 2; ++j) {
-      t_2D(i, j) = t_3D(i, j);
-    }
-  }
-  return t_2D;
-}
 
 template <typename T>
 void eval_be_bar_plane_stress(
@@ -163,8 +144,8 @@ void eval_be_bar_plane_stress(
     T const& lambda_z_prev,
     T const& lambda_z,
     T& J_2D,
-    Tensor<T>& be_bar_2D,
-    T& be_bar_zz) {
+    Tensor<T>& be_bar) {
+
   Tensor<T> const I_2D = minitensor::eye<T>(2);
   Tensor<T> const I = minitensor::eye<T>(3);
   Tensor<T> const grad_u = global->grad_vector_x(0);
@@ -183,30 +164,16 @@ void eval_be_bar_plane_stress(
   Tensor<T> const rF_barT = minitensor::transpose(rF_bar);
   Tensor<T> zeta_3D = insert_2D_tensor_into_3D(zeta_2D);
   zeta_3D(2, 2) = zeta_zz;
-  Tensor<T> const be_bar_3D = rF_bar * (zeta_3D + Ie * I) * rF_barT;
-  be_bar_2D = extract_2D_tensor_from_3D(be_bar_3D);
-  be_bar_zz = be_bar_3D(2, 2);
-}
-
-template <typename T>
-T norm_s_3D(Tensor<T> const& s_2D, T const& s_zz) {
-  return sqrt(s_2D(0, 0) * s_2D(0, 0) + s_2D(1, 1) * s_2D(1, 1)
-      + 2. * s_2D(0, 1) * s_2D(0, 1) + s_zz * s_zz);
-}
-
-template <typename T>
-T det_be_bar_3D(Tensor<T> const& zeta_2D, T const& zeta_zz, T const& Ie) {
-  return ((zeta_2D(0, 0) + Ie) * (zeta_2D(1, 1) + Ie)
-      - zeta_2D(0, 1) * zeta_2D(0, 1)) * (zeta_zz + Ie);
+  be_bar = rF_bar * (zeta_3D + Ie * I) * rF_barT;
 }
 
 template <>
-int J2_plane_stress<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int J2PlaneStress<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int J2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
@@ -220,17 +187,16 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
     int const ndims = global->num_dims();
     FADT J_2D;
-    Tensor<FADT> be_bar_2D_trial;
+    Tensor<FADT> be_bar_trial;
     FADT be_bar_zz_trial;
     FADT const lambda_z = this->scalar_xi(2);
     eval_be_bar_plane_stress(global, zeta_old, Ie_old, zeta_zz_old,
-        lambda_z_old, lambda_z,
-        J_2D, be_bar_2D_trial, be_bar_zz_trial);
-    FADT const Ie_trial = (minitensor::trace(be_bar_2D_trial)
-        + be_bar_zz_trial) / 3.;
+        lambda_z_old, lambda_z, J_2D, be_bar_trial);
+    FADT const Ie_trial = minitensor::trace(be_bar_trial) / 3.;
     Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
-    Tensor<FADT> const zeta_trial = be_bar_2D_trial - Ie_trial * I;
-    FADT const zeta_zz_trial = be_bar_zz_trial - Ie_trial;
+    Tensor<FADT> const be_bar_trial_2D = extract_2D_tensor_from_3D(be_bar_trial);
+    Tensor<FADT> const zeta_trial = be_bar_trial_2D - Ie_trial * I;
+    FADT const zeta_zz_trial = be_bar_trial(2,2) - Ie_trial;
     FADT const alpha_trial = alpha_old;
     this->set_sym_tensor_xi(0, zeta_trial);
     this->set_scalar_xi(1, Ie_trial);
@@ -261,92 +227,11 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     EVector const R = this->eigen_residual();
     EVector const dxi = J.fullPivLu().solve(-R);
 
-    if (iter > 100) {
-      print("\niter %d: R_norm = %e", iter, R_norm);
-      std::cout << "  R = " << R << "\n";
-      std::cout << "  J = " << J << "\n";
-      std::cout << "  dxi = " << dxi << "\n";
-      std::cout << "  det(J) = " << J.determinant() << "\n";
-    }
-
     this->add_to_sym_tensor_xi(0, dxi);
     this->add_to_scalar_xi(1, dxi);
     this->add_to_scalar_xi(2, dxi);
     this->add_to_scalar_xi(3, dxi);
     this->add_to_scalar_xi(4, dxi);
-
-# if 0
-    {
-      // backtracking line search parameters
-      int const max_line_search_evals = 20;
-      bool const do_print = true;
-      double const beta = 1.0e-4;
-      double const eta = 0.5;
-
-      double const R_0 = R_norm;
-      double const psi_0 = 0.5 * R_0 * R_0;
-      double const psi_0_deriv = -2. * psi_0;
-
-      this->evaluate(global, true, path);
-
-      int j = 1;
-      double alpha_prev = 1.;
-      double alpha_j = 1.;
-      double R_j = this->norm_residual();
-      double psi_j = 0.5 * R_j * R_j;
-
-      while (psi_j >= ((1. - 2. * beta * alpha_j) * psi_0)) {
-
-        alpha_prev = alpha_j;
-        alpha_j  = std::max(eta * alpha_j,
-            -(std::pow(alpha_j, 2) * psi_0_deriv) /
-             (2. * (psi_j - psi_0 - alpha_j * psi_0_deriv)));
-
-        if (false) {
-          print(" >> CE residual iter %d norm = %e, orig_norm = %e", j, R_j, R_0);
-          print(" >> CE residual increase -- line search alpha_%d = %.2e",
-              j, alpha_j);
-        }
-
-        if (j == max_line_search_evals) {
-          break;
-        }
-
-        ++j;
-
-        //double const alpha_diff = alpha_j - alpha_prev;
-        //dxi *= alpha_diff;
-
-        this->add_to_sym_tensor_xi(0, -alpha_prev * dxi);
-        this->add_to_scalar_xi(1, -alpha_prev * dxi);
-        this->add_to_scalar_xi(2, -alpha_prev * dxi);
-        this->add_to_scalar_xi(3, -alpha_prev * dxi);
-        this->add_to_scalar_xi(4, -alpha_prev * dxi);
-
-        //if (do_print) {
-        if (false) {
-          path = this->evaluate(global, true, path);
-          double const orig_norm = this->norm_residual();
-          print(" >> orig_norm check = %e", orig_norm);
-        }
-
-        this->add_to_sym_tensor_xi(0, alpha_j * dxi);
-        this->add_to_scalar_xi(1, alpha_j * dxi);
-        this->add_to_scalar_xi(2, alpha_j * dxi);
-        this->add_to_scalar_xi(3, alpha_j * dxi);
-        this->add_to_scalar_xi(4, alpha_j * dxi);
-
-        path = this->evaluate(global, true, path);
-
-        R_j = this->norm_residual();
-        psi_j = 0.5 * R_j * R_j;
-
-      }
-    }
-
-#endif
-
-
 
     iter++;
 
@@ -354,7 +239,7 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("J2_plane_stress:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("J2PlaneStress:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
@@ -362,7 +247,7 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
-int J2_plane_stress<T>::evaluate(
+int J2PlaneStress<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
@@ -378,7 +263,7 @@ int J2_plane_stress<T>::evaluate(
   T const S = this->m_params[3];
   T const D = this->m_params[4];
   T const mu = compute_mu(E, nu);
-  T const kappa  = compute_kappa(E, nu);
+  T const kappa = compute_kappa(E, nu);
 
   Tensor<T> const zeta_old = this->sym_tensor_xi_prev(0);
   T const Ie_old = this->scalar_xi_prev(1);
@@ -392,21 +277,23 @@ int J2_plane_stress<T>::evaluate(
   T const alpha = this->scalar_xi(3);
   T const zeta_zz = this->scalar_xi(4);
 
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> be_bar_trial_2D;
-  T be_bar_trial_zz;
+  Tensor<T> const I = minitensor::eye<T>(3);
   T J_2D;
+
+  Tensor<T> be_bar_trial;
   eval_be_bar_plane_stress(global, zeta_old, Ie_old, zeta_zz_old,
-      lambda_z_old, lambda_z, J_2D, be_bar_trial_2D, be_bar_trial_zz);
-  T const Ie_trial = (minitensor::trace(be_bar_trial_2D)
-      + be_bar_trial_zz) / 3.;
-  Tensor<T> const zeta_trial = be_bar_trial_2D - Ie_trial * I;
-  T const zeta_zz_trial = be_bar_trial_zz - Ie_trial;
-  Tensor<T> const s_2D = mu * zeta;
-  T const s_zz = mu * zeta_zz;
-  T const s_mag = norm_s_3D(s_2D, s_zz);
-  Tensor<T> const n_2D = s_2D / s_mag;
-  T const n_zz = s_zz / s_mag;
+      lambda_z_old, lambda_z, J_2D, be_bar_trial);
+  T const Ie_trial = minitensor::trace(be_bar_trial) / 3.;
+  Tensor<T> const zeta_trial_3D = be_bar_trial - Ie_trial * I;
+  Tensor<T> const zeta_trial_2D = extract_2D_tensor_from_3D(zeta_trial_3D);
+  T const zeta_zz_trial = zeta_trial_3D(2, 2);
+
+  Tensor<T> zeta_3D = insert_2D_tensor_into_3D(zeta);
+  zeta_3D(2, 2) = zeta_zz;
+  Tensor<T> const be_bar = zeta_3D + Ie * I;
+
+  Tensor<T> const s = mu * zeta_3D;
+  T const s_mag = minitensor::norm(s);
   T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
   T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
@@ -417,22 +304,23 @@ int J2_plane_stress<T>::evaluate(
   T R_lambda_z;
 
   T const mat_factor = kappa / (2. * mu);
-  R_lambda_z = lambda_z
-      - std::sqrt((1. - zeta_zz / mat_factor) / std::pow(J_2D, 2));
+  R_lambda_z = lambda_z - std::sqrt((1. - zeta_zz / mat_factor)
+      / std::pow(J_2D, 2));
 
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
+      Tensor<T> const n_2D = mu * zeta / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
-      R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
-      R_zeta_zz = zeta_zz - zeta_zz_trial + 2. * dgam * Ie * n_zz;
+      R_zeta = zeta - zeta_trial_2D + 2. * dgam * Ie * n_2D;
+      R_Ie = det(be_bar) - 1.;
+      R_alpha = f;
+      R_zeta_zz = zeta_zz + trace(zeta);
       path = PLASTIC;
     }
     // elastic step
     else {
-      R_zeta = zeta - zeta_trial;
+      R_zeta = zeta - zeta_trial_2D;
       R_Ie = Ie - Ie_trial;
       R_alpha = alpha - alpha_old;
       R_zeta_zz = zeta_zz - zeta_zz_trial;
@@ -445,15 +333,16 @@ int J2_plane_stress<T>::evaluate(
     path = path_in;
     // plastic step
     if (path == PLASTIC) {
+      Tensor<T> const n_2D = mu * zeta / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
-      R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
-      R_zeta_zz = zeta_zz - zeta_zz_trial + 2. * dgam * Ie * n_zz;
+      R_zeta = zeta - zeta_trial_2D + 2. * dgam * Ie * n_2D;
+      R_Ie = det(be_bar) - 1.;
+      R_alpha = f;
+      R_zeta_zz = zeta_zz + trace(zeta);
     }
     // elastic step
     else {
-      R_zeta = zeta - zeta_trial;
+      R_zeta = zeta - zeta_trial_2D;
       R_Ie = Ie - Ie_trial;
       R_alpha = alpha - alpha_old;
       R_zeta_zz = zeta_zz - zeta_zz_trial;
@@ -472,7 +361,7 @@ int J2_plane_stress<T>::evaluate(
 
 // returns actual cauchy
 template <typename T>
-Tensor<T> J2_plane_stress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> J2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -481,7 +370,7 @@ Tensor<T> J2_plane_stress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const F = grad_u + I;
-  T const lambda_z = this->scalar_xi(2);
+  T const lambda_z = this->scalar_xi(this->m_z_stretch_idx);
   T const J = minitensor::det(F) * lambda_z;
   Tensor<T> const zeta = this->sym_tensor_xi(0);
   return mu * zeta / J + kappa / 2. * (J - 1. / J) * I;
@@ -489,7 +378,7 @@ Tensor<T> J2_plane_stress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
 
 // not used
 template <typename T>
-Tensor<T> J2_plane_stress<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
+Tensor<T> J2PlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   int const ndims = global->num_dims();
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const dev_sigma = this->dev_cauchy(global);
@@ -497,7 +386,7 @@ Tensor<T> J2_plane_stress<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   return sigma;
 }
 
-template class J2_plane_stress<double>;
-template class J2_plane_stress<FADT>;
+template class J2PlaneStress<double>;
+template class J2PlaneStress<FADT>;
 
 }
