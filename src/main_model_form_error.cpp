@@ -10,6 +10,7 @@
 #include "evaluations.hpp"
 #include "fields.hpp"
 #include "global_residual.hpp"
+#include "local_residual.hpp"
 #include "macros.hpp"
 #include "mesh_size.hpp"
 #include "nested.hpp"
@@ -69,11 +70,15 @@ void Driver::prepare_fine_space() {
 }
 
 void Driver::solve_adjoint() {
+  m_state->model_form = FINE_MODEL;
   auto disc = m_state->disc;
   m_adjoint = rcp(new Adjoint(m_params, m_state, disc));
   int const nsteps = disc->primal().size() - 1;
   auto residuals = m_state->residuals;
-  disc->create_adjoint(residuals, nsteps);
+  auto d_residuals = m_state->d_residuals;
+  residuals->local[FINE_MODEL]->init_variables(m_state);
+  d_residuals->local[FINE_MODEL]->init_variables(m_state);
+  disc->create_adjoint(residuals, nsteps, FINE_MODEL);
   for (int step = nsteps; step > 0; --step) {
     m_adjoint->solve_at_step(step);
   }
@@ -83,7 +88,7 @@ void Driver::solve_adjoint() {
 void Driver::drive() {
   double const J = solve_primal();
   prepare_fine_space();
-  //solve_adjoint();
+  solve_adjoint();
 }
 
 int main(int argc, char** argv) {

@@ -688,11 +688,11 @@ void Disc::destroy_primal(bool keep_ic) {
 
 void Disc::create_adjoint(
     RCP<Residuals<double>> R,
-    int num_steps) {
+    int const num_steps,
+    int const model_form) {
   for (int step = 0; step <= num_steps; ++step) {
     Fields fields;
     int const ngr = R->global->num_residuals();
-    int const model_form = BASE_MODEL;
     int const nlr = R->local[model_form]->num_residuals();
     resize(fields.global, ngr);
     resize(fields.local[model_form], nlr);

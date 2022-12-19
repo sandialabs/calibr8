@@ -247,7 +247,8 @@ class Disc {
     //! \param num_steps The number of load/time steps
     void create_adjoint(
         RCP<Residuals<double>> R,
-        int num_steps);
+        int const num_steps,
+        int const model_form = BASE_MODEL);
 
     //! \brief Destroy the adjoint fields
     void destroy_adjoint();
