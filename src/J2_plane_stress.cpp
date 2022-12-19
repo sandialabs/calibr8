@@ -144,8 +144,8 @@ void eval_be_bar_plane_stress(
     T const& lambda_z_prev,
     T const& lambda_z,
     T& J_2D,
-    Tensor<T>& be_bar_2D,
-    T& be_bar_zz) {
+    Tensor<T>& be_bar) {
+
   Tensor<T> const I_2D = minitensor::eye<T>(2);
   Tensor<T> const I = minitensor::eye<T>(3);
   Tensor<T> const grad_u = global->grad_vector_x(0);
@@ -164,21 +164,7 @@ void eval_be_bar_plane_stress(
   Tensor<T> const rF_barT = minitensor::transpose(rF_bar);
   Tensor<T> zeta_3D = insert_2D_tensor_into_3D(zeta_2D);
   zeta_3D(2, 2) = zeta_zz;
-  Tensor<T> const be_bar_3D = rF_bar * (zeta_3D + Ie * I) * rF_barT;
-  be_bar_2D = extract_2D_tensor_from_3D(be_bar_3D);
-  be_bar_zz = be_bar_3D(2, 2);
-}
-
-template <typename T>
-T norm_s_3D(Tensor<T> const& s_2D, T const& s_zz) {
-  return sqrt(s_2D(0, 0) * s_2D(0, 0) + s_2D(1, 1) * s_2D(1, 1)
-      + 2. * s_2D(0, 1) * s_2D(0, 1) + s_zz * s_zz);
-}
-
-template <typename T>
-T det_be_bar_3D(Tensor<T> const& zeta_2D, T const& zeta_zz, T const& Ie) {
-  return ((zeta_2D(0, 0) + Ie) * (zeta_2D(1, 1) + Ie)
-      - zeta_2D(0, 1) * zeta_2D(0, 1)) * (zeta_zz + Ie);
+  be_bar = rF_bar * (zeta_3D + Ie * I) * rF_barT;
 }
 
 template <>
@@ -201,17 +187,16 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
     int const ndims = global->num_dims();
     FADT J_2D;
-    Tensor<FADT> be_bar_2D_trial;
+    Tensor<FADT> be_bar_trial;
     FADT be_bar_zz_trial;
     FADT const lambda_z = this->scalar_xi(2);
     eval_be_bar_plane_stress(global, zeta_old, Ie_old, zeta_zz_old,
-        lambda_z_old, lambda_z,
-        J_2D, be_bar_2D_trial, be_bar_zz_trial);
-    FADT const Ie_trial = (minitensor::trace(be_bar_2D_trial)
-        + be_bar_zz_trial) / 3.;
+        lambda_z_old, lambda_z, J_2D, be_bar_trial);
+    FADT const Ie_trial = minitensor::trace(be_bar_trial) / 3.;
     Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
-    Tensor<FADT> const zeta_trial = be_bar_2D_trial - Ie_trial * I;
-    FADT const zeta_zz_trial = be_bar_zz_trial - Ie_trial;
+    Tensor<FADT> const be_bar_trial_2D = extract_2D_tensor_from_3D(be_bar_trial);
+    Tensor<FADT> const zeta_trial = be_bar_trial_2D - Ie_trial * I;
+    FADT const zeta_zz_trial = be_bar_trial(2,2) - Ie_trial;
     FADT const alpha_trial = alpha_old;
     this->set_sym_tensor_xi(0, zeta_trial);
     this->set_scalar_xi(1, Ie_trial);
@@ -292,20 +277,23 @@ int J2_plane_stress<T>::evaluate(
   T const alpha = this->scalar_xi(3);
   T const zeta_zz = this->scalar_xi(4);
 
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> be_bar_trial_2D;
-  T be_bar_trial_zz;
+  Tensor<T> const I = minitensor::eye<T>(3);
   T J_2D;
+
+  Tensor<T> be_bar_trial;
   eval_be_bar_plane_stress(global, zeta_old, Ie_old, zeta_zz_old,
-      lambda_z_old, lambda_z, J_2D, be_bar_trial_2D, be_bar_trial_zz);
-  T const Ie_trial = (minitensor::trace(be_bar_trial_2D)
-      + be_bar_trial_zz) / 3.;
-  Tensor<T> const zeta_trial = be_bar_trial_2D - Ie_trial * I;
-  T const zeta_zz_trial = be_bar_trial_zz - Ie_trial;
-  Tensor<T> const s_2D = mu * zeta;
-  T const s_zz = mu * zeta_zz;
-  T const s_mag = norm_s_3D(s_2D, s_zz);
-  Tensor<T> const n_2D = s_2D / s_mag;
+      lambda_z_old, lambda_z, J_2D, be_bar_trial);
+  T const Ie_trial = minitensor::trace(be_bar_trial) / 3.;
+  Tensor<T> const zeta_trial_3D = be_bar_trial - Ie_trial * I;
+  Tensor<T> const zeta_trial_2D = extract_2D_tensor_from_3D(zeta_trial_3D);
+  T const zeta_zz_trial = zeta_trial_3D(2, 2);
+
+  Tensor<T> zeta_3D = insert_2D_tensor_into_3D(zeta);
+  zeta_3D(2, 2) = zeta_zz;
+  Tensor<T> const be_bar = zeta_3D + Ie * I;
+
+  Tensor<T> const s = mu * zeta_3D;
+  T const s_mag = minitensor::norm(s);
   T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
   T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
@@ -322,16 +310,17 @@ int J2_plane_stress<T>::evaluate(
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
+      Tensor<T> const n_2D = mu * zeta / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
-      R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
+      R_zeta = zeta - zeta_trial_2D + 2. * dgam * Ie * n_2D;
+      R_Ie = det(be_bar) - 1.;
       R_alpha = f;
       R_zeta_zz = zeta_zz + trace(zeta);
       path = PLASTIC;
     }
     // elastic step
     else {
-      R_zeta = zeta - zeta_trial;
+      R_zeta = zeta - zeta_trial_2D;
       R_Ie = Ie - Ie_trial;
       R_alpha = alpha - alpha_old;
       R_zeta_zz = zeta_zz - zeta_zz_trial;
@@ -344,15 +333,16 @@ int J2_plane_stress<T>::evaluate(
     path = path_in;
     // plastic step
     if (path == PLASTIC) {
+      Tensor<T> const n_2D = mu * zeta / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
-      R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
+      R_zeta = zeta - zeta_trial_2D + 2. * dgam * Ie * n_2D;
+      R_Ie = det(be_bar) - 1.;
       R_alpha = f;
       R_zeta_zz = zeta_zz + trace(zeta);
     }
     // elastic step
     else {
-      R_zeta = zeta - zeta_trial;
+      R_zeta = zeta - zeta_trial_2D;
       R_Ie = Ie - Ie_trial;
       R_alpha = alpha - alpha_old;
       R_zeta_zz = zeta_zz - zeta_zz_trial;

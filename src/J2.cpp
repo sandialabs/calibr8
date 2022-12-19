@@ -234,7 +234,6 @@ int J2<T>::evaluate(
   Tensor<T> const be_bar_trial = eval_be_bar(global, zeta_old, Ie_old);
   Tensor<T> const s = mu * zeta;
   T const s_mag = minitensor::norm(s);
-  Tensor<T> const n = s / s_mag;
   T const sigma_yield = Y + K * alpha;
   T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
@@ -245,6 +244,7 @@ int J2<T>::evaluate(
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
+      Tensor<T> const n = s / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - dev(be_bar_trial) + 2. * dgam * Ie * n;
       R_Ie = det(zeta + Ie * I) - 1.;
@@ -265,6 +265,7 @@ int J2<T>::evaluate(
     path = path_in;
     // plastic step
     if (path == PLASTIC) {
+      Tensor<T> const n = s / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - dev(be_bar_trial) + 2. * dgam * Ie * n;
       R_Ie = det(zeta + Ie * I) - 1.;
