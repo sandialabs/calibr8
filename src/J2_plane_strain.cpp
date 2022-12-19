@@ -36,7 +36,7 @@ static ParameterList get_valid_material_params() {
 }
 
 template <typename T>
-J2_plane_strain<T>::J2_plane_strain(ParameterList const& inputs, int ndims) {
+J2PlaneStrain<T>::J2PlaneStrain(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
@@ -71,7 +71,7 @@ J2_plane_strain<T>::J2_plane_strain(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-void J2_plane_strain<T>::init_params() {
+void J2PlaneStrain<T>::init_params() {
 
   int const num_params = 6;
   this->m_params.resize(num_params);
@@ -110,11 +110,11 @@ void J2_plane_strain<T>::init_params() {
 }
 
 template <typename T>
-J2_plane_strain<T>::~J2_plane_strain() {
+J2PlaneStrain<T>::~J2PlaneStrain() {
 }
 
 template <typename T>
-void J2_plane_strain<T>::init_variables_impl() {
+void J2PlaneStrain<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
   int const zeta_idx = 0;
@@ -171,12 +171,12 @@ T det_be_bar_3D(Tensor<T> const& zeta_2D, T const& zeta_zz, T const& Ie) {
 }
 
 template <>
-int J2_plane_strain<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int J2PlaneStrain<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int J2_plane_strain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int J2PlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
@@ -237,7 +237,7 @@ int J2_plane_strain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("J2_plane_strain:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("J2PlaneStrain:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
@@ -245,7 +245,7 @@ int J2_plane_strain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
-int J2_plane_strain<T>::evaluate(
+int J2PlaneStrain<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
@@ -346,7 +346,7 @@ int J2_plane_strain<T>::evaluate(
 }
 
 template <typename T>
-Tensor<T> J2_plane_strain<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> J2PlaneStrain<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -361,7 +361,7 @@ Tensor<T> J2_plane_strain<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
 
 // TODO: check if this is correct
 template <typename T>
-Tensor<T> J2_plane_strain<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
+Tensor<T> J2PlaneStrain<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   int const ndims = global->num_dims();
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const dev_sigma = this->dev_cauchy(global);
@@ -369,7 +369,7 @@ Tensor<T> J2_plane_strain<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   return sigma;
 }
 
-template class J2_plane_strain<double>;
-template class J2_plane_strain<FADT>;
+template class J2PlaneStrain<double>;
+template class J2PlaneStrain<FADT>;
 
 }

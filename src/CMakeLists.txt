@@ -16,9 +16,9 @@ set(CALIBR8_SOURCES
   fields.cpp
   global_residual.cpp
   Hill.cpp
+  Hill_plane_strain.cpp
+  Hill_plane_stress.cpp
   J2.cpp
-  J2_hypo_plane_strain.cpp
-  J2_hypo_plane_stress.cpp
   J2_plane_strain.cpp
   J2_plane_stress.cpp
   J2_small_strain.cpp

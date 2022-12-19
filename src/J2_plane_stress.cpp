@@ -30,7 +30,7 @@ static ParameterList get_valid_material_params() {
 }
 
 template <typename T>
-J2_plane_stress<T>::J2_plane_stress(ParameterList const& inputs, int ndims) {
+J2PlaneStress<T>::J2PlaneStress(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
@@ -70,7 +70,7 @@ J2_plane_stress<T>::J2_plane_stress(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-void J2_plane_stress<T>::init_params() {
+void J2PlaneStress<T>::init_params() {
 
   int const num_params = 5;
   this->m_params.resize(num_params);
@@ -107,11 +107,11 @@ void J2_plane_stress<T>::init_params() {
 }
 
 template <typename T>
-J2_plane_stress<T>::~J2_plane_stress() {
+J2PlaneStress<T>::~J2PlaneStress() {
 }
 
 template <typename T>
-void J2_plane_stress<T>::init_variables_impl() {
+void J2PlaneStress<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
   int const zeta_idx = 0;
@@ -168,12 +168,12 @@ void eval_be_bar_plane_stress(
 }
 
 template <>
-int J2_plane_stress<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int J2PlaneStress<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int J2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
@@ -239,7 +239,7 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("J2_plane_stress:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("J2PlaneStress:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
@@ -247,7 +247,7 @@ int J2_plane_stress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
-int J2_plane_stress<T>::evaluate(
+int J2PlaneStress<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
@@ -361,7 +361,7 @@ int J2_plane_stress<T>::evaluate(
 
 // returns actual cauchy
 template <typename T>
-Tensor<T> J2_plane_stress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> J2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -378,7 +378,7 @@ Tensor<T> J2_plane_stress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
 
 // not used
 template <typename T>
-Tensor<T> J2_plane_stress<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
+Tensor<T> J2PlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   int const ndims = global->num_dims();
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const dev_sigma = this->dev_cauchy(global);
@@ -386,7 +386,7 @@ Tensor<T> J2_plane_stress<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
   return sigma;
 }
 
-template class J2_plane_stress<double>;
-template class J2_plane_stress<FADT>;
+template class J2PlaneStress<double>;
+template class J2PlaneStress<FADT>;
 
 }

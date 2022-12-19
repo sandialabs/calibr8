@@ -12,17 +12,17 @@ namespace calibr8 {
 //! \details This implements a concrete instance of the LocalResidual
 //! base class for a small strain J2 plasticity model
 template <typename T>
-class J2_small_strain : public LocalResidual<T> {
+class J2SmallStrain : public LocalResidual<T> {
 
   public:
 
-    //! \brief The J2_small_strain constructor
+    //! \brief The J2SmallStrain constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    J2_small_strain(ParameterList const& inputs, int ndims);
+    J2SmallStrain(ParameterList const& inputs, int ndims);
 
-    //! \brief The J2_small_strain destructor
-    ~J2_small_strain();
+    //! \brief The J2SmallStrain destructor
+    ~J2SmallStrain();
 
     //! \brief Initialize the parameters
     void init_params();
