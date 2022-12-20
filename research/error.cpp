@@ -100,6 +100,72 @@ apf::Field* interp_error_to_cells(apf::Field* eta) {
   return error;
 }
 
+class SPR : public Error {
+  public:
+    apf::Field* compute_error(RCP<Physics> physics) override;
+    void destroy_intermediate_fields() override;
+    void write_history(std::string const& file, double J_ex) override;
+  private:
+    apf::Field* m_uH = nullptr;
+    apf::Field* m_uH_value_type = nullptr;
+    apf::Field* m_grad_uH = nullptr;
+    apf::Field* m_grad_uH_star = nullptr;
+  private:
+    std::vector<int> m_ndofs;
+    std::vector<int> m_nelems;
+    std::vector<double> m_J;
+};
+
+static apf::Field* create_value_type_field(
+    RCP<Physics> physics,
+    apf::Field* u) {
+  RCP<Disc> disc = physics->disc();
+  apf::Mesh* mesh = disc->apf_mesh();
+  apf::FieldShape* shape = disc->shape(COARSE);
+  int const neqs = disc->num_eqs();
+  int const ndims = disc->num_dims();
+  int type = 0;
+  if (neqs == 1) type = apf::SCALAR;
+  else if ((neqs == 2) & (ndims == 2)) type = apf::VECTOR;
+  else if ((neqs == 3) & (ndims == 3)) type = apf::VECTOR;
+  else throw std::runtime_error("spr error - can't make field");
+  apf::Field* u_vt = createField(mesh, "uH_vt", type, shape);
+  apf::copyData(u_vt, u);
+  return u_vt;
+}
+
+apf::Field* SPR::compute_error(RCP<Physics> physics) {
+  RCP<Disc> disc = physics->disc();
+  int const order = disc->order(COARSE);
+  m_uH = physics->solve_primal(COARSE);
+  double const J = physics->compute_qoi(COARSE, m_uH);
+  m_uH_value_type = create_value_type_field(physics, m_uH);
+  m_grad_uH = spr::getGradIPField(m_uH_value_type, "grad_uH", order);
+  m_grad_uH_star = spr::recoverField(m_grad_uH);
+  m_J.push_back(J);
+  m_ndofs.push_back(get_ndofs(COARSE, physics));
+  m_nelems.push_back(get_nelems(physics));
+  //TODO: compute the element error given these two terms
+  return m_uH;
+}
+
+void SPR::destroy_intermediate_fields() {
+  apf::destroyField(m_uH);
+  apf::destroyField(m_uH_value_type);
+  apf::destroyField(m_grad_uH);
+  apf::destroyField(m_grad_uH_star);
+  m_uH = nullptr;
+  m_uH_value_type = nullptr;
+  m_grad_uH = nullptr;
+  m_grad_uH_star = nullptr;
+}
+
+void SPR::write_history(std::string const& file, double J_ex) {
+  //TODO: write history here
+  (void)file;
+  (void)J_ex;
+}
+
 enum {SIMPLE, PU};
 
 class R_zh : public Error {
@@ -143,8 +209,6 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
     m_eta = physics->localize_error(m_Rh_uH_h, m_zh);
   } else if (localization == PU) {
     print("using localization: PU");
-    // debug - below doesn't work yet
-    //m_eta = physics->evaluate_PU_residual(FINE, m_uH_h, m_zh);
     m_eta = physics->compute_eta2(m_uH_h, m_zh);
   } else {
     throw std::runtime_error("invalid localization type");
@@ -263,8 +327,6 @@ apf::Field* R_zh_minus_zh_H::compute_error(RCP<Physics> physics) {
     m_eta = physics->localize_error(m_Rh_uH_h, m_zh_minus_zh_H);
   } else if (localization == PU) {
     print("using localization: PU");
-    // debug - below does not work yet
-    //m_eta = physics->evaluate_PU_residual(FINE, m_uH_h, m_zh_minus_zh_H);
     m_eta = physics->compute_eta2(m_uH_h, m_zh_minus_zh_H);
   } else {
     throw std::runtime_error("invalid localization type");
@@ -342,70 +404,85 @@ void R_zh_minus_zh_H::destroy_intermediate_fields() {
   m_eta = nullptr;
 }
 
-class SPR : public Error {
+class R_plus_E_zh : public Error {
   public:
+    R_plus_E_zh(int ltype) : localization(ltype) {}
     apf::Field* compute_error(RCP<Physics> physics) override;
     void destroy_intermediate_fields() override;
     void write_history(std::string const& file, double J_ex) override;
   private:
     apf::Field* m_uH = nullptr;
-    apf::Field* m_uH_value_type = nullptr;
-    apf::Field* m_grad_uH = nullptr;
-    apf::Field* m_grad_uH_star = nullptr;
+    apf::Field* m_uh = nullptr;
+    apf::Field* m_uH_h = nullptr;
+    apf::Field* m_uh_minus_uH_h = nullptr;
+    apf::Field* m_zh = nullptr;
+    apf::Field* m_Rh_uH_h = nullptr;
+    apf::Field* m_Rh_plus_ELh = nullptr;
+    apf::Field* m_ELh = nullptr;
+    apf::Field* m_eta = nullptr;
   private:
-    std::vector<int> m_ndofs;
-    std::vector<int> m_nelems;
-    std::vector<double> m_J;
+    int localization = -1;
 };
 
-static apf::Field* create_value_type_field(
-    RCP<Physics> physics,
-    apf::Field* u) {
-  RCP<Disc> disc = physics->disc();
-  apf::Mesh* mesh = disc->apf_mesh();
-  apf::FieldShape* shape = disc->shape(COARSE);
-  int const neqs = disc->num_eqs();
-  int const ndims = disc->num_dims();
-  int type = 0;
-  if (neqs == 1) type = apf::SCALAR;
-  else if ((neqs == 2) & (ndims == 2)) type = apf::VECTOR;
-  else if ((neqs == 3) & (ndims == 3)) type = apf::VECTOR;
-  else throw std::runtime_error("spr error - can't make field");
-  apf::Field* u_vt = createField(mesh, "uH_vt", type, shape);
-  apf::copyData(u_vt, u);
-  return u_vt;
-}
+apf::Field* R_plus_E_zh::compute_error(RCP<Physics> physics) {
 
-apf::Field* SPR::compute_error(RCP<Physics> physics) {
-  RCP<Disc> disc = physics->disc();
-  int const order = disc->order(COARSE);
+  // solve the adjoint problem
   m_uH = physics->solve_primal(COARSE);
-  double const J = physics->compute_qoi(COARSE, m_uH);
-  m_uH_value_type = create_value_type_field(physics, m_uH);
-  m_grad_uH = spr::getGradIPField(m_uH_value_type, "grad_uH", order);
-  m_grad_uH_star = spr::recoverField(m_grad_uH);
-  m_J.push_back(J);
-  m_ndofs.push_back(get_ndofs(COARSE, physics));
-  m_nelems.push_back(get_nelems(physics));
-  //TODO: compute the element error given these two terms
-  return m_uH;
+  m_uh = physics->solve_primal(FINE);
+  double const JH = physics->compute_qoi(COARSE, m_uH);
+  double const Jh = physics->compute_qoi(FINE, m_uh);
+  m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
+  m_uh_minus_uH_h = physics->subtract_u_coarse_from_u_fine(m_uh, m_uH_h);
+  m_zh = physics->solve_adjoint(FINE, m_uH_h);
+
+  // compute the linearization error
+  double norm_R, norm_E;
+  m_ELh = physics->compute_linearization_error(
+      m_uH_h,
+      m_uh_minus_uH_h,
+      norm_R,
+      norm_E);
+  double const eta_L = physics->compute_eta_L(m_zh, m_ELh);
+
+  // do the error localization
+  if (localization == SIMPLE) {
+    print("using localization: SIMPLE");
+    m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
+    m_Rh_plus_ELh = physics->add_R_fine_to_EL_fine(m_Rh_uH_h, m_ELh);
+    m_eta = physics->localize_error(m_Rh_plus_ELh, m_zh);
+  } else {
+    throw std::runtime_error("invalid localization type");
+  }
+  double const eta = physics->estimate_error(m_eta);
+  double const eta_bound = physics->estimate_error_bound(m_eta);
+
+  return m_ELh;
 }
 
-void SPR::destroy_intermediate_fields() {
-  apf::destroyField(m_uH);
-  apf::destroyField(m_uH_value_type);
-  apf::destroyField(m_grad_uH);
-  apf::destroyField(m_grad_uH_star);
-  m_uH = nullptr;
-  m_uH_value_type = nullptr;
-  m_grad_uH = nullptr;
-  m_grad_uH_star = nullptr;
-}
-
-void SPR::write_history(std::string const& file, double J_ex) {
-  //TODO: write history here
+void R_plus_E_zh::write_history(std::string const& file, double J_ex) {
   (void)file;
   (void)J_ex;
+}
+
+void R_plus_E_zh::destroy_intermediate_fields() {
+  if (m_uH) apf::destroyField(m_uH);
+  if (m_uh) apf::destroyField(m_uh);
+  if (m_uH_h) apf::destroyField(m_uH_h);
+  if (m_uh_minus_uH_h) apf::destroyField(m_uh_minus_uH_h);
+  if (m_zh) apf::destroyField(m_zh);
+  if (m_Rh_uH_h) apf::destroyField(m_Rh_uH_h);
+  if (m_Rh_plus_ELh) apf::destroyField(m_Rh_plus_ELh);
+  if (m_ELh) apf::destroyField(m_ELh); 
+  if (m_eta) apf::destroyField(m_eta);
+  m_uH = nullptr;
+  m_uh = nullptr;
+  m_uH_h = nullptr;
+  m_uh_minus_uH_h = nullptr;
+  m_zh = nullptr;
+  m_Rh_uH_h = nullptr;
+  m_Rh_plus_ELh = nullptr;
+  m_ELh = nullptr;
+  m_eta = nullptr;
 }
 
 RCP<Error> create_error(ParameterList const& params) {
@@ -422,6 +499,8 @@ RCP<Error> create_error(ParameterList const& params) {
     return rcp(new R_zh(ltype));
   } else if (type == "R dot zh minus zh_H") {
     return rcp(new R_zh_minus_zh_H(ltype));
+  } else if (type == "R plus E dot zh") {
+    return rcp(new R_plus_E_zh(ltype));
   } else {
     throw std::runtime_error("invalid error");
   }

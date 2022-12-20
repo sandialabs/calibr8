@@ -53,6 +53,7 @@ apf::Field* project(RCP<Disc> disc, apf::Field* from, std::string const& name) {
   return to;
 }
 
+static double add(double a, double b) { return a+b; }
 static double subtract(double a, double b) { return a-b; }
 static double negate_multiply(double a, double b) { return -a*b; }
 
@@ -416,7 +417,6 @@ static apf::Field* evaluate_PU_residual(
   return f;
 }
 
-#if 0
 static apf::Field* compute_linearization_error(
     RCP<ParameterList> params,
     RCP<Disc> disc,
@@ -441,6 +441,7 @@ static apf::Field* compute_linearization_error(
   dRdU.zero();
   fill_vector(FINE, disc, uH_h, U);
   fill_vector(FINE, disc, uh_minus_uH_h, U_diff);
+  RCP<Weight> W = rcp(new Weight(disc->shape(FINE)));
   assemble_residual(FINE, JACOBIAN, disc, jacobian, U.val[GHOST], W, ghost_sys);
   R.gather(Tpetra::ADD);
   dRdU.gather(Tpetra::ADD);
@@ -472,7 +473,6 @@ static double compute_eta_L(
   print(" > eta_L = %.15e", eta_L);
   return eta_L;
 }
-#endif
 
 Physics::Physics(RCP<ParameterList> params) {
   m_params = params;
@@ -549,11 +549,25 @@ apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* z) {
   return zh_H;
 }
 
+apf::Field* Physics::subtract_u_coarse_from_u_fine(apf::Field* uh, apf::Field* uH) {
+  print("subtracting uH from uh");
+  ASSERT(apf::getShape(uh) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(uH) == m_disc->shape(FINE));
+  return op(subtract, m_disc, uh, uH, "uh_minus_uH");
+}
+
 apf::Field* Physics::subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH) {
   print("subtracting zH from zh");
   ASSERT(apf::getShape(zh) == m_disc->shape(FINE));
   ASSERT(apf::getShape(zH) == m_disc->shape(FINE));
   return op(subtract, m_disc, zh, zH, "zh_minus_zH");
+}
+
+apf::Field* Physics::add_R_fine_to_EL_fine(apf::Field* Rh, apf::Field* ELh) {
+  print("adding ELh to Rh");
+  ASSERT(apf::getShape(Rh) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(ELh) == m_disc->shape(FINE));
+  return op(add, m_disc, Rh, ELh, "Rh_plus_ELh");
 }
 
 apf::Field* Physics::evaluate_residual(int space, apf::Field* u) {
@@ -601,7 +615,6 @@ double Physics::estimate_error_bound(apf::Field* eta) {
   return estimate;
 }
 
-#if 0
 apf::Field* Physics::compute_linearization_error(
     apf::Field* uH_h,
     apf::Field* uh_minus_uH_h,
@@ -627,6 +640,5 @@ double Physics::compute_eta_L(apf::Field* z, apf::Field* E_L) {
   print("computing linearization error estimate");
   return calibr8::compute_eta_L(m_disc, z, E_L);
 }
-#endif
 
 }
