@@ -38,7 +38,12 @@ void LocalResidual<T>::init_variables(
 
   if (set_IC) {
     int const model_form = state->model_form;
-    Array1D<apf::Field*>& xi = state->disc->primal(/*step=*/ 0).local[model_form];
+    Array1D<apf::Field*>* xi;
+    if (disc->type() == VERIFICATION) {
+      xi = &state->disc->primal_fine(/*step=*/ 0).local[model_form];
+    } else {
+      xi = &state->disc->primal(/*step=*/ 0).local[model_form];
+    }
     int const q_order = state->disc->lv_shape()->getOrder();
     apf::MeshEntity* elem = nullptr;
     apf::Mesh* mesh = state->disc->apf_mesh();
@@ -51,7 +56,7 @@ void LocalResidual<T>::init_variables(
       int const npts = apf::countIntPoints(me, q_order);
       for (int pt = 0; pt < npts; ++pt) {
         this->init_variables_impl();
-        this->scatter(pt, xi);
+        this->scatter(pt, *xi);
       }
       this->unset_elem();
       apf::destroyMeshElement(me);

@@ -591,7 +591,7 @@ void Disc::create_primal_fine_model(
     resize(m_primal[step].local[fine_model_form], nlr);
     for (int i = 0; i < nlr; ++i) {
       std::string const name = R->local[base_model_form]->resid_name(i);
-      std::string const fname = "fine_" + name + "_" + std::to_string(step);
+      std::string const fname = "prolonged_" + name + "_" + std::to_string(step);
       int const vtype = get_value_type(R->local[base_model_form]->num_eqs(i), m_num_dims);
       m_primal[step].local[fine_model_form][i] = apf::createField(m_mesh,
           fname.c_str(), vtype, m_lv_shape);

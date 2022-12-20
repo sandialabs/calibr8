@@ -71,15 +71,15 @@ void Driver::prepare_fine_space() {
   m_state->model_form = FINE_MODEL;
   auto disc = m_state->disc;
   auto residuals = m_state->residuals;
-  auto d_residuals = m_state->d_residuals;
-  residuals->local[FINE_MODEL]->init_variables(m_state, false);
-  d_residuals->local[FINE_MODEL]->init_variables(m_state, false);
   int const nsteps = disc->primal().size();
   // prolong local[BASE_MODEL] to local[FINE_MODEL] for primal coarse
   disc->create_primal_fine_model(residuals, nsteps);
   disc->set_disc_type(VERIFICATION);
   disc->create_verification_data(FINE_MODEL);
   m_primal_fine = rcp(new Primal(m_params, m_state, disc));
+  auto d_residuals = m_state->d_residuals;
+  residuals->local[FINE_MODEL]->init_variables(m_state, false);
+  d_residuals->local[FINE_MODEL]->init_variables(m_state);
 }
 
 double Driver::solve_primal_fine() {
