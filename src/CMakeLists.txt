@@ -78,6 +78,10 @@ add_executable(model_form_error main_model_form_error.cpp)
 target_link_libraries(model_form_error PRIVATE calibr8)
 set_code_standards(model_form_error)
 
+add_executable(model_form_exact_error main_exact_model_form_error.cpp)
+target_link_libraries(model_exact_form_error PRIVATE calibr8)
+set_code_standards(model_exact_form_error)
+
 add_executable(perturber perturber.cpp)
 target_link_libraries(perturber PRIVATE calibr8)
 set_code_standards(perturber)
