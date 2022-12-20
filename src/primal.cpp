@@ -52,9 +52,9 @@ void Primal::solve_at_step(int step, double t, double) {
   }
   Array1D<apf::Field*> x = m_disc->primal(step).global;
   if (m_disc->type() == VERIFICATION) {
-    RCP<NestedDisc> nested = Teuchos::rcp_static_cast<NestedDisc>(m_disc);
-    nested->initialize_primal_fine(m_state->residuals, step);
-    x = nested->primal_fine(step).global;
+    int const model_form = m_state->model_form;
+    m_disc->initialize_primal_fine(m_state->residuals, step, model_form);
+    x = m_disc->primal_fine(step).global;
   }
 
   // Newton's method below

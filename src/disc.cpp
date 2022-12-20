@@ -836,4 +836,71 @@ void Disc::populate_vector(
 
 }
 
+void Disc::create_verification_data(int model_form) {
+
+  // gather some data
+  int const nsteps = m_primal.size();
+  int const ngr = m_primal[0].global.size();
+  int const nlr = m_primal[0].local[model_form].size();
+
+  // create the fine fields by copying the prolonged coarse fields
+  for (int step = 0; step < nsteps; ++step) {
+    Fields fields;
+    for (int i = 0; i < ngr; ++i) {
+      std::string name = apf::getName(m_primal[step].global[i]);
+      apf::Field* coarse = m_mesh->findField(name.c_str());
+      name = "fine_" + name;
+      int const vtype = apf::getValueType(coarse);
+      apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_gv_shape);
+      apf::zeroField(fine);
+      fields.global.push_back(fine);
+    }
+    for (int i = 0; i < nlr; ++i) {
+      std::string name = apf::getName(m_primal[step].local[model_form][i]);
+      apf::Field* coarse = m_mesh->findField(name.c_str());
+      name = "fine_" + name;
+      int const vtype = apf::getValueType(coarse);
+      apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_lv_shape);
+      apf::zeroField(fine);
+      if (name == "fine_Ie_0") {
+        apf::MeshEntity* elem;
+        apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
+        while ((elem = m_mesh->iterate(elems))) {
+          apf::setScalar(fine, elem, 0, 1.);
+        }
+        m_mesh->end(elems);
+      }
+      fields.local[model_form].push_back(fine);
+    }
+    m_primal_fine.push_back(fields);
+  }
+
+  // create the branch paths
+  m_branch_paths.resize(nsteps);
+  for (int step = 0; step < nsteps; ++step) {
+    m_branch_paths[step].resize(m_num_elem_sets);
+    for (int set = 0; set < m_num_elem_sets; ++set) {
+      std::string const es_name = elem_set_name(set);
+      int const nelems = elems(es_name).size();
+      m_branch_paths[step][set].resize(nelems);
+    }
+  }
+
+}
+
+void Disc::initialize_primal_fine(
+    RCP<Residuals<double>> R,
+    int step,
+    int model_form) {
+  int const ngr = R->global->num_residuals();
+  int const nlr = R->local[model_form]->num_residuals();
+  for (int i = 0; i < ngr; ++i) {
+    apf::copyData(m_primal_fine[step].global[i], m_primal_fine[step - 1].global[i]);
+  }
+  for (int i = 0; i < nlr; ++i) {
+    apf::copyData(m_primal_fine[step].local[model_form][i],
+        m_primal_fine[step - 1].local[model_form][i]);
+  }
+}
+
 }

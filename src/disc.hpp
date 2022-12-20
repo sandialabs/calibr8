@@ -300,6 +300,31 @@ class Disc {
         Array1D<std::string> const& val_expressions,
         apf::Node const& node);
 
+    //! \brief Create the data needed for verification
+    //! \details create the fine primal fields and the branch flags
+    //! \param model_form Local residual type
+    void create_verification_data(int model_form=BASE_MODEL);
+
+    //! \brief Set the primal fine fields to the values at the previous step
+    //! \param R The global/local residuals defining the problem
+    //! \param step The current load/time step
+    //! \param model_form Local residual type
+    void initialize_primal_fine(
+        RCP<Residuals<double>> R,
+        int step,
+        int model_form);
+
+    //! \brief Get the fine primal fields
+    //! \details For VERIFICATION discretizations
+    Array1D<Fields>& primal_fine() { return m_primal_fine; }
+
+    //! \brief Get the fine primal fields at a step
+    //! \details For VERIFICATION discretizations
+    Fields& primal_fine(int step) { return m_primal_fine[step]; }
+
+    //! \brief Get the branch paths
+    Array3D<bool>& branch_paths() { return m_branch_paths; }
+
   protected:
 
     int m_num_dims = -1;
@@ -366,6 +391,8 @@ class Disc {
     void compute_ghost_graph(int i, int j);
     void compute_owned_graph(int i, int j);
 
+    Array1D<Fields> m_primal_fine;
+    Array3D<bool> m_branch_paths; /* [load step, elem_set, elem] */
 
 };
 

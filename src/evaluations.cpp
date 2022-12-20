@@ -4,7 +4,6 @@
 #include "global_residual.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
-#include "nested.hpp"
 #include "qoi.hpp"
 #include "state.hpp"
 
@@ -124,15 +123,12 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // modify the fields if we are doing a verification
-  RCP<NestedDisc> nested;
   bool const is_verification = (disc->type() == VERIFICATION);
   if (is_verification) {
-    nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
-    ALWAYS_ASSERT(nested != Teuchos::null);
-    x = nested->primal_fine(step).global;
-    xi = nested->primal_fine(step).local[model_form];
-    x_prev = nested->primal_fine(step - 1).global;
-    xi_prev = nested->primal_fine(step - 1).local[model_form];
+    x = disc->primal_fine(step).global;
+    xi = disc->primal_fine(step).local[model_form];
+    x_prev = disc->primal_fine(step - 1).global;
+    xi_prev = disc->primal_fine(step - 1).local[model_form];
   }
 
   // perform initializations of the residual objects
@@ -192,7 +188,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
             nderivs = local->seed_wrt_xi();
             int path = local->solve_nonlinear(global);
             if (is_verification) {
-              nested->branch_paths()[step][es][elem] = path;
+              disc->branch_paths()[step][es][elem] = path;
             }
             local->scatter(pt, xi);
             EMatrix const dC_dxi = local->eigen_jacobian(nderivs);
@@ -265,14 +261,11 @@ void preprocess_qoi(RCP<QoI<T>> qoi,
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
-  RCP<NestedDisc> nested;
   if (disc->type() == VERIFICATION) {
-    nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
-    ALWAYS_ASSERT(nested != Teuchos::null);
-    x = nested->primal_fine(step).global;
-    xi = nested->primal_fine(step).local[model_form];
-    x_prev = nested->primal_fine(step - 1).global;
-    xi_prev = nested->primal_fine(step - 1).local[model_form];
+    x = disc->primal_fine(step).global;
+    xi = disc->primal_fine(step).local[model_form];
+    x_prev = disc->primal_fine(step - 1).global;
+    xi_prev = disc->primal_fine(step - 1).local[model_form];
   }
 
   // perform initializations of the residual objects
@@ -363,12 +356,9 @@ void eval_adjoint_jacobian(
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // determine if we are doing verification
-  RCP<NestedDisc> nested;
   bool force_path = false;
   int path = 0;
   if (disc->type() == VERIFICATION) {
-    nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
-    ALWAYS_ASSERT(nested != Teuchos::null);
     force_path = true;
   }
 
@@ -403,7 +393,7 @@ void eval_adjoint_jacobian(
 
       // grab the forced path if required
       if (force_path) {
-        path = nested->branch_paths()[step][es][elem];
+        path = disc->branch_paths()[step][es][elem];
       }
 
       // loop over domain ip sets
@@ -539,12 +529,9 @@ void solve_adjoint_local(
   Array1D<apf::Field*> phi = disc->adjoint(step).local[model_form];
 
   // determine if we are doing verification
-  RCP<NestedDisc> nested;
   bool force_path = false;
   int path = 0;
   if (disc->type() == VERIFICATION) {
-    nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
-    ALWAYS_ASSERT(nested != Teuchos::null);
     force_path = true;
   }
 
@@ -577,7 +564,7 @@ void solve_adjoint_local(
 
       // grab the forced path if required
       if (force_path) {
-        path = nested->branch_paths()[step][es][elem];
+        path = disc->branch_paths()[step][es][elem];
       }
 
       // grab the adjoint nodal solution at the element
@@ -664,14 +651,11 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
-  RCP<NestedDisc> nested;
   if (disc->type() == VERIFICATION) {
-    nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
-    ALWAYS_ASSERT(nested != Teuchos::null);
-    x = nested->primal_fine(step).global;
-    xi = nested->primal_fine(step).local[model_form];
-    x_prev = nested->primal_fine(step - 1).global;
-    xi_prev = nested->primal_fine(step - 1).local[model_form];
+    x = disc->primal_fine(step).global;
+    xi = disc->primal_fine(step).local[model_form];
+    x_prev = disc->primal_fine(step - 1).global;
+    xi_prev = disc->primal_fine(step - 1).local[model_form];
   }
 
   // perform initializations of the residual objects
@@ -901,12 +885,9 @@ void eval_error_contributions(
   Array1D<apf::Field*> phi = disc->adjoint(step).local[model_form];
 
   // determine if we are doing verification
-  RCP<NestedDisc> nested;
   bool force_path = false;
   int path = 0;
   if (disc->type() == VERIFICATION) {
-    nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
-    ALWAYS_ASSERT(nested != Teuchos::null);
     force_path = true;
   }
 
@@ -940,7 +921,7 @@ void eval_error_contributions(
 
       // grab the forced path if required
       if (force_path) {
-        path = nested->branch_paths()[step][es][elem];
+        path = disc->branch_paths()[step][es][elem];
       }
 
       // loop over domain ip sets
@@ -1029,7 +1010,6 @@ void eval_linearization_errors(
 
   // we must be a verification mesh to do this evaluation
   ALWAYS_ASSERT(disc->type() == VERIFICATION);
-  RCP<NestedDisc> nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
   bool force_path = true;
 
   // gather the residuals from the state object
@@ -1047,10 +1027,10 @@ void eval_linearization_errors(
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // gather the enriched forward state variables
-  Array1D<apf::Field*> x_fine = nested->primal_fine(step).global;
-  Array1D<apf::Field*> xi_fine = nested->primal_fine(step).local[model_form];
-  Array1D<apf::Field*> x_prev_fine = nested->primal_fine(step - 1).global;
-  Array1D<apf::Field*> xi_prev_fine = nested->primal_fine(step - 1).local[model_form];
+  Array1D<apf::Field*> x_fine = disc->primal_fine(step).global;
+  Array1D<apf::Field*> xi_fine = disc->primal_fine(step).local[model_form];
+  Array1D<apf::Field*> x_prev_fine = disc->primal_fine(step - 1).global;
+  Array1D<apf::Field*> xi_prev_fine = disc->primal_fine(step - 1).local[model_form];
 
   // gather the enriched adjoint state variables
   Array1D<apf::Field*> z = disc->adjoint(step).global;
@@ -1093,7 +1073,7 @@ void eval_linearization_errors(
       EVector ELR_e = EVector::Zero(x_diff.size());
 
       // grab the forced path
-      int const path = nested->branch_paths()[step][es][elem];
+      int const path = disc->branch_paths()[step][es][elem];
 
       // loop over domain ip sets
       // ip_set = 0 -> coupled
@@ -1222,7 +1202,6 @@ void eval_exact_errors(
 
   // we must be a verification mesh to do this evaluation
   ALWAYS_ASSERT(disc->type() == VERIFICATION);
-  RCP<NestedDisc> nested = Teuchos::rcp_static_cast<NestedDisc>(disc);
   bool force_path = true;
 
   // gather the residuals from the state object
@@ -1240,10 +1219,10 @@ void eval_exact_errors(
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
 
   // gather the enriched forward state variables
-  Array1D<apf::Field*> x_fine = nested->primal_fine(step).global;
-  Array1D<apf::Field*> xi_fine = nested->primal_fine(step).local[model_form];
-  Array1D<apf::Field*> x_prev_fine = nested->primal_fine(step - 1).global;
-  Array1D<apf::Field*> xi_prev_fine = nested->primal_fine(step - 1).local[model_form];
+  Array1D<apf::Field*> x_fine = disc->primal_fine(step).global;
+  Array1D<apf::Field*> xi_fine = disc->primal_fine(step).local[model_form];
+  Array1D<apf::Field*> x_prev_fine = disc->primal_fine(step - 1).global;
+  Array1D<apf::Field*> xi_prev_fine = disc->primal_fine(step - 1).local[model_form];
 
   // gather the enriched adjoint state variables
   Array1D<apf::Field*> z = disc->adjoint(step).global;
@@ -1283,7 +1262,7 @@ void eval_exact_errors(
           global->gather_difference(x_prev_fine, x_prev);
 
       // grab the forced path
-      int const path = nested->branch_paths()[step][es][elem];
+      int const path = disc->branch_paths()[step][es][elem];
 
       // loop over domain ip sets
       // ip_set = 0 -> coupled
