@@ -65,21 +65,22 @@ double Driver::solve_primal() {
 
 void Driver::prepare_fine_space() {
   print("PREPARING FINE MODEL\n");
+  m_state->model_form = FINE_MODEL;
   auto disc = m_state->disc;
-  int const nsteps = disc->primal().size();
   auto residuals = m_state->residuals;
+  auto d_residuals = m_state->d_residuals;
+  residuals->local[FINE_MODEL]->init_variables(m_state, false);
+  d_residuals->local[FINE_MODEL]->init_variables(m_state, false);
+  int const nsteps = disc->primal().size();
+  // prolong local[BASE_MODEL] to local[FINE_MODEL]
   disc->create_primal_fine_model(residuals, nsteps);
 }
 
 void Driver::solve_adjoint() {
-  m_state->model_form = FINE_MODEL;
   auto disc = m_state->disc;
   m_adjoint = rcp(new Adjoint(m_params, m_state, disc));
   int const nsteps = disc->primal().size() - 1;
   auto residuals = m_state->residuals;
-  auto d_residuals = m_state->d_residuals;
-  residuals->local[FINE_MODEL]->init_variables(m_state);
-  d_residuals->local[FINE_MODEL]->init_variables(m_state);
   disc->create_adjoint(residuals, nsteps, FINE_MODEL);
   for (int step = nsteps; step > 0; --step) {
     m_adjoint->solve_at_step(step);

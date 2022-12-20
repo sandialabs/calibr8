@@ -25,16 +25,18 @@ class Driver {
     Driver(std::string const& input_file);
     void drive();
   private:
-    double solve_primal();
+    double solve_primal_coarse();
     void prepare_fine_space();
-    void solve_adjoint();
+    double solve_primal_fine();
+    void solve_adjoint_fine();
     void compute_local_errors();
     double sum_local_errors();
   private:
     int m_ncycles = 1;
     RCP<ParameterList> m_params;
     RCP<State> m_state;
-    RCP<Primal> m_primal;
+    RCP<Primal> m_primal_coarse;
+    RCP<Primal> m_primal_fine;
     RCP<Adjoint> m_adjoint;
 };
 
@@ -43,11 +45,12 @@ Driver::Driver(std::string const& input_file) {
   m_params = rcp(new ParameterList);
   Teuchos::updateParametersFromYamlFile(input_file, m_params.ptr());
   m_state = rcp(new State(*m_params));
-  m_primal = rcp(new Primal(m_params, m_state, m_state->disc));
+  m_primal_coarse = rcp(new Primal(m_params, m_state, m_state->disc));
   ALWAYS_ASSERT(m_state->qoi != Teuchos::null);
 }
 
-double Driver::solve_primal() {
+double Driver::solve_primal_coarse() {
+  print("SOLVING PRIMAL COARSE");
   ParameterList problem_params = m_params->sublist("problem", true);
   int const nsteps = problem_params.get<int>("num steps");
   double const dt = problem_params.get<double>("step size");
@@ -55,7 +58,7 @@ double Driver::solve_primal() {
   double J = 0;
   for (int step = 1; step <= nsteps; ++step) {
     t += dt;
-    m_primal->solve_at_step(step, t, dt);
+    m_primal_coarse->solve_at_step(step, t, dt);
     J += eval_qoi(m_state, m_state->disc, step);
   }
   J = PCU_Add_Double(J);
@@ -65,21 +68,43 @@ double Driver::solve_primal() {
 
 void Driver::prepare_fine_space() {
   print("PREPARING FINE MODEL\n");
+  m_state->model_form = FINE_MODEL;
   auto disc = m_state->disc;
-  int const nsteps = disc->primal().size();
   auto residuals = m_state->residuals;
+  auto d_residuals = m_state->d_residuals;
+  residuals->local[FINE_MODEL]->init_variables(m_state, false);
+  d_residuals->local[FINE_MODEL]->init_variables(m_state, false);
+  int const nsteps = disc->primal().size();
+  // prolong local[BASE_MODEL] to local[FINE_MODEL] for primal coarse
   disc->create_primal_fine_model(residuals, nsteps);
+  disc->set_disc_type(VERIFICATION);
+  disc->create_verification_data(FINE_MODEL);
+  m_primal_fine = rcp(new Primal(m_params, m_state, disc));
 }
 
-void Driver::solve_adjoint() {
-  m_state->model_form = FINE_MODEL;
+double Driver::solve_primal_fine() {
+  print("SOLVING PRIMAL FINE");
+  auto disc = m_state->disc;
+  ParameterList problem_params = m_params->sublist("problem", true);
+  int const nsteps = problem_params.get<int>("num steps");
+  double const dt = problem_params.get<double>("step size");
+  double t = 0;
+  double J = 0.;
+  for (int step = 1; step <= nsteps; ++step) {
+    t += dt;
+    m_primal_fine->solve_at_step(step, t, dt);
+    J += eval_qoi(m_state, disc, step);
+  }
+  J = PCU_Add_Double(J);
+  print("J^h: %.16e\n", J);
+  return J;
+}
+
+void Driver::solve_adjoint_fine() {
   auto disc = m_state->disc;
   m_adjoint = rcp(new Adjoint(m_params, m_state, disc));
   int const nsteps = disc->primal().size() - 1;
   auto residuals = m_state->residuals;
-  auto d_residuals = m_state->d_residuals;
-  residuals->local[FINE_MODEL]->init_variables(m_state);
-  d_residuals->local[FINE_MODEL]->init_variables(m_state);
   disc->create_adjoint(residuals, nsteps, FINE_MODEL);
   for (int step = nsteps; step > 0; --step) {
     m_adjoint->solve_at_step(step);
@@ -98,7 +123,7 @@ void Driver::compute_local_errors() {
   int const nsteps = disc->primal().size();
   for (int step = 1; step < nsteps; ++step) {
     Array1D<apf::Field*> zfields = disc->adjoint(step).global;
-    eval_error_contributions(m_state, disc, R_error, C_error, step);
+    eval_exact_errors(m_state, disc, R_error, C_error, step);
   }
 }
 
@@ -127,9 +152,10 @@ double Driver::sum_local_errors() {
 }
 
 void Driver::drive() {
-  double const J = solve_primal();
+  double const J_H = solve_primal_coarse();
   prepare_fine_space();
-  solve_adjoint();
+  double const J_h = solve_primal_fine();
+  solve_adjoint_fine();
   compute_local_errors();
   double const eta = sum_local_errors();
 }

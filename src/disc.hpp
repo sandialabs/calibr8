@@ -325,6 +325,10 @@ class Disc {
     //! \brief Get the branch paths
     Array3D<bool>& branch_paths() { return m_branch_paths; }
 
+    //! \brief Set the discretization type
+    //! \details Change the discretization type after construction
+    void set_disc_type(int type) { m_disc_type = type; }
+
   protected:
 
     int m_num_dims = -1;

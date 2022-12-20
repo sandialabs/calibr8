@@ -55,7 +55,8 @@ class LocalResidual {
     //! \brief Initialize the local state variables to correct values
     //! \details This will call init_variables at the integration point level
     //! \param state The application state object
-    void init_variables(RCP<State> state);
+    //! \param set_IC Set the initial condition
+    void init_variables(RCP<State> state, bool set_IC=true);
 
     //! \brief Initialize material parameters
     virtual void init_params() = 0;

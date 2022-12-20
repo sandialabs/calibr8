@@ -25,7 +25,9 @@ LocalResidual<T>::~LocalResidual() {
 }
 
 template <typename T>
-void LocalResidual<T>::init_variables(RCP<State> state) {
+void LocalResidual<T>::init_variables(
+    RCP<State> state,
+    bool set_IC) {
   RCP<Disc> disc = state->disc;
   int const num_elem_sets = disc->num_elem_sets();
   m_elem_set_names.resize(num_elem_sets);
@@ -34,26 +36,28 @@ void LocalResidual<T>::init_variables(RCP<State> state) {
   }
   this->init_params();
 
-  int const model_form = state->model_form;
-  Array1D<apf::Field*>& xi = state->disc->primal(/*step=*/ 0).local[model_form];
-  int const q_order = state->disc->lv_shape()->getOrder();
-  apf::MeshEntity* elem = nullptr;
-  apf::Mesh* mesh = state->disc->apf_mesh();
-  apf::MeshIterator* elems = mesh->begin(disc->num_dims());
-  int const dummy_es = 0;
-  this->before_elems(dummy_es, disc);
-  while ((elem = mesh->iterate(elems))) {
-    apf::MeshElement* me = apf::createMeshElement(mesh, elem);
-    this->set_elem(me);
-    int const npts = apf::countIntPoints(me, q_order);
-    for (int pt = 0; pt < npts; ++pt) {
-      this->init_variables_impl();
-      this->scatter(pt, xi);
+  if (set_IC) {
+    int const model_form = state->model_form;
+    Array1D<apf::Field*>& xi = state->disc->primal(/*step=*/ 0).local[model_form];
+    int const q_order = state->disc->lv_shape()->getOrder();
+    apf::MeshEntity* elem = nullptr;
+    apf::Mesh* mesh = state->disc->apf_mesh();
+    apf::MeshIterator* elems = mesh->begin(disc->num_dims());
+    int const dummy_es = 0;
+    this->before_elems(dummy_es, disc);
+    while ((elem = mesh->iterate(elems))) {
+      apf::MeshElement* me = apf::createMeshElement(mesh, elem);
+      this->set_elem(me);
+      int const npts = apf::countIntPoints(me, q_order);
+      for (int pt = 0; pt < npts; ++pt) {
+        this->init_variables_impl();
+        this->scatter(pt, xi);
+      }
+      this->unset_elem();
+      apf::destroyMeshElement(me);
     }
-    this->unset_elem();
-    apf::destroyMeshElement(me);
+    mesh->end(elems);
   }
-  mesh->end(elems);
 
 }
 
