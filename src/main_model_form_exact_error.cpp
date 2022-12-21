@@ -76,7 +76,6 @@ void Driver::prepare_fine_space() {
   disc->create_primal_fine_model(residuals, nsteps);
   disc->set_disc_type(VERIFICATION);
   disc->create_verification_data(FINE_MODEL);
-  m_primal_fine = rcp(new Primal(m_params, m_state, disc));
   auto d_residuals = m_state->d_residuals;
   residuals->local[FINE_MODEL]->init_variables(m_state, false);
   d_residuals->local[FINE_MODEL]->init_variables(m_state);
@@ -85,6 +84,7 @@ void Driver::prepare_fine_space() {
 double Driver::solve_primal_fine() {
   print("SOLVING PRIMAL FINE");
   auto disc = m_state->disc;
+  m_primal_fine = rcp(new Primal(m_params, m_state, disc));
   ParameterList problem_params = m_params->sublist("problem", true);
   int const nsteps = problem_params.get<int>("num steps");
   double const dt = problem_params.get<double>("step size");
