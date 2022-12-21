@@ -26,7 +26,7 @@ class QoI {
         RCP<Disc> disc) = 0;
     void scatter(RCP<Disc> disc, System* sys);
     void out_elem();
-    virtual void post(RCP<Disc> disc, System* sys) {}
+    virtual void post(int space, RCP<Disc> disc, RCP<VectorT> U, System* sys) {}
     double value();
   protected:
     int m_neqs = -1;

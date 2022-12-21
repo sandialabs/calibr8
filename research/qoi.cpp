@@ -1,3 +1,4 @@
+#include "point_val.hpp"
 #include "qoi.hpp"
 #include "residual.hpp"
 #include "sol_avg.hpp"
@@ -74,6 +75,8 @@ RCP<QoI<T>> create_QoI(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
   if (type == "solution average") {
     return rcp(new SolAvg<T>(params));
+  } else if (type == "point val" ) {
+    return rcp(new PointVal<T>(params));
   } else if (type == "von mises") {
     return rcp(new VMStress<T>(params));
   }else {

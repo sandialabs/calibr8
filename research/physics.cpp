@@ -195,7 +195,7 @@ void assemble_qoi(
       qoi->out_elem();
     }
   }
-  qoi->post(disc, sys);
+  qoi->post(space, disc, U, sys);
   r->set_space(-1, disc);
   qoi->set_space(-1, disc);
 }
