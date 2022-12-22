@@ -28,6 +28,7 @@ class Physics {
     apf::Field* localize_error(apf::Field* R, apf::Field* z);
     double estimate_error(apf::Field* eta);
     double estimate_error_bound(apf::Field* eta);
+    double estimate_error2(apf::Field* R, apf::Field* Z);
     apf::Field* compute_linearization_error(
         apf::Field* uH_h,
         apf::Field* uh_minus_uH_h,

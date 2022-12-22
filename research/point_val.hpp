@@ -29,7 +29,6 @@ class PointVal : public QoI<T> {
         double,
         RCP<Residual<T>>,
         RCP<Disc> disc) override {
-      this->m_elem_value = 0.;
     }
 
     void post(int space, RCP<Disc> disc, RCP<VectorT> U, System* sys) override {

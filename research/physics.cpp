@@ -608,6 +608,20 @@ double Physics::estimate_error(apf::Field* eta) {
   return estimate;
 }
 
+double Physics::estimate_error2(apf::Field* R, apf::Field* Z) {
+  print("estimating error 2nd way");
+  ASSERT(apf::getShape(R) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(Z) == m_disc->shape(FINE));
+  Vector R_vec(FINE, m_disc);
+  Vector Z_vec(FINE, m_disc);
+  R_vec.zero();
+  Z_vec.zero();
+  fill_vector(FINE, m_disc, R, R_vec);
+  fill_vector(FINE, m_disc, Z, Z_vec);
+  double const eta = -(Z_vec.val[OWNED])->dot(*R_vec.val[OWNED]);
+  return eta;
+}
+
 double Physics::estimate_error_bound(apf::Field* eta) {
   print("estimating error bound");
   double const estimate = op(sum_into, abs_sum_into, m_disc, eta);

@@ -30,13 +30,25 @@ void QoI<T>::set_space(int space, RCP<Disc> disc) {
 }
 
 template <typename T>
+void strip_derivs(T& val);
+
+template <> void strip_derivs(double&) {}
+
+template <> void strip_derivs(FADT& val) {
+  for (int i = 0; i < nmax_derivs; ++i) {
+    val.fastAccessDx(i) = 0.;
+  }
+}
+
+template <typename T>
 void QoI<T>::in_elem(
     apf::MeshElement* me,
     RCP<Residual<T>> residual,
     RCP<Disc> disc) {
   m_mesh_elem = me;
   apf::MeshEntity* ent = apf::getMeshEntity(me);
-  m_elem_value = 0.;
+  m_elem_value = T(0.);
+  strip_derivs(m_elem_value);
   m_neqs = residual->num_eqs();
 }
 

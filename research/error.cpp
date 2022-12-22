@@ -201,11 +201,11 @@ apf::Field* R_zh::compute_error(RCP<Physics> physics) {
   double const Jh = physics->compute_qoi(FINE, m_uh);
   m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
   m_zh = physics->solve_adjoint(FINE, m_uH_h);
+  m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
 
   // do the error localization
   if (localization == SIMPLE) {
     print("using localization: SIMPLE");
-    m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
     m_eta = physics->localize_error(m_Rh_uH_h, m_zh);
   } else if (localization == PU) {
     print("using localization: PU");
@@ -422,6 +422,14 @@ class R_plus_E_zh : public Error {
     apf::Field* m_eta = nullptr;
   private:
     int localization = -1;
+    std::vector<int> m_nelems;
+    std::vector<int> m_H_dofs;
+    std::vector<int> m_h_dofs;
+    std::vector<double> m_eta_L;
+    std::vector<double> m_JH;
+    std::vector<double> m_Jh;
+    std::vector<double> m_estimate;
+    std::vector<double> m_estimate_bound;
 };
 
 apf::Field* R_plus_E_zh::compute_error(RCP<Physics> physics) {
@@ -456,12 +464,59 @@ apf::Field* R_plus_E_zh::compute_error(RCP<Physics> physics) {
   double const eta = physics->estimate_error(m_eta);
   double const eta_bound = physics->estimate_error_bound(m_eta);
 
-  return m_ELh;
+  // collect the data
+  m_nelems.push_back(get_nelems(physics));
+  m_H_dofs.push_back(get_ndofs(COARSE, physics));
+  m_h_dofs.push_back(get_ndofs(FINE, physics));
+  m_JH.push_back(JH);
+  m_Jh.push_back(Jh);
+  m_estimate.push_back(eta);
+  m_eta_L.push_back(eta_L);
+  m_estimate_bound.push_back(eta_bound);
+
+  // return the error interpolated to cells
+  return interp_error_to_cells(m_eta);
 }
 
 void R_plus_E_zh::write_history(std::string const& file, double J_ex) {
-  (void)file;
-  (void)J_ex;
+
+  std::stringstream stream;
+  stream << std::scientific << std::setprecision(16);
+  stream << "elems H_dofs h_dofs JH Jh eta_L eta_1 eta eta_bound Eh Ih Iboundh ";
+  if (J_ex != 0.0) {
+    stream << " E I Ibound";
+  }
+  stream << "\n";
+  for (size_t ctr = 0; ctr < m_nelems.size(); ++ctr) {
+    double const Eh = m_Jh[ctr] - m_JH[ctr];
+    double const Ih = m_estimate[ctr] / Eh;
+    double const eta_1 = m_estimate[ctr] - m_eta_L[ctr];
+    double const Iboundh = m_estimate_bound[ctr] / Eh;
+    stream
+      << m_nelems[ctr] << " "
+      << m_H_dofs[ctr] << " "
+      << m_h_dofs[ctr] << " "
+      << m_JH[ctr] << " "
+      << m_Jh[ctr] << " "
+      << m_eta_L[ctr] << " "
+      << eta_1 << " "
+      << m_estimate[ctr] << " "
+      << m_estimate_bound[ctr] << " "
+      << Eh << " "
+      << Ih << " "
+      << Iboundh << " ";
+    if (J_ex != 0.0) {
+      double const E = J_ex - m_JH[ctr];
+      double const I = m_estimate[ctr] / E;
+      double const Ibound = m_estimate_bound[ctr] / E;
+      stream
+        << E << " "
+        << I << " "
+        << Ibound << " ";
+    }
+    stream << "\n";
+  }
+  write_stream(file + "/error.dat", stream);
 }
 
 void R_plus_E_zh::destroy_intermediate_fields() {
