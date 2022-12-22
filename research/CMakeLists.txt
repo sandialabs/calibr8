@@ -9,6 +9,7 @@ set(RESEARCH_SOURCES
   residual.cpp
   physics.cpp
   qoi.cpp
+  spr.cpp
   weight.cpp
   research.cpp
 )
