@@ -7,7 +7,14 @@
 
 namespace calibr8 {
 
-class Test : public Adapt {
+class Target : public Adapt {
+  void adapt(
+      ParameterList const& params,
+      RCP<Physics> physics,
+      apf::Field* error);
+};
+
+class Uniform : public Adapt {
   void adapt(
       ParameterList const& params,
       RCP<Physics> physics,
@@ -153,21 +160,17 @@ apf::Field* get_iso_target_size(
   return s.vtx_size;
 }
 
-void Test::adapt(
+void Target::adapt(
     ParameterList const& params,
     RCP<Physics> physics,
     apf::Field* error) {
-  print("adapting mesh");
+  print("adapting mesh with target size field");
   physics->disc()->change_shape(COARSE);
   apf::Mesh2* mesh = physics->disc()->apf_mesh();
-
   static int ctr = 1;
   apf::Field* size_field = get_iso_target_size(error, std::pow(2, ctr)*500);
   ctr++;
-
   auto in = ma::makeAdvanced(ma::configure(mesh, size_field));
-
-  // these are the configure_ma stuff
   in->maximumIterations = 3;
   in->shouldCoarsen = false;
   in->shouldFixShape = false;
@@ -175,17 +178,28 @@ void Test::adapt(
   in->shouldRunPreParma = true;
   in->shouldRunMidParma = true;
   in->shouldRunPostParma = true;
-//  configure_ma(in, adapt_params);
-
   ma::adapt(in);
   apf::destroyField(size_field);
+}
 
+void Uniform::adapt(
+    ParameterList const& parmas,
+    RCP<Physics> physics,
+    apf::Field* error) {
+  print("adapting mesh with uniform size field");
+  apf::destroyField(error);
+  physics->disc()->change_shape(COARSE);
+  apf::Mesh2* mesh = physics->disc()->apf_mesh();
+  auto in = ma::configureUniformRefine(mesh, 1);
+  ma::adapt(in);
 }
 
 RCP<Adapt> create_adapt(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
-  if (type == "test") {
-    return rcp(new Test);
+  if (type == "target") {
+    return rcp(new Target);
+  } else if (type == "uniform") {
+    return rcp(new Uniform);
   } else {
     throw std::runtime_error("invalid adapt");
   }
