@@ -4,6 +4,7 @@
 #include "control.hpp"
 #include "error.hpp"
 #include "physics.hpp"
+#include "cspr.hpp"
 
 namespace calibr8 {
 
@@ -479,7 +480,6 @@ apf::Field* R_plus_E_zh::compute_error(RCP<Physics> physics) {
 }
 
 void R_plus_E_zh::write_history(std::string const& file, double J_ex) {
-
   std::stringstream stream;
   stream << std::scientific << std::setprecision(16);
   stream << "elems H_dofs h_dofs JH Jh eta_L eta_1 eta eta_bound Eh Ih Iboundh ";
@@ -540,6 +540,114 @@ void R_plus_E_zh::destroy_intermediate_fields() {
   m_eta = nullptr;
 }
 
+class R_spr_zh : public Error {
+  public:
+    R_spr_zh(int ltype) : localization(ltype) {}
+    apf::Field* compute_error(RCP<Physics> physics) override;
+    void destroy_intermediate_fields() override;
+    void write_history(std::string const& file, double J_ex) override;
+  private:
+    apf::Field* m_uH = nullptr;
+    apf::Field* m_uh = nullptr;
+    apf::Field* m_uH_h = nullptr;
+    apf::Field* m_zH = nullptr;
+    apf::Field* m_zh = nullptr;
+    apf::Field* m_zH_ips = nullptr;
+    apf::Field* m_Rh_uH_h = nullptr;
+    apf::Field* m_eta = nullptr;
+  private:
+    int localization = -1;
+    std::vector<int> m_nelems;
+    std::vector<int> m_H_dofs;
+    std::vector<int> m_h_dofs;
+    std::vector<double> m_JH;
+    std::vector<double> m_Jh;
+    std::vector<double> m_estimate;
+    std::vector<double> m_estimate_bound;
+};
+
+// Tom cares about this 
+// this might be 'more accurate' for purposes of localization
+//  m_zh = physics->solve_adjoint(FINE, m_uH_h);
+//  apf::Field* m_zH_h = physics->prolong_z_coarse_onto_fine(m_zH);
+//  apf::Field* diff = physics->subtract_z_coarse_from_z_fine(m_zh, m_zH_h);
+//  m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
+
+apf::Field* R_spr_zh::compute_error(RCP<Physics> physics) {
+
+  // solve the adjoint problem
+  m_uH = physics->solve_primal(COARSE);
+  m_uh = physics->solve_primal(FINE);
+  double const JH = physics->compute_qoi(COARSE, m_uH);
+  double const Jh = physics->compute_qoi(FINE, m_uh);
+  m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
+  m_zH = physics->solve_adjoint(COARSE, m_uH);
+
+  // spr the field
+  m_zH_ips = physics->interpolate_to_ips(m_zH);
+  print("spr'ing the adjoint field");
+  physics->disc()->change_shape(FINE);
+  m_zh = spr_recovery(m_zH_ips);
+  apf::renameField(m_zh, "spr_zh");
+
+  m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
+  double const eta2 = physics->estimate_error2(m_Rh_uH_h, m_zh);
+
+  double const E = Jh-JH;
+  double const Ih = eta2/E;
+  print("Ih: %.15e", Ih);
+
+#if 0
+  // do the error localization
+  if (localization == SIMPLE) {
+    print("using localization: SIMPLE");
+    m_eta = physics->localize_error(m_Rh_uH_h, m_zh);
+  } else if (localization == PU) {
+    print("using localization: PU");
+    m_eta = physics->compute_eta2(m_uH_h, m_zh);
+  } else {
+    throw std::runtime_error("invalid localization type");
+  }
+  double const eta = physics->estimate_error(m_eta);
+  double const eta_bound = physics->estimate_error_bound(m_eta);
+
+  // collect the data
+  m_nelems.push_back(get_nelems(physics));
+  m_H_dofs.push_back(get_ndofs(COARSE, physics));
+  m_h_dofs.push_back(get_ndofs(FINE, physics));
+  m_JH.push_back(JH);
+  m_Jh.push_back(Jh);
+  m_estimate.push_back(eta);
+  m_estimate_bound.push_back(eta_bound);
+
+  // return the localized error
+  return interp_error_to_cells(m_eta);
+#endif
+
+  return 0;
+
+}
+
+void R_spr_zh::write_history(std::string const& file, double J_ex) {
+}
+
+void R_spr_zh::destroy_intermediate_fields() {
+  if (m_uH) apf::destroyField(m_uH);
+  if (m_uh) apf::destroyField(m_uh);
+  if (m_uH_h) apf::destroyField(m_uH_h);
+  if (m_zH) apf::destroyField(m_zH);
+  if (m_zh) apf::destroyField(m_zh);
+  if (m_Rh_uH_h) apf::destroyField(m_Rh_uH_h);
+  if (m_eta) apf::destroyField(m_eta);
+  m_uH = nullptr;
+  m_uh = nullptr;
+  m_uH_h = nullptr;
+  m_zH = nullptr;
+  m_zh = nullptr;
+  m_Rh_uH_h = nullptr;
+  m_eta = nullptr;
+}
+
 RCP<Error> create_error(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
   int ltype = -1;
@@ -556,6 +664,8 @@ RCP<Error> create_error(ParameterList const& params) {
     return rcp(new R_zh_minus_zh_H(ltype));
   } else if (type == "R plus E dot zh") {
     return rcp(new R_plus_E_zh(ltype));
+  } else if (type == "R dot spr zh") {
+    return rcp(new R_spr_zh(ltype));
   } else {
     throw std::runtime_error("invalid error");
   }

@@ -19,6 +19,7 @@ class Physics {
     double compute_qoi(int space, apf::Field* u);
     apf::Field* solve_adjoint(int space, apf::Field* u);
     apf::Field* prolong_u_coarse_onto_fine(apf::Field* u);
+    apf::Field* prolong_z_coarse_onto_fine(apf::Field* z);
     apf::Field* subtract_u_coarse_from_u_fine(apf::Field* uh, apf::Field* uH);
     apf::Field* restrict_z_fine_onto_fine(apf::Field* z);
     apf::Field* subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH);
@@ -26,6 +27,7 @@ class Physics {
     apf::Field* evaluate_residual(int space, apf::Field* u);
     apf::Field* evaluate_PU_residual(int space, apf::Field* u, apf::Field* z);
     apf::Field* localize_error(apf::Field* R, apf::Field* z);
+    apf::Field* interpolate_to_ips(apf::Field* z);
     double estimate_error(apf::Field* eta);
     double estimate_error_bound(apf::Field* eta);
     double estimate_error2(apf::Field* R, apf::Field* Z);

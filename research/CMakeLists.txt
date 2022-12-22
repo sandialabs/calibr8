@@ -2,6 +2,7 @@ set(RESEARCH_SOURCES
   adapt.cpp
   bcs.cpp
   control.cpp
+  cspr.cpp
   disc.cpp
   error.cpp
   linalg.cpp
@@ -9,7 +10,6 @@ set(RESEARCH_SOURCES
   residual.cpp
   physics.cpp
   qoi.cpp
-  spr.cpp
   weight.cpp
   research.cpp
 )

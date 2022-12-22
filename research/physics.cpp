@@ -8,6 +8,34 @@
 
 namespace calibr8 {
 
+static apf::Field* interpolate_to_ips(apf::Field* nodal, std::string const& name) {
+  apf::Mesh* m = apf::getMesh(nodal);
+  int const neqs = apf::countComponents(nodal);
+  int const dim = m->getDimension();
+  int const q_order = apf::getShape(nodal)->getOrder() + 1;
+  apf::FieldShape* ip_shape = apf::getIPShape(dim, q_order);
+  apf::Field* ip = apf::createPackedField(m, name.c_str(), neqs, ip_shape);
+  apf::zeroField(ip);
+  apf::MeshEntity* elem;
+  apf::MeshIterator* elems = m->begin(dim);
+  Array1D<double> field_comps(9);
+  while ((elem = m->iterate(elems))) {
+    apf::MeshElement* me = apf::createMeshElement(m, elem);
+    apf::Element* nodal_elem = apf::createElement(nodal, me);
+    int const npts = apf::countIntPoints(me, q_order);
+    for (int pt = 0; pt < npts; ++pt) {
+      apf::Vector3 iota;
+      apf::getIntPoint(me, q_order, pt, iota);
+      apf::getComponents(nodal_elem, iota, &(field_comps[0]));
+      apf::setComponents(ip, elem, pt, &(field_comps[0]));
+    }
+    apf::destroyElement(nodal_elem);
+    apf::destroyMeshElement(me);
+  }
+  m->end(elems);
+  return ip;
+}
+
 static void project_from_to(RCP<Disc> disc, apf::Field* from, apf::Field* to) {
   ASSERT(apf::countComponents(from) == apf::countComponents(to));
   int const neqs = apf::countComponents(from);
@@ -540,6 +568,12 @@ apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* u) {
   return calibr8::project(m_disc, u, "uH_h");
 }
 
+apf::Field* Physics::prolong_z_coarse_onto_fine(apf::Field* z) {
+  print("prolonging zH onto h");
+  ASSERT(apf::getShape(z) == m_disc->shape(COARSE));
+  return calibr8::project(m_disc, z, "zH_h");
+}
+
 apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* z) {
   print("restricting zh onto H on h");
   ASSERT(apf::getShape(z) == m_disc->shape(FINE));
@@ -601,6 +635,12 @@ apf::Field* Physics::localize_error(apf::Field* R, apf::Field* z) {
   return op(negate_multiply, m_disc, R, z, "eta");
 }
 
+apf::Field* Physics::interpolate_to_ips(apf::Field* z) {
+  print("interpolating field to ips");
+  std::string const name = std::string(apf::getName(z)) + "_ip";
+  return calibr8::interpolate_to_ips(z, name);
+}
+
 double Physics::estimate_error(apf::Field* eta) {
   print("estimating error");
   double const estimate = op(sum_into, sum_into, m_disc, eta);
@@ -619,6 +659,7 @@ double Physics::estimate_error2(apf::Field* R, apf::Field* Z) {
   fill_vector(FINE, m_disc, R, R_vec);
   fill_vector(FINE, m_disc, Z, Z_vec);
   double const eta = -(Z_vec.val[OWNED])->dot(*R_vec.val[OWNED]);
+  print(" > eta = %.15e", eta);
   return eta;
 }
 

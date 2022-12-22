@@ -7,7 +7,7 @@
 
 #include <set>
 
-#include "spr.hpp"
+#include "cspr.hpp"
 
 #include <PCU.h>
 #include <pcu_util.h>
@@ -63,8 +63,21 @@ static apf::Field* makeRecoveredField(Recovery* r)
 {
   std::string name = "spr_";
   name += apf::getName(r->f);
-  return apf::createLagrangeField(
-        r->mesh, name.c_str(), apf::getValueType(r->f), r->order);
+  apf::FieldShape* shape = nullptr;
+  if (r->order == 1) {
+    shape = apf::getLagrange(1);
+  } else if (r->order == 2) {
+    shape = apf::getSerendipity();
+  } else {
+    throw std::runtime_error("womp");
+  }
+  int const neqs = apf::countComponents(r->f);
+  apf::Field* f = apf::createPackedField(
+        r->mesh,
+        name.c_str(),
+        neqs,
+        shape);
+  return f;
 }
 
 static int countPolynomialTerms(int dim, int order)
@@ -352,13 +365,14 @@ static void runSpr(Patch* p)
       recovered_values[j][i] = evalPolynomial(
           r->dim, r->order, nodal_points[j], coeffs);
   }
-  for (int i = 0; i < num_nodes; ++i)
+  for (int i = 0; i < num_nodes; ++i) {
     apf::setComponents(r->f_star, p->entity, i, &(recovered_values[i][0]));
+  }
 }
 
 static bool hasEnoughPoints(Patch* p)
 {
-  if (countPatchPoints(p) < p->recovery->polynomial_terms)
+  if (countPatchPoints(p) < 1.1*(p->recovery->polynomial_terms))
     return false;
 /* run the QR decomposition as part of the check for
    patch completeness, and continue gathering elements
@@ -406,11 +420,13 @@ public:
   }
   virtual Outcome setEntity(apf::MeshEntity* e)
   {
-    if (hasEntity(patch.recovery->f_star, e))
+    if (hasEntity(patch.recovery->f_star, e)) {
       return SKIP;
+    }
     startPatch(&patch, e);
-    if ( ! buildPatch(&patch, this))
+    if ( ! buildPatch(&patch, this)) {
       return REQUEST;
+    }
     return OK;
   }
   virtual void apply()
@@ -420,14 +436,16 @@ public:
   Patch patch;
 };
 
-apf::Field* recoverField(apf::Field* f)
+apf::Field* spr_recovery(apf::Field* f)
 {
   Recovery recovery;
   setupRecovery(&recovery, f);
   PatchOp op(&recovery);
-  for (int d = 0; d <= 3; ++d)
-    if (recovery.mesh->getShape()->hasNodesIn(d))
+  for (int d = 0; d <= 3; ++d) {
+    if (recovery.mesh->getShape()->hasNodesIn(d)) {
       op.applyToDimension(d);
+    }
+  }
   return recovery.f_star;
 }
 
