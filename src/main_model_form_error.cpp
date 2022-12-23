@@ -133,6 +133,8 @@ void Driver::drive() {
   solve_adjoint();
   compute_local_errors();
   double const eta = sum_local_errors();
+  auto disc = m_state->disc;
+  apf::writeVtkFiles("error", disc->apf_mesh());
 }
 
 int main(int argc, char** argv) {

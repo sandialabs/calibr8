@@ -3,7 +3,7 @@
 #include "defines.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
-#include "Hill.hpp"
+#include "Hill_plane_strain.hpp"
 #include "material_params.hpp"
 #include "yield_functions.hpp"
 
@@ -16,7 +16,7 @@ using minitensor::transpose;
 
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
-  p.set<std::string>("type", "Hill");
+  p.set<std::string>("type", "Hill_plane_strain");
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
@@ -29,24 +29,22 @@ static ParameterList get_valid_material_params() {
   p.set<double>("E", 0.);
   p.set<double>("nu", 0.);
   p.set<double>("Y", 0.);
+  p.set<double>("S", 0.);
+  p.set<double>("D", 0.);
   p.set<double>("R00", 0.);
   p.set<double>("R11", 0.);
   p.set<double>("R22", 0.);
   p.set<double>("R01", 0.);
-  p.set<double>("R02", 0.);
-  p.set<double>("R12", 0.);
-  p.set<double>("S", 0.);
-  p.set<double>("D", 0.);
   return p;
 }
 
 template <typename T>
-Hill<T>::Hill(ParameterList const& inputs, int ndims) {
+HillPlaneStrain<T>::HillPlaneStrain(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
 
-  int const num_residuals = 2;
+  int const num_residuals = 3;
 
   this->m_num_residuals = num_residuals;
   this->m_num_eqs.resize(num_residuals);
@@ -63,6 +61,12 @@ Hill<T>::Hill(ParameterList const& inputs, int ndims) {
   this->m_var_types[1] = SCALAR;
   this->m_num_eqs[1] = get_num_eqs(SCALAR, ndims);
 
+  // out-of-plane stress
+  this->m_resid_names[2] = "TC_zz";
+  this->m_var_types[2] = SCALAR;
+  this->m_num_eqs[2] = get_num_eqs(SCALAR, ndims);
+  this->m_z_stress_idx = 2;
+
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
   m_rel_tol = inputs.get<double>("nonlinear relative tol");
@@ -70,14 +74,13 @@ Hill<T>::Hill(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-Hill<T>::~Hill() {
+HillPlaneStrain<T>::~HillPlaneStrain() {
 }
 
 template <typename T>
-void Hill<T>::init_params() {
+void HillPlaneStrain<T>::init_params() {
 
-  // 2 elastic + Y + 6 Hill + S + D
-  int const num_params = 11;
+  int const num_params = 9;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
 
@@ -85,14 +88,12 @@ void Hill<T>::init_params() {
   this->m_param_names[0] = "E";
   this->m_param_names[1] = "nu";
   this->m_param_names[2] = "Y";
-  this->m_param_names[3] = "R00";
-  this->m_param_names[4] = "R11";
-  this->m_param_names[5] = "R22";
-  this->m_param_names[6] = "R01";
-  this->m_param_names[7] = "R02";
-  this->m_param_names[8] = "R12";
-  this->m_param_names[9] = "S";
-  this->m_param_names[10] = "D";
+  this->m_param_names[3] = "S";
+  this->m_param_names[4] = "D";
+  this->m_param_names[5] = "R00";
+  this->m_param_names[6] = "R11";
+  this->m_param_names[7] = "R22";
+  this->m_param_names[8] = "R01";
 
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
@@ -108,14 +109,12 @@ void Hill<T>::init_params() {
     this->m_param_values[es][0] = material_params.get<double>("E");
     this->m_param_values[es][1] = material_params.get<double>("nu");
     this->m_param_values[es][2] = material_params.get<double>("Y");
-    this->m_param_values[es][3] = material_params.get<double>("R00");
-    this->m_param_values[es][4] = material_params.get<double>("R11");
-    this->m_param_values[es][5] = material_params.get<double>("R22");
-    this->m_param_values[es][6] = material_params.get<double>("R01");
-    this->m_param_values[es][7] = material_params.get<double>("R02");
-    this->m_param_values[es][8] = material_params.get<double>("R12");
-    this->m_param_values[es][9] = material_params.get<double>("S");
-    this->m_param_values[es][10] = material_params.get<double>("D");
+    this->m_param_values[es][3] = material_params.get<double>("S");
+    this->m_param_values[es][4] = material_params.get<double>("D");
+    this->m_param_values[es][5] = material_params.get<double>("R00");
+    this->m_param_values[es][6] = material_params.get<double>("R11");
+    this->m_param_values[es][7] = material_params.get<double>("R22");
+    this->m_param_values[es][8] = material_params.get<double>("R01");
   }
 
   this->m_active_indices.resize(1);
@@ -124,17 +123,20 @@ void Hill<T>::init_params() {
 }
 
 template <typename T>
-void Hill<T>::init_variables_impl() {
+void HillPlaneStrain<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
   int const TC_idx = 0;
   int const alpha_idx = 1;
+  int const TC_zz_idx = 2;
 
   Tensor<T> const TC = minitensor::zero<T>(ndims);
-  T const alpha = 0.0;
+  T const alpha = 0.;
+  T const TC_zz = 0.;
 
   this->set_sym_tensor_xi(TC_idx, TC);
   this->set_scalar_xi(alpha_idx, alpha);
+  this->set_scalar_xi(TC_zz_idx, TC_zz);
 
 }
 
@@ -154,14 +156,13 @@ Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
   return d;
 }
 
-
 template <>
-int Hill<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int HillPlaneStrain<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int Hill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int HillPlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
@@ -175,11 +176,14 @@ int Hill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
     Tensor<FADT> const TC_old = this->sym_tensor_xi_prev(0);
     FADT const alpha_old = this->scalar_xi_prev(1);
+    FADT const TC_zz_old = this->scalar_xi_prev(2);
     Tensor<FADT> const d = eval_d(global);
     Tensor<FADT> const TC = TC_old + lambda * trace(d) * I + 2. * mu * d;
     FADT const alpha = alpha_old;
+    FADT const TC_zz = TC_zz_old + lambda * trace(d);
     this->set_sym_tensor_xi(0, TC);
     this->set_scalar_xi(1, alpha);
+    this->set_scalar_xi(2, TC_zz);
     path = ELASTIC;
   }
 
@@ -207,6 +211,7 @@ int Hill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
     this->add_to_sym_tensor_xi(0, dxi);
     this->add_to_scalar_xi(1, dxi);
+    this->add_to_scalar_xi(2, dxi);
 
     iter++;
 
@@ -214,7 +219,7 @@ int Hill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("Hill:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("HillPlaneStrain:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
@@ -222,55 +227,69 @@ int Hill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
-int Hill<T>::evaluate(
+int HillPlaneStrain<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
 
   int path = ELASTIC;
   int const ndims = this->m_num_dims;
+  double const sqrt_23 = std::sqrt(2./3.);
+  double const sqrt_32 = std::sqrt(3./2.);
 
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const Y = this->m_params[2];
-  T const R00 = this->m_params[3];
-  T const R11 = this->m_params[4];
-  T const R22 = this->m_params[5];
-  T const R01 = this->m_params[6];
-  T const R02 = this->m_params[7];
-  T const R12 = this->m_params[8];
-  T const S = this->m_params[9];
-  T const D = this->m_params[10];
+  T const S = this->m_params[3];
+  T const D = this->m_params[4];
+  T const R00 = this->m_params[5];
+  T const R11 = this->m_params[6];
+  T const R22 = this->m_params[7];
+  T const R01 = this->m_params[8];
   T const lambda = compute_lambda(E, nu);
   T const mu = compute_mu(E, nu);
 
-  Vector<T> const hill_params = compute_hill_params(R00, R11, R22,
-      R01, R02, R12);
-
   Tensor<T> const TC_old = this->sym_tensor_xi_prev(0);
   T const alpha_old = this->scalar_xi_prev(1);
+  T const TC_zz_old = this->scalar_xi_prev(2);
 
   Tensor<T> const TC = this->sym_tensor_xi(0);
   T const alpha = this->scalar_xi(1);
+  T const TC_zz = this->scalar_xi(2);
 
-  T const hill = compute_hill_value(TC, hill_params);
+  Tensor<T> TC_3D = insert_2D_tensor_into_3D(TC);
+  TC_3D(2, 2) = TC_zz;
+
+  // out-of-plane shear coefficients
+  T const R02 = 1.;
+  T const R12 = 1.;
+  Vector<T> const hill_params = compute_hill_params(R00, R11, R22,
+      R01, R02, R12);
+
+  T const phi = compute_hill_value(TC_3D, hill_params);
   T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
-  T const f = hill - sigma_yield;
+  T const f = phi - sigma_yield;
 
   Tensor<T> R_TC;
   T R_alpha;
+  T R_TC_zz;
 
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const d = eval_d(global);
   R_TC = TC - TC_old - lambda * trace(d) * I - 2. * mu * d;
+  R_TC_zz = TC_zz - TC_zz_old - lambda * trace(d);
 
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
+      Tensor<T> n_3D = compute_hill_normal(TC_3D, hill_params, phi);
+      Tensor<T> const n_2D = extract_2D_tensor_from_3D(n_3D);
       T const dgam = alpha - alpha_old;
-      Tensor<T> n = compute_hill_normal(TC, hill_params, hill);
-      R_TC += 2. * mu * dgam * n;
+      Tensor<T> const dp_2D = dgam * n_2D;
+      T const dp_zz = -trace(dp_2D);
+      R_TC += 2. * mu * dp_2D;
       R_alpha = f;
+      R_TC_zz += 2. * mu * dp_zz;
       path = PLASTIC;
     }
     // elastic step
@@ -285,10 +304,15 @@ int Hill<T>::evaluate(
     path = path_in;
     // plastic step
     if (path == PLASTIC) {
+      Tensor<T> n_3D = compute_hill_normal(TC_3D, hill_params, phi);
+      Tensor<T> const n_2D = extract_2D_tensor_from_3D(n_3D);
       T const dgam = alpha - alpha_old;
-      Tensor<T> n = compute_hill_normal(TC, hill_params, hill);
-      R_TC += 2. * mu * dgam * n;
+      Tensor<T> const dp_2D = dgam * n_2D;
+      T const dp_zz = -trace(dp_2D);
+      R_TC += 2. * mu * dp_2D;
       R_alpha = f;
+      R_TC_zz += 2. * mu * dp_zz;
+      path = PLASTIC;
     }
     // elastic step
     else {
@@ -298,13 +322,14 @@ int Hill<T>::evaluate(
 
   this->set_sym_tensor_R(0, R_TC);
   this->set_scalar_R(1, R_alpha);
+  this->set_scalar_R(2, R_TC_zz);
 
   return path;
 
 }
 
 template <typename T>
-Tensor<T> Hill<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HillPlaneStrain<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = this->m_num_dims;
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const grad_u = global->grad_vector_x(0);
@@ -314,9 +339,8 @@ Tensor<T> Hill<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const RC = R * TC * transpose(R);
   return RC;
 }
-
 template <typename T>
-Tensor<T> Hill<T>::cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HillPlaneStrain<T>::cauchy(RCP<GlobalResidual<T>> global) {
   int const pressure_idx = 1;
   T const p = global->scalar_x(pressure_idx);
   int const ndims = this->m_num_dims;
@@ -327,28 +351,30 @@ Tensor<T> Hill<T>::cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-Tensor<T> Hill<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HillPlaneStrain<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const RC = this->rotated_cauchy(global);
-  return dev(RC);
+  int const ndims = this->m_num_dims;
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  T const hydro_cauchy = this->hydro_cauchy(global);
+  return RC - hydro_cauchy * I;
 }
 
 template <typename T>
-T Hill<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+T HillPlaneStrain<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const RC = this->rotated_cauchy(global);
-  return trace(RC) / 3.;
+  T const TC_zz = this->scalar_xi(this->m_z_stress_idx);
+  return (trace(RC) + TC_zz) / 3.;
 }
 
-
 template <typename T>
-T Hill<T>::pressure_scale_factor() {
+T HillPlaneStrain<T>::pressure_scale_factor() {
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
   return kappa;
 }
 
-
-template class Hill<double>;
-template class Hill<FADT>;
+template class HillPlaneStrain<double>;
+template class HillPlaneStrain<FADT>;
 
 }

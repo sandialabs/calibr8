@@ -286,6 +286,16 @@ int J2<T>::evaluate(
   return path;
 
 }
+template <typename T>
+Tensor<T> J2<T>::cauchy(RCP<GlobalResidual<T>> global) {
+  int const pressure_idx = 1;
+  T const p = global->scalar_x(pressure_idx);
+  int const ndims = global->num_dims();
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const dev_sigma = this->dev_cauchy(global);
+  Tensor<T> const sigma = dev_sigma - p * I;
+  return sigma;
+}
 
 template <typename T>
 Tensor<T> J2<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
@@ -302,12 +312,25 @@ Tensor<T> J2<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-Tensor<T> J2<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
+T J2<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
+  T const kappa = compute_kappa(E, nu);
   int const ndims = global->num_dims();
   Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const dev_sigma = this->dev_cauchy(global);
-  Tensor<T> const sigma = dev_sigma - p * I;
-  return sigma;
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const F = grad_u + I;
+  T const J = det(F);
+  T const hydro_cauchy = kappa / 2. * (J - 1. / J);
+  return hydro_cauchy;
+}
+
+template <typename T>
+T J2<T>::pressure_scale_factor() {
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
+  T const kappa = compute_kappa(E, nu);
+  return kappa;
 }
 
 template class J2<double>;

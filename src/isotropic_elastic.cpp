@@ -138,7 +138,7 @@ int IsotropicElastic<T>::evaluate(
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const grad_u_T = transpose(grad_u);
   Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-  Tensor<T> R_cauchy = cauchy - lambda * trace(eps) * I + 2. * mu * eps;
+  Tensor<T> R_cauchy = cauchy - lambda * trace(eps) * I - 2. * mu * eps;
 
   this->set_sym_tensor_R(0, R_cauchy);
 
@@ -146,26 +146,33 @@ int IsotropicElastic<T>::evaluate(
 }
 
 template <typename T>
-Tensor<T> IsotropicElastic<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> IsotropicElastic<T>::cauchy(RCP<GlobalResidual<T>> global) {
+  int const pressure_idx = 1;
+  T const p = global->scalar_x(pressure_idx);
   int const ndims = global->num_dims();
-  T const E = this->m_params[0];
-  T const nu = this->m_params[1];
-  T const mu = compute_mu(E, nu);
   Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const grad_u_T = transpose(grad_u);
-  Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-  Tensor<T> const dev_cauchy = 2. * mu * dev(eps);
-  return dev_cauchy;
+  return this->dev_cauchy(global) - p * I;
 }
 
 template <typename T>
-Tensor<T> IsotropicElastic<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
-  int const ndims = global->num_dims();
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const dev_sigma = this->dev_cauchy(global);
-  Tensor<T> const sigma = dev_sigma - p * I;
-  return sigma;
+Tensor<T> IsotropicElastic<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+  Tensor<T> const cauchy = this->sym_tensor_xi(0);
+  return dev(cauchy);
+}
+
+
+template <typename T>
+T IsotropicElastic<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+  Tensor<T> const cauchy = this->sym_tensor_xi(0);
+  return trace(cauchy) / 3;
+}
+
+template <typename T>
+T IsotropicElastic<T>::pressure_scale_factor() {
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
+  T const kappa = compute_kappa(E, nu);
+  return kappa;
 }
 
 template class IsotropicElastic<double>;

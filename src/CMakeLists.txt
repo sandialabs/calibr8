@@ -40,7 +40,6 @@ set(CALIBR8_SOURCES
   synthetic.cpp
   surface_mismatch.cpp
   tbcs.cpp
-  thermoelastic.cpp
   virtual_power.cpp
   weight.cpp
 )

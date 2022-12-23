@@ -132,22 +132,21 @@ class LocalResidual {
     //! to finite deformation
     virtual bool is_finite_deformation() = 0;
 
-    //! \brief A flag to determine if these equations correspond
-    //! to a hypoelastic material
-    virtual bool is_hypoelastic() = 0;
-
-    //! \brief A flag to determine if these equations correspond
-    //! to plane stress
-    virtual bool is_plane_stress() = 0;
+    //! \brief Get the Cauchy stress
+    //! \param global The global residual equations
+    virtual Tensor<T> cauchy(RCP<GlobalResidual<T>> global) = 0;
 
     //! \brief Get the deviatoric part of the Cauchy stress tensor
     //! \param global The global residual equations
     virtual Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global) = 0;
 
-    //! \brief Get the deviatoric part of the Cauchy stress tensor
+    //! \brief Get the hydrostatic part of the Cauchy stress tensor
     //! \param global The global residual equations
-    //! \param p The pressure
-    virtual Tensor<T> cauchy(RCP<GlobalResidual<T>> global, T p) = 0;
+    virtual T hydro_cauchy(RCP<GlobalResidual<T>> global) = 0;
+
+    //! \brief Get the pressure variable
+    //! \param global The global residual equations
+    virtual T pressure_scale_factor() = 0;
 
     //! \brief Save the solved local variables to the current integration point
     //! \param pt The integration point index
@@ -384,7 +383,6 @@ class LocalResidual {
       }
     }
 
-    int z_stress_idx() const { return m_z_stress_idx; }
     int z_stretch_idx() const { return m_z_stretch_idx; }
 
   protected:
@@ -410,7 +408,7 @@ class LocalResidual {
     int m_num_nodes = -1;
     int m_num_dofs = -1;
 
-    int m_z_stress_idx = -1;
+    // for finite deformation plane stress
     int m_z_stretch_idx = -1;
 
     Array1D<int> m_dxi_offsets;

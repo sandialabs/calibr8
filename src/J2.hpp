@@ -39,27 +39,28 @@ class J2 : public LocalResidual<T> {
     //! \param force_path Force a specific evaluation path
     //! \param path The evaluation path to force
     int evaluate(
-        RCP<GlobalResidual<T>> global, 
+        RCP<GlobalResidual<T>> global,
         bool force_path = false,
         int path = 0);
 
     //! \brief Do these equations correspond to finite deformation
     bool is_finite_deformation() { return true; }
 
-    //! \brief Is this material hypoelastic
-    bool is_hypoelastic() { return false; }
-
-    //! \brief Is this material plane stress
-    bool is_plane_stress() { return false; }
+    //! \brief Get the deviatoric part of the Cauchy stress tensor
+    //! \param global The global residual equations
+    Tensor<T> cauchy(RCP<GlobalResidual<T>> global);
 
     //! \brief Get the deviatoric part of the Cauchy stress tensor
     //! \param global The global residual equations
     Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global);
 
-    //! \brief Get the deviatoric part of the Cauchy stress tensor
+    //! \brief Get the hydrostatic part of the Cauchy stress tensor
     //! \param global The global residual equations
-    //! \param p The pressure
-    Tensor<T> cauchy(RCP<GlobalResidual<T>> global, T p);
+    T hydro_cauchy(RCP<GlobalResidual<T>> global);
+
+    //! \brief Get the pressure variable scale factor
+    //! \param global The global residual equations
+    T pressure_scale_factor();
 
   private:
 

@@ -359,9 +359,8 @@ int J2PlaneStress<T>::evaluate(
 
 }
 
-// returns actual cauchy
 template <typename T>
-Tensor<T> J2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> J2PlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -376,15 +375,37 @@ Tensor<T> J2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   return mu * zeta / J + kappa / 2. * (J - 1. / J) * I;
 }
 
-// not used
 template <typename T>
-Tensor<T> J2PlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
+Tensor<T> J2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
+  T const mu = compute_mu(E, nu);
   Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const dev_sigma = this->dev_cauchy(global);
-  Tensor<T> const sigma = dev_sigma - p * I;
-  return sigma;
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const F = grad_u + I;
+  T const lambda_z = this->scalar_xi(this->m_z_stretch_idx);
+  T const J = minitensor::det(F) * lambda_z;
+  Tensor<T> const zeta = this->sym_tensor_xi(0);
+  return mu * zeta / J;
 }
+
+template <typename T>
+T J2PlaneStress<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+  int const ndims = global->num_dims();
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
+  T const kappa = compute_kappa(E, nu);
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const F = grad_u + I;
+  T const lambda_z = this->scalar_xi(this->m_z_stretch_idx);
+  T const J = minitensor::det(F) * lambda_z;
+  return kappa / 2. * (J - 1. / J);
+}
+
+template <typename T>
+T J2PlaneStress<T>::pressure_scale_factor() { return 0.; }
 
 template class J2PlaneStress<double>;
 template class J2PlaneStress<FADT>;

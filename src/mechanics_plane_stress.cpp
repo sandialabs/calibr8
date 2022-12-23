@@ -57,7 +57,7 @@ void MechanicsPlaneStress<T>::evaluate(
   // compute stress measures
   RCP<GlobalResidual<T>> global = rcp(this, false);
   // Cauchy for these models is dev_cauchy
-  Tensor<T> stress = local->dev_cauchy(global);
+  Tensor<T> stress = local->cauchy(global);
 
   if (local->is_finite_deformation()) {
     // gather variables from this residual quantities

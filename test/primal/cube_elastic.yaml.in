@@ -12,7 +12,7 @@ elastic:
 
   residuals:
     global residual:
-      type: 'thermoelastic'
+      type: 'mechanics'
       nonlinear max iters: 15
       nonlinear absolute tol: 1.e-8
       nonlinear relative tol: 1.e-8
@@ -37,7 +37,7 @@ elastic:
     type: 'average displacement'
 
   regression:
-    QoI: 5.0000000000000036e-03
+    QoI: 5.00000000000000184e-3
     relative error tol: 1.0e-6
 
   linear algebra:

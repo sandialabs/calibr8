@@ -1,28 +1,28 @@
 #pragma once
 
-//! \file J2_plane_strain.hpp
-//! \brief The interface for J2PlaneStrain local plasticity residuals
+//! \file Hill_plane_strain.hpp
+//! \brief The interface for hypoelastic HillPlaneStrain local plasticity residuals
 
 #include "local_residual.hpp"
 
 namespace calibr8 {
 
-//! \brief The local residual for finite deformation J2 plane strain plasticity models
+//! \brief The local residual for HillPlaneStrain plasticity models
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the LocalResidual
-//! base class for a finite deformation J2 plane strain plasticity model
+//! base class for a HillPlaneStrain plasticity model
 template <typename T>
-class J2PlaneStrain : public LocalResidual<T> {
+class HillPlaneStrain : public LocalResidual<T> {
 
   public:
 
-    //! \brief The J2PlaneStrain constructor
+    //! \brief The HillPlaneStrain constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    J2PlaneStrain(ParameterList const& inputs, int ndims);
+    HillPlaneStrain(ParameterList const& inputs, int ndims);
 
-    //! \brief The J2PlaneStrain destructor
-    ~J2PlaneStrain();
+    //! \brief The HillPlaneStrain destructor
+    ~HillPlaneStrain();
 
     //! \brief Initialize the parameters
     void init_params();
@@ -64,9 +64,15 @@ class J2PlaneStrain : public LocalResidual<T> {
 
   private:
 
+    //! \brief Get the rotated Cauchy stress tensor
+    //! \param global The global residual equations
+    Tensor<T> rotated_cauchy(RCP<GlobalResidual<T>> global);
+
     int m_max_iters;
     double m_abs_tol;
     double m_rel_tol;
+
+    int m_z_stress_idx = -1;
 
     enum {ELASTIC = 0, PLASTIC = 1};
 

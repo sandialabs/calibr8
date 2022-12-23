@@ -72,13 +72,14 @@ void Mechanics<T>::evaluate(
   T const E = local->params(0);
   T const nu = local->params(1);
   T const mu = compute_mu(E, nu);
-  T const kappa = compute_kappa(E, nu);
+
+  T const p = this->scalar_x(pressure_idx);
+  T pressure_scale_factor = local->pressure_scale_factor();
 
   // coupled ip set (lowest quadrature order)
   if (ip_set == 0) {
 
     // gather variables from this residual quantities
-    T const p = this->scalar_x(pressure_idx);
     Vector<T> const grad_p = this->grad_scalar_x(pressure_idx);
     Tensor<T> const grad_u = this->grad_vector_x(momentum_idx);
 
@@ -91,8 +92,7 @@ void Mechanics<T>::evaluate(
 
     // compute stress measures
     RCP<GlobalResidual<T>> global = rcp(this, false);
-    Tensor<T> stress = local->cauchy(global, p);
-
+    Tensor<T> stress = local->cauchy(global);
 
     if (local->is_finite_deformation()) stress = J * stress * F_invT;
 
@@ -107,97 +107,48 @@ void Mechanics<T>::evaluate(
       }
     }
 
+    // compute the constant part of the pressure residual
+    T hydro_cauchy = local->hydro_cauchy(global);
+
+    for (int n = 0; n < nnodes; ++n) {
+      int const eq = 0;
+      double const basis = this->weight(pressure_idx, n, eq);
+      this->R_nodal(pressure_idx, n, eq) -=
+        hydro_cauchy / pressure_scale_factor * basis * w * dv;
+    }
+
+    // compute the pressure stabilization residual
+    double const h = get_size(this->m_mesh, this->m_mesh_elem);
+    T const tau = 0.5 * h * h / mu;
+    Tensor<T> stab_matrix;
     if (local->is_finite_deformation()) {
-
-      // compute the linear part of the pressure residual
-      T hydro_cauchy;
-      // local->dev_cauchy is the rotated Cauchy stress for hypoelastic models
-      if (local->is_hypoelastic()) {
-        if (ndims == 3) {
-          hydro_cauchy = trace(local->dev_cauchy(global)) / (3. * val(kappa));
-        } else {
-          Tensor<T> const cauchy_2D = local->dev_cauchy(global);
-          const int z_stress_idx = local->z_stress_idx();
-          T const cauchy_zz = local->scalar_xi(z_stress_idx);
-          T const trace_cauchy = trace(cauchy_2D) + cauchy_zz;
-          hydro_cauchy = trace_cauchy / (3. * val(kappa));
-        }
-      } else {
-        hydro_cauchy = 0.5 * (J - 1./J);
-      }
-
-      for (int n = 0; n < nnodes; ++n) {
-        int const eq = 0;
-        double const basis = this->weight(pressure_idx, n, eq);
-        this->R_nodal(pressure_idx, n, eq) -=
-          hydro_cauchy * basis * w * dv;
-      }
-
-      // compute the stabilization to the pressure residual
-      double const h = get_size(this->m_mesh, this->m_mesh_elem);
-      T const tau = 0.5 * h * h / mu;
-      Tensor<T> const C_inv = inverse(transpose(F) * F);
-      for (int n = 0; n < nnodes; ++n) {
-        for (int i = 0; i < ndims; ++i) {
-          for (int j = 0; j < ndims; ++j) {
-            int const eq = 0;
-            double const dbasis_dx = this->grad_stab_weight(pressure_idx, n, eq, j);
-            this->R_nodal(pressure_idx, n, eq) -=
-              tau * J * C_inv(i, j) * grad_p(i) * dbasis_dx * w * dv;
-          }
-        }
-      }
-    }
-
-    else {
-
-      Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
-
-      // compute the linear part of the pressure residual
-      for (int n = 0; n < nnodes; ++n) {
-        int const eq  = 0;
-        double const basis = this->weight(pressure_idx, n, eq);
-        this->R_nodal(pressure_idx, n, eq) -=
-          minitensor::trace(eps) * basis * w * dv;
-      }
-
-      // compute the stabilization to the pressure residual
-      double const h = get_size(this->m_mesh, this->m_mesh_elem);
-      T const tau = 0.5 * h * h / mu;
-      for (int n = 0; n < nnodes; ++n) {
-        for (int i = 0; i < ndims; ++i) {
-          for (int j = 0; j < ndims; ++j) {
-            int const eq = 0;
-            double const dbasis_dx = this->grad_stab_weight(pressure_idx, n, eq, j);
-            this->R_nodal(pressure_idx, n, eq) -=
-              tau * grad_p(i) * dbasis_dx * w * dv;
-          }
-        }
-      }
-    }
-  }
-
-  else if (ip_set == 1) {
-    // gather variables from this residual quantities
-    T const p = this->scalar_x(pressure_idx);
-
-    T pressure_term;
-    if (local->is_hypoelastic()) {
-      pressure_term = p / val(kappa);
+      stab_matrix = tau * I;
     } else {
-      pressure_term = p / kappa;
+      Tensor<T> const C_inv = inverse(transpose(F) * F);
+      stab_matrix = tau * J * C_inv;
     }
+
+    for (int n = 0; n < nnodes; ++n) {
+      for (int i = 0; i < ndims; ++i) {
+        for (int j = 0; j < ndims; ++j) {
+          int const eq = 0;
+          double const dbasis_dx = this->grad_stab_weight(pressure_idx, n, eq, i);
+          this->R_nodal(pressure_idx, n, eq) -=
+            stab_matrix(i, j) *  grad_p(j) * dbasis_dx * w * dv;
+        }
+      }
+    }
+
+  } else if (ip_set == 1) {
 
     // compute the linear part of the pressure residual
     for (int n = 0; n < nnodes; ++n) {
       int const eq = 0;
       double const basis = this->weight(pressure_idx, n, eq);
       this->R_nodal(pressure_idx, n, eq) -=
-        pressure_term * basis * w * dv;
+        p / pressure_scale_factor * basis * w * dv;
     }
-  }
-
-  else {
+  } else {
     fail("unimplemented ip set\n");
   }
 

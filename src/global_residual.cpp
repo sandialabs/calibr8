@@ -6,7 +6,6 @@
 #include "macros.hpp"
 #include "mechanics.hpp"
 #include "mechanics_plane_stress.hpp"
-#include "thermoelastic.hpp"
 
 namespace calibr8 {
 
@@ -532,8 +531,6 @@ RCP<GlobalResidual<T>> create_global_residual(
     return rcp(new Mechanics<T>(params, ndims));
   } else if (type == "mechanics_plane_stress") {
     return rcp(new MechanicsPlaneStress<T>(params, ndims));
-  } else if (type == "thermoelastic") {
-    return rcp(new Thermoelastic<T>(params, ndims));
   } else {
     return Teuchos::null;
   }

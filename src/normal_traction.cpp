@@ -91,8 +91,7 @@ void NormalTraction<T>::evaluate(
   // evaluate the stress at the integration point
   int const pressure_idx = 1;
   global->interpolate(iota_elem);
-  T const p = global->scalar_x(pressure_idx);
-  Tensor<T> const sigma = local->cauchy(global, p);
+  Tensor<T> const sigma = local->cauchy(global);
 
   // compute the normal load at the point
   T load = T(0.);
