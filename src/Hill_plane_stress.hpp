@@ -46,7 +46,7 @@ class HillPlaneStress : public LocalResidual<T> {
     //! \brief Do these equations correspond to finite deformation
     bool is_finite_deformation() { return true; }
 
-    //! \brief Get the deviatoric part of the Cauchy stress tensor
+    //! \brief Get the Cauchy stress tensor
     //! \param global The global residual equations
     Tensor<T> cauchy(RCP<GlobalResidual<T>> global);
 

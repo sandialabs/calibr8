@@ -120,12 +120,10 @@ void Mechanics<T>::evaluate(
     // compute the pressure stabilization residual
     double const h = get_size(this->m_mesh, this->m_mesh_elem);
     T const tau = 0.5 * h * h / mu;
-    Tensor<T> stab_matrix;
+    Tensor<T> stab_matrix = tau * I;
     if (local->is_finite_deformation()) {
-      stab_matrix = tau * I;
-    } else {
       Tensor<T> const C_inv = inverse(transpose(F) * F);
-      stab_matrix = tau * J * C_inv;
+      stab_matrix = J * stab_matrix * C_inv;
     }
 
     for (int n = 0; n < nnodes; ++n) {

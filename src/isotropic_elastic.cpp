@@ -164,7 +164,7 @@ Tensor<T> IsotropicElastic<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
 template <typename T>
 T IsotropicElastic<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const cauchy = this->sym_tensor_xi(0);
-  return trace(cauchy) / 3;
+  return trace(cauchy) / 3.;
 }
 
 template <typename T>
