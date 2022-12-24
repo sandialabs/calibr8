@@ -129,7 +129,7 @@ int IsotropicElastic<T>::evaluate(
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const mu = compute_mu(E, nu);
-  T const lambda = compute_kappa(E, nu);
+  T const lambda = compute_lambda(E, nu);
 
   Tensor<T> const cauchy = this->sym_tensor_xi(0);
 
