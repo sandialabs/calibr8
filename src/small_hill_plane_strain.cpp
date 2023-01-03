@@ -4,14 +4,18 @@
 #include "fad.hpp"
 #include "global_residual.hpp"
 #include "material_params.hpp"
-#include "small_hill.hpp"
+#include "small_hill_plane_strain.hpp"
 #include "yield_functions.hpp"
 
 namespace calibr8 {
 
+using minitensor::dev;
+using minitensor::trace;
+using minitensor::transpose;
+
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
-  p.set<std::string>("type", "small_hill");
+  p.set<std::string>("type", "small_hill_plane_strain");
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
@@ -23,25 +27,23 @@ static ParameterList get_valid_material_params() {
   p.set<double>("E", 0.);
   p.set<double>("nu", 0.);
   p.set<double>("Y", 0.);
+  p.set<double>("S", 0.);
+  p.set<double>("D", 0.);
   p.set<double>("R00", 0.);
   p.set<double>("R11", 0.);
   p.set<double>("R22", 0.);
   p.set<double>("R01", 0.);
-  p.set<double>("R02", 0.);
-  p.set<double>("R12", 0.);
-  p.set<double>("S", 0.);
-  p.set<double>("D", 0.);
   return p;
 }
 
 template <typename T>
-SmallHill<T>::SmallHill(ParameterList const& inputs, int ndims) {
+SmallHillPlaneStrain<T>::SmallHillPlaneStrain(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
 
   int const num_residuals = 2;
-  int const num_params = 11;
+  int const num_params = 9;
 
   this->m_num_residuals = num_residuals;
   this->m_num_eqs.resize(num_residuals);
@@ -63,27 +65,25 @@ SmallHill<T>::SmallHill(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-SmallHill<T>::~SmallHill() {
+SmallHillPlaneStrain<T>::~SmallHillPlaneStrain() {
 }
 
 template <typename T>
-void SmallHill<T>::init_params() {
+void SmallHillPlaneStrain<T>::init_params() {
 
-  int const num_params = 11;
+  int const num_params = 9;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
 
   this->m_param_names[0] = "E";
   this->m_param_names[1] = "nu";
   this->m_param_names[2] = "Y";
-  this->m_param_names[3] = "R00";
-  this->m_param_names[4] = "R11";
-  this->m_param_names[5] = "R22";
-  this->m_param_names[6] = "R01";
-  this->m_param_names[7] = "R02";
-  this->m_param_names[8] = "R12";
-  this->m_param_names[9] = "S";
-  this->m_param_names[10] = "D";
+  this->m_param_names[3] = "S";
+  this->m_param_names[4] = "D";
+  this->m_param_names[5] = "R00";
+  this->m_param_names[6] = "R11";
+  this->m_param_names[7] = "R22";
+  this->m_param_names[8] = "R01";
 
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
@@ -99,14 +99,12 @@ void SmallHill<T>::init_params() {
     this->m_param_values[es][0] = material_params.get<double>("E");
     this->m_param_values[es][1] = material_params.get<double>("nu");
     this->m_param_values[es][2] = material_params.get<double>("Y");
-    this->m_param_values[es][3] = material_params.get<double>("R00");
-    this->m_param_values[es][4] = material_params.get<double>("R11");
-    this->m_param_values[es][5] = material_params.get<double>("R22");
-    this->m_param_values[es][6] = material_params.get<double>("R01");
-    this->m_param_values[es][7] = material_params.get<double>("R02");
-    this->m_param_values[es][8] = material_params.get<double>("R12");
-    this->m_param_values[es][9] = material_params.get<double>("S");
-    this->m_param_values[es][10] = material_params.get<double>("D");
+    this->m_param_values[es][3] = material_params.get<double>("S");
+    this->m_param_values[es][4] = material_params.get<double>("D");
+    this->m_param_values[es][5] = material_params.get<double>("R00");
+    this->m_param_values[es][6] = material_params.get<double>("R11");
+    this->m_param_values[es][7] = material_params.get<double>("R22");
+    this->m_param_values[es][8] = material_params.get<double>("R01");
   }
 
   this->m_active_indices.resize(1);
@@ -115,7 +113,7 @@ void SmallHill<T>::init_params() {
 }
 
 template <typename T>
-void SmallHill<T>::init_variables_impl() {
+void SmallHillPlaneStrain<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
   int const pstrain_idx = 0;
@@ -130,12 +128,12 @@ void SmallHill<T>::init_variables_impl() {
 }
 
 template <>
-int SmallHill<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int SmallHillPlaneStrain<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int SmallHill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int SmallHillPlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
@@ -181,7 +179,7 @@ int SmallHill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("SmallHill:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("SmallHillPlaneStrain:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
@@ -189,7 +187,7 @@ int SmallHill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
-int SmallHill<T>::evaluate(
+int SmallHillPlaneStrain<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
@@ -200,16 +198,16 @@ int SmallHill<T>::evaluate(
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const Y = this->m_params[2];
-  T const R00 = this->m_params[3];
-  T const R11 = this->m_params[4];
-  T const R22 = this->m_params[5];
-  T const R01 = this->m_params[6];
-  T const R02 = this->m_params[7];
-  T const R12 = this->m_params[8];
-  T const S = this->m_params[9];
-  T const D = this->m_params[10];
+  T const S = this->m_params[3];
+  T const D = this->m_params[4];
+  T const R00 = this->m_params[5];
+  T const R11 = this->m_params[6];
+  T const R22 = this->m_params[7];
+  T const R01 = this->m_params[8];
   T const mu = compute_mu(E, nu);
 
+  T const R02 = 1.;
+  T const R12 = 1.;
   Vector<T> const hill_params = compute_hill_params(R00, R11, R22,
       R01, R02, R12);
 
@@ -219,8 +217,14 @@ int SmallHill<T>::evaluate(
   Tensor<T> const pstrain = this->sym_tensor_xi(0);
   T const alpha = this->scalar_xi(1);
 
-  Tensor<T> const s = this->dev_cauchy(global);
-  T const hill = compute_hill_value(s, hill_params);
+  Tensor<T> const s_2D = this->dev_cauchy(global);
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const epsilon = 0.5 * (grad_u + transpose(grad_u));
+  T const s_zz = 2. * mu * (-trace(epsilon) / 3. + trace(pstrain));
+  Tensor<T> s_3D = insert_2D_tensor_into_3D(s_2D);
+  s_3D(2, 2) = s_zz;
+
+  T const hill = compute_hill_value(s_3D, hill_params);
   T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
   T const f = (hill - sigma_yield) / val(mu);
 
@@ -230,10 +234,10 @@ int SmallHill<T>::evaluate(
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
-      Tensor<T> const n = compute_hill_normal(s, hill_params, hill);
+      Tensor<T> const n_3D = compute_hill_normal(s_3D, hill_params, hill);
+      Tensor<T> const n_2D = extract_2D_tensor_from_3D(n_3D);
       T const dgam = alpha - alpha_old;
-      R_pstrain = pstrain - pstrain_old - dgam * n;
-      R_pstrain(2, 2) = trace(pstrain);
+      R_pstrain = pstrain - pstrain_old - dgam * n_2D;
       R_alpha = f;
       path = PLASTIC;
     }
@@ -250,10 +254,10 @@ int SmallHill<T>::evaluate(
     path = path_in;
     // plastic step
     if (path == PLASTIC) {
-      Tensor<T> const n = compute_hill_normal(s, hill_params, hill);
+      Tensor<T> const n_3D = compute_hill_normal(s_3D, hill_params, hill);
+      Tensor<T> const n_2D = extract_2D_tensor_from_3D(n_3D);
       T const dgam = alpha - alpha_old;
-      R_pstrain = pstrain - pstrain_old - dgam * n;
-      R_pstrain(2, 2) = trace(pstrain);
+      R_pstrain = pstrain - pstrain_old - dgam * n_2D;
       R_alpha = f;
     }
     // elastic step
@@ -271,7 +275,7 @@ int SmallHill<T>::evaluate(
 }
 
 template <typename T>
-Tensor<T> SmallHill<T>::cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> SmallHillPlaneStrain<T>::cauchy(RCP<GlobalResidual<T>> global) {
   int const pressure_idx = 1;
   T const p = global->scalar_x(pressure_idx);
   int const ndims = global->num_dims();
@@ -284,7 +288,7 @@ Tensor<T> SmallHill<T>::cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-Tensor<T> SmallHill<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> SmallHillPlaneStrain<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   Tensor<T> const I = minitensor::eye<T>(ndims);
   T const E = this->m_params[0];
@@ -292,30 +296,30 @@ Tensor<T> SmallHill<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   T const mu = compute_mu(E, nu);
   Tensor<T> const pstrain = this->sym_tensor_xi(0);
   Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
-  Tensor<T> const dev_eps = eps - (minitensor::trace(eps) / 3.) * I;
-  return 2. * mu * (dev_eps - pstrain);
+  Tensor<T> const epsilon = 0.5 * (grad_u + transpose(grad_u));
+  Tensor<T> const dev_epsilon = epsilon - (trace(epsilon) / 3.) * I;
+  return 2. * mu * (dev_epsilon - pstrain);
 }
 
 template <typename T>
-T SmallHill<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+T SmallHillPlaneStrain<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
   Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
-  return kappa * trace(eps);
+  Tensor<T> const epsilon = 0.5 * (grad_u + transpose(grad_u));
+  return kappa * trace(epsilon);
 }
 
 template <typename T>
-T SmallHill<T>::pressure_scale_factor() {
+T SmallHillPlaneStrain<T>::pressure_scale_factor() {
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
   return kappa;
 }
 
-template class SmallHill<double>;
-template class SmallHill<FADT>;
+template class SmallHillPlaneStrain<double>;
+template class SmallHillPlaneStrain<FADT>;
 
 }

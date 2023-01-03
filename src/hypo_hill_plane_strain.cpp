@@ -234,8 +234,6 @@ int HypoHillPlaneStrain<T>::evaluate(
 
   int path = ELASTIC;
   int const ndims = this->m_num_dims;
-  double const sqrt_23 = std::sqrt(2./3.);
-  double const sqrt_32 = std::sqrt(3./2.);
 
   T const E = this->m_params[0];
   T const nu = this->m_params[1];

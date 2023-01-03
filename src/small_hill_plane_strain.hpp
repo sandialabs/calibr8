@@ -1,28 +1,28 @@
 #pragma once
 
-//! \file small_hill.hpp
-//! \brief The interface for small strain Hill local plasticity residuals
+//! \file small_hill_plane_strain.hpp
+//! \brief The interface for small strain Hill plane strain local plasticity residuals
 
 #include "local_residual.hpp"
 
 namespace calibr8 {
 
-//! \brief The local residual for small strain Hill plasticity models
+//! \brief The local residual for small strain Hill plane strain plasticity model
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the LocalResidual
-//! base class for a small strain J2 plasticity model
+//! base class for a small strain Hill plane strain plasticity model
 template <typename T>
-class SmallHill : public LocalResidual<T> {
+class SmallHillPlaneStrain : public LocalResidual<T> {
 
   public:
 
-    //! \brief The SmallHill constructor
+    //! \brief The SmallHillPlaneStrain constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    SmallHill(ParameterList const& inputs, int ndims);
+    SmallHillPlaneStrain(ParameterList const& inputs, int ndims);
 
-    //! \brief The SmallHill destructor
-    ~SmallHill();
+    //! \brief The SmallHillPlaneStrain destructor
+    ~SmallHillPlaneStrain();
 
     //! \brief Initialize the parameters
     void init_params();

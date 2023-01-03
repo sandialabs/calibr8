@@ -10,6 +10,7 @@ configure_file(notch2D_hyper_J2_plane_strain.yaml.in notch2D_hyper_J2_plane_stra
 configure_file(notch2D_hyper_J2_plane_stress.yaml.in notch2D_hyper_J2_plane_stress.yaml @ONLY)
 configure_file(notch2D_hypo_J2_plane_strain.yaml.in notch2D_hypo_J2_plane_strain.yaml @ONLY)
 configure_file(notch2D_hypo_J2_plane_stress.yaml.in notch2D_hypo_J2_plane_stress.yaml @ONLY)
+configure_file(notch2D_small_J2_plane_strain.yaml.in notch2D_small_J2_plane_strain.yaml @ONLY)
 
 add_test(NAME cube_elastic COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/cube_elastic.yaml")
 add_test(NAME cube_hyperelasticity COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/cube_hyperelasticity.yaml")
@@ -23,3 +24,4 @@ add_test(NAME notch2D_hyper_J2_plane_strain COMMAND "${CMAKE_BINARY_DIR}/src/pri
 add_test(NAME notch2D_hyper_J2_plane_stress COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/notch2D_hyper_J2_plane_stress.yaml")
 add_test(NAME notch2D_hypo_J2_plane_strain COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/notch2D_hypo_J2_plane_strain.yaml")
 add_test(NAME notch2D_hypo_J2_plane_stress COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/notch2D_hypo_J2_plane_stress.yaml")
+add_test(NAME notch2D_small_J2_plane_strain COMMAND "${CMAKE_BINARY_DIR}/src/primal" "${CMAKE_BINARY_DIR}/test/primal/notch2D_small_J2_plane_strain.yaml")
