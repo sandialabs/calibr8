@@ -35,6 +35,7 @@ set(CALIBR8_SOURCES
   point_wise.cpp
   primal.cpp
   qoi.cpp
+  small_hill.cpp
   small_J2.cpp
   state.cpp
   synthetic.cpp

@@ -11,6 +11,7 @@
 #include "isotropic_elastic.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
+#include "small_hill.hpp"
 #include "small_J2.hpp"
 #include "state.hpp"
 
@@ -734,6 +735,8 @@ RCP<LocalResidual<T>> create_local_residual(
     return rcp(new HypoHillPlaneStress<T>(params, ndims));
   } else if (type == "isotropic_elastic") {
     return rcp(new IsotropicElastic<T>(params, ndims));
+  } else if (type == "small_hill") {
+    return rcp(new SmallHill<T>(params, ndims));
   } else if (type == "small_J2") {
     return rcp(new SmallJ2<T>(params, ndims));
   } else {

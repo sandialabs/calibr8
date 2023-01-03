@@ -268,7 +268,7 @@ int HypoHillPlaneStrain<T>::evaluate(
 
   T const phi = compute_hill_value(TC_3D, hill_params);
   T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
-  T const f = phi - sigma_yield;
+  T const f = (phi - sigma_yield) / val(mu);
 
   Tensor<T> R_TC;
   T R_alpha;

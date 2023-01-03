@@ -200,7 +200,7 @@ int SmallJ2<T>::evaluate(
   T const s_mag = minitensor::norm(s);
   Tensor<T> const n = s / s_mag;
   T const sigma_yield = Y + K * alpha;
-  T const f = s_mag - sqrt_23 * sigma_yield;
+  T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
   Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
   Array2D<int> const& active_indices = this->active_indices();
@@ -214,7 +214,7 @@ int SmallJ2<T>::evaluate(
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_pstrain = pstrain - pstrain_old - dgam * n;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
+      R_alpha = f;
       path = PLASTIC;
     }
     // elastic step
@@ -232,7 +232,7 @@ int SmallJ2<T>::evaluate(
     if (path == PLASTIC) {
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_pstrain = pstrain - pstrain_old - dgam * n;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
+      R_alpha = f;
     }
     // elastic step
     else {
