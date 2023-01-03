@@ -15,14 +15,13 @@ set(CALIBR8_SOURCES
   fd_vfm_objective.cpp
   fields.cpp
   global_residual.cpp
-  Hill.cpp
-  Hill_plane_strain.cpp
-  Hill_plane_stress.cpp
   isotropic_elastic.cpp
-  J2.cpp
-  J2_plane_strain.cpp
-  J2_plane_stress.cpp
-  J2_small_strain.cpp
+  hyper_J2.cpp
+  hyper_J2_plane_strain.cpp
+  hyper_J2_plane_stress.cpp
+  hypo_hill.cpp
+  hypo_hill_plane_strain.cpp
+  hypo_hill_plane_stress.cpp
   load_mismatch.cpp
   linear_alg.cpp
   linear_solve.cpp
@@ -36,6 +35,7 @@ set(CALIBR8_SOURCES
   point_wise.cpp
   primal.cpp
   qoi.cpp
+  small_J2.cpp
   state.cpp
   synthetic.cpp
   surface_mismatch.cpp

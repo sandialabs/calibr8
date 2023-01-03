@@ -18,7 +18,7 @@ notch J2_hypo:
       nonlinear relative tol: 1.e-8
       print convergence: true
     local residual:
-      type: 'Hill'
+      type: 'hypo_hill'
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12

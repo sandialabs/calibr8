@@ -1,8 +1,8 @@
-notch hypoJ2_plane_stress:
+notch hypoJ2_plane_strain:
 
   problem:
-    name: notch_hypoJ2_plane_stress
-    num steps: 5
+    name: notch_hypoJ2_plane_strain
+    num steps: 4
     step size: 1.
 
   discretization:
@@ -12,13 +12,13 @@ notch hypoJ2_plane_stress:
 
   residuals:
     global residual:
-      type: 'mechanics_plane_stress'
+      type: 'mechanics'
       nonlinear max iters: 30
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
       print convergence: true
     local residual:
-      type: 'J2_plane_stress'
+      type: 'hypo_hill_plane_strain'
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
@@ -29,6 +29,10 @@ notch hypoJ2_plane_stress:
           Y: 2.
           S: 10.
           D: 2.
+          R00: 1.
+          R11: 1.
+          R22: 1.
+          R01: 1.
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
@@ -41,7 +45,7 @@ notch hypoJ2_plane_stress:
     type: 'average displacement'
 
   regression:
-    QoI: 1.7493199283412385e-02
+    QoI: 7.10226176768509899e-03
     relative error tol: 1.0e-4
 
   linear algebra:
@@ -73,10 +77,16 @@ notch hypoJ2_plane_stress:
             Type: "Block Gauss-Seidel"
             Use Upper Triangle: false
             Inverse Type 1: "AMG2"
+            Inverse Type 2: "AMG1"
           AMG2:
             Type: "MueLu"
             number of equations: 2
             verbosity: "none"
+            'problem: symmetric': false
+          AMG1:
+            Type: "MueLu"
+            verbosity: "none"
+            number of equations: 1
             'problem: symmetric': false
           GS:
             Type: "Ifpack2"

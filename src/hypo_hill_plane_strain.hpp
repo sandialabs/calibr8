@@ -1,28 +1,28 @@
 #pragma once
 
-//! \file J2.hpp
-//! \brief The interface for J2 local plasticity residuals
+//! \file hypo_hill_plane_strain.hpp
+//! \brief The interface for hypoelastic HypoHillPlaneStrain local plasticity residuals
 
 #include "local_residual.hpp"
 
 namespace calibr8 {
 
-//! \brief The local residual for J2 plasticity models
+//! \brief The local residual for HypoHillPlaneStrain plasticity models
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the LocalResidual
-//! base class for a J2 plasticity model
+//! base class for a HypoHillPlaneStrain plasticity model
 template <typename T>
-class J2 : public LocalResidual<T> {
+class HypoHillPlaneStrain : public LocalResidual<T> {
 
   public:
 
-    //! \brief The J2 constructor
+    //! \brief The HypoHillPlaneStrain constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    J2(ParameterList const& inputs, int ndims);
+    HypoHillPlaneStrain(ParameterList const& inputs, int ndims);
 
-    //! \brief The J2 destructor
-    ~J2();
+    //! \brief The HypoHillPlaneStrain destructor
+    ~HypoHillPlaneStrain();
 
     //! \brief Initialize the parameters
     void init_params();
@@ -64,9 +64,15 @@ class J2 : public LocalResidual<T> {
 
   private:
 
+    //! \brief Get the rotated Cauchy stress tensor
+    //! \param global The global residual equations
+    Tensor<T> rotated_cauchy(RCP<GlobalResidual<T>> global);
+
     int m_max_iters;
     double m_abs_tol;
     double m_rel_tol;
+
+    int m_z_stress_idx = -1;
 
     enum {ELASTIC = 0, PLASTIC = 1};
 

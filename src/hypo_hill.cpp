@@ -3,7 +3,7 @@
 #include "defines.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
-#include "Hill.hpp"
+#include "hypo_hill.hpp"
 #include "material_params.hpp"
 #include "yield_functions.hpp"
 
@@ -16,7 +16,7 @@ using minitensor::transpose;
 
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
-  p.set<std::string>("type", "Hill");
+  p.set<std::string>("type", "hypo_hill");
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
@@ -41,7 +41,7 @@ static ParameterList get_valid_material_params() {
 }
 
 template <typename T>
-Hill<T>::Hill(ParameterList const& inputs, int ndims) {
+HypoHill<T>::HypoHill(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
@@ -70,13 +70,13 @@ Hill<T>::Hill(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-Hill<T>::~Hill() {
+HypoHill<T>::~HypoHill() {
 }
 
 template <typename T>
-void Hill<T>::init_params() {
+void HypoHill<T>::init_params() {
 
-  // 2 elastic + Y + 6 Hill + S + D
+  // 2 elastic + Y + 6 HypoHill + S + D
   int const num_params = 11;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
@@ -124,7 +124,7 @@ void Hill<T>::init_params() {
 }
 
 template <typename T>
-void Hill<T>::init_variables_impl() {
+void HypoHill<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
   int const TC_idx = 0;
@@ -156,12 +156,12 @@ Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
 
 
 template <>
-int Hill<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int HypoHill<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int Hill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int HypoHill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
@@ -214,7 +214,7 @@ int Hill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("Hill:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("HypoHill:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
@@ -222,7 +222,7 @@ int Hill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
-int Hill<T>::evaluate(
+int HypoHill<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
@@ -304,7 +304,7 @@ int Hill<T>::evaluate(
 }
 
 template <typename T>
-Tensor<T> Hill<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HypoHill<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = this->m_num_dims;
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const grad_u = global->grad_vector_x(0);
@@ -316,7 +316,7 @@ Tensor<T> Hill<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-Tensor<T> Hill<T>::cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HypoHill<T>::cauchy(RCP<GlobalResidual<T>> global) {
   int const pressure_idx = 1;
   T const p = global->scalar_x(pressure_idx);
   int const ndims = this->m_num_dims;
@@ -327,20 +327,20 @@ Tensor<T> Hill<T>::cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-Tensor<T> Hill<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HypoHill<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const RC = this->rotated_cauchy(global);
   return dev(RC);
 }
 
 template <typename T>
-T Hill<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+T HypoHill<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const RC = this->rotated_cauchy(global);
   return trace(RC) / 3.;
 }
 
 
 template <typename T>
-T Hill<T>::pressure_scale_factor() {
+T HypoHill<T>::pressure_scale_factor() {
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
@@ -348,7 +348,7 @@ T Hill<T>::pressure_scale_factor() {
 }
 
 
-template class Hill<double>;
-template class Hill<FADT>;
+template class HypoHill<double>;
+template class HypoHill<FADT>;
 
 }

@@ -1,25 +1,25 @@
-notch hyperJ2:
+cube hyperJ2:
 
   problem:
-    name: J2_finite_2D
-    num steps: 8
+    name: cube_hyperJ2
+    num steps: 10
     step size: 1.
 
   discretization:
-    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'
-    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.smb'
-    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.txt'
+    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.dmg'
+    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.smb'
+    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.txt'
 
   residuals:
     global residual:
       type: 'mechanics'
       nonlinear max iters: 15
-      nonlinear absolute tol: 1.e-12
-      nonlinear relative tol: 1.e-12
+      nonlinear absolute tol: 1.e-8
+      nonlinear relative tol: 1.e-8
       print convergence: true
     local residual:
-      type: 'J2_plane_strain'
-      nonlinear max iters: 500
+      type: 'hyper_J2'
+      nonlinear max iters: 30
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
       materials:
@@ -28,21 +28,20 @@ notch hyperJ2:
           nu: 0.25
           K: 100.
           Y: 10.
-          Y_inf: 0.
-          delta: 0.
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
     expression:
       bc 1: [0, 0, xmin, 0.0]
       bc 2: [0, 1, ymin, 0.0]
-      bc 3: [0, 1, ymax, 0.001 * t]
+      bc 3: [0, 2, zmin, 0.0]
+      bc 4: [0, 1, ymax, 0.01 * t]
 
   quantity of interest:
     type: 'average displacement'
 
   regression:
-    QoI: 6.5626182813091150e-03
+    QoI: 1.57817536611772440e-02
     relative error tol: 1.0e-4
 
   linear algebra:
@@ -73,11 +72,11 @@ notch hyperJ2:
           BGS2x2:
             Type: "Block Gauss-Seidel"
             Use Upper Triangle: false
-            Inverse Type 1: "AMG2"
+            Inverse Type 1: "AMG3"
             Inverse Type 2: "AMG1"
-          AMG2:
+          AMG3:
             Type: "MueLu"
-            number of equations: 2
+            number of equations: 3
             verbosity: "none"
             'problem: symmetric': false
           AMG1:

@@ -1,28 +1,28 @@
 #pragma once
 
-//! \file J2_small_strain.hpp
-//! \brief The interface for small strain J2 local plasticity residuals
+//! \file hypo_hill_plane_stress.hpp
+//! \brief The interface for hypoelastic HypoHillPlaneStress local plasticity residuals
 
 #include "local_residual.hpp"
 
 namespace calibr8 {
 
-//! \brief The local residual for small strain J2 plasticity models
+//! \brief The local residual for HypoHillPlaneStress plasticity models
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the LocalResidual
-//! base class for a small strain J2 plasticity model
+//! base class for a HypoHillPlaneStress plasticity model
 template <typename T>
-class J2SmallStrain : public LocalResidual<T> {
+class HypoHillPlaneStress : public LocalResidual<T> {
 
   public:
 
-    //! \brief The J2SmallStrain constructor
+    //! \brief The HypoHillPlaneStress constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    J2SmallStrain(ParameterList const& inputs, int ndims);
+    HypoHillPlaneStress(ParameterList const& inputs, int ndims);
 
-    //! \brief The J2SmallStrain destructor
-    ~J2SmallStrain();
+    //! \brief The HypoHillPlaneStress destructor
+    ~HypoHillPlaneStress();
 
     //! \brief Initialize the parameters
     void init_params();
@@ -39,12 +39,12 @@ class J2SmallStrain : public LocalResidual<T> {
     //! \param force_path Force a specific evaluation path
     //! \param path The evaluation path to force
     int evaluate(
-        RCP<GlobalResidual<T>> global, 
+        RCP<GlobalResidual<T>> global,
         bool force_path = false,
         int path = 0);
 
     //! \brief Do these equations correspond to finite deformation
-    bool is_finite_deformation() { return false; }
+    bool is_finite_deformation() { return true; }
 
     //! \brief Get the Cauchy stress tensor
     //! \param global The global residual equations
@@ -63,6 +63,10 @@ class J2SmallStrain : public LocalResidual<T> {
     T pressure_scale_factor();
 
   private:
+
+    //! \brief Get the rotated Cauchy stress tensor
+    //! \param global The global residual equations
+    Tensor<T> rotated_cauchy(RCP<GlobalResidual<T>> global);
 
     int m_max_iters;
     double m_abs_tol;

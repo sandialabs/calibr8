@@ -3,7 +3,7 @@
 #include "defines.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
-#include "J2_plane_stress.hpp"
+#include "hyper_J2_plane_stress.hpp"
 #include "material_params.hpp"
 #include "yield_functions.hpp"
 
@@ -11,7 +11,7 @@ namespace calibr8 {
 
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
-  p.set<std::string>("type", "J2_plane_stress");
+  p.set<std::string>("type", "hyper_J2_plane_stress");
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
@@ -30,7 +30,7 @@ static ParameterList get_valid_material_params() {
 }
 
 template <typename T>
-J2PlaneStress<T>::J2PlaneStress(ParameterList const& inputs, int ndims) {
+HyperJ2PlaneStress<T>::HyperJ2PlaneStress(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
@@ -70,7 +70,7 @@ J2PlaneStress<T>::J2PlaneStress(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-void J2PlaneStress<T>::init_params() {
+void HyperJ2PlaneStress<T>::init_params() {
 
   int const num_params = 5;
   this->m_params.resize(num_params);
@@ -107,11 +107,11 @@ void J2PlaneStress<T>::init_params() {
 }
 
 template <typename T>
-J2PlaneStress<T>::~J2PlaneStress() {
+HyperJ2PlaneStress<T>::~HyperJ2PlaneStress() {
 }
 
 template <typename T>
-void J2PlaneStress<T>::init_variables_impl() {
+void HyperJ2PlaneStress<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
   int const zeta_idx = 0;
@@ -168,12 +168,12 @@ void eval_be_bar_plane_stress(
 }
 
 template <>
-int J2PlaneStress<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int HyperJ2PlaneStress<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int J2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int HyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
@@ -239,7 +239,7 @@ int J2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("J2PlaneStress:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("HyperJ2PlaneStress:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
@@ -247,7 +247,7 @@ int J2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
-int J2PlaneStress<T>::evaluate(
+int HyperJ2PlaneStress<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
@@ -360,7 +360,7 @@ int J2PlaneStress<T>::evaluate(
 }
 
 template <typename T>
-Tensor<T> J2PlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HyperJ2PlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -376,7 +376,7 @@ Tensor<T> J2PlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-Tensor<T> J2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HyperJ2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -391,7 +391,7 @@ Tensor<T> J2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-T J2PlaneStress<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+T HyperJ2PlaneStress<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -405,9 +405,9 @@ T J2PlaneStress<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-T J2PlaneStress<T>::pressure_scale_factor() { return 0.; }
+T HyperJ2PlaneStress<T>::pressure_scale_factor() { return 0.; }
 
-template class J2PlaneStress<double>;
-template class J2PlaneStress<FADT>;
+template class HyperJ2PlaneStress<double>;
+template class HyperJ2PlaneStress<FADT>;
 
 }

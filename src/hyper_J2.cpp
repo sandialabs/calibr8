@@ -3,7 +3,7 @@
 #include "defines.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
-#include "J2.hpp"
+#include "hyper_J2.hpp"
 #include "material_params.hpp"
 
 namespace calibr8 {
@@ -16,7 +16,7 @@ using minitensor::transpose;
 
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
-  p.set<std::string>("type", "J2");
+  p.set<std::string>("type", "hyper_J2");
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
@@ -34,7 +34,7 @@ static ParameterList get_valid_material_params() {
 }
 
 template <typename T>
-J2<T>::J2(ParameterList const& inputs, int ndims) {
+HyperJ2<T>::HyperJ2(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
@@ -65,11 +65,11 @@ J2<T>::J2(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-J2<T>::~J2() {
+HyperJ2<T>::~HyperJ2() {
 }
 
 template <typename T>
-void J2<T>::init_params() {
+void HyperJ2<T>::init_params() {
 
   int const num_params = 4;
   this->m_params.resize(num_params);
@@ -104,7 +104,7 @@ void J2<T>::init_params() {
 }
 
 template <typename T>
-void J2<T>::init_variables_impl() {
+void HyperJ2<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
   int const zeta_idx = 0;
@@ -142,12 +142,12 @@ Tensor<T> eval_be_bar(
 }
 
 template <>
-int J2<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int HyperJ2<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int J2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int HyperJ2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
@@ -198,7 +198,7 @@ int J2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("J2:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("HyperJ2:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
@@ -206,7 +206,7 @@ int J2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
-int J2<T>::evaluate(
+int HyperJ2<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
@@ -247,6 +247,7 @@ int J2<T>::evaluate(
       Tensor<T> const n = s / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - dev(be_bar_trial) + 2. * dgam * Ie * n;
+      R_zeta(2, 2) = trace(zeta);
       R_Ie = det(zeta + Ie * I) - 1.;
       R_alpha = f;
       path = PLASTIC;
@@ -268,6 +269,7 @@ int J2<T>::evaluate(
       Tensor<T> const n = s / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - dev(be_bar_trial) + 2. * dgam * Ie * n;
+      R_zeta(2, 2) = trace(zeta);
       R_Ie = det(zeta + Ie * I) - 1.;
       R_alpha = f;
     }
@@ -287,7 +289,7 @@ int J2<T>::evaluate(
 
 }
 template <typename T>
-Tensor<T> J2<T>::cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HyperJ2<T>::cauchy(RCP<GlobalResidual<T>> global) {
   int const pressure_idx = 1;
   T const p = global->scalar_x(pressure_idx);
   int const ndims = global->num_dims();
@@ -298,7 +300,7 @@ Tensor<T> J2<T>::cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-Tensor<T> J2<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HyperJ2<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -312,7 +314,7 @@ Tensor<T> J2<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-T J2<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+T HyperJ2<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
@@ -326,14 +328,14 @@ T J2<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-T J2<T>::pressure_scale_factor() {
+T HyperJ2<T>::pressure_scale_factor() {
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
   return kappa;
 }
 
-template class J2<double>;
-template class J2<FADT>;
+template class HyperJ2<double>;
+template class HyperJ2<FADT>;
 
 }

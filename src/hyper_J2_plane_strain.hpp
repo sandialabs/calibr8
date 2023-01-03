@@ -1,28 +1,28 @@
 #pragma once
 
-//! \file J2_plane_strain.hpp
+//! \file hyper_J2_plane_strain.hpp
 //! \brief The interface for J2PlaneStrain local plasticity residuals
 
 #include "local_residual.hpp"
 
 namespace calibr8 {
 
-//! \brief The local residual for finite deformation J2 plane strain plasticity models
+//! \brief The local residual for finite deformation hyperelastic J2 plane strain plasticity model
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the LocalResidual
-//! base class for a finite deformation J2 plane strain plasticity model
+//! base class for a finite deformation hyperelastic J2 plane strain plasticity model
 template <typename T>
-class J2PlaneStrain : public LocalResidual<T> {
+class HyperJ2PlaneStrain : public LocalResidual<T> {
 
   public:
 
-    //! \brief The J2PlaneStrain constructor
+    //! \brief The HyperJ2PlaneStrain constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    J2PlaneStrain(ParameterList const& inputs, int ndims);
+    HyperJ2PlaneStrain(ParameterList const& inputs, int ndims);
 
-    //! \brief The J2PlaneStrain destructor
-    ~J2PlaneStrain();
+    //! \brief The HyperJ2PlaneStrain destructor
+    ~HyperJ2PlaneStrain();
 
     //! \brief Initialize the parameters
     void init_params();

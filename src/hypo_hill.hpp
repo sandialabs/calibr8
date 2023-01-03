@@ -1,28 +1,28 @@
 #pragma once
 
-//! \file Hill_plane_stress.hpp
-//! \brief The interface for hypoelastic HillPlaneStress local plasticity residuals
+//! \file hypo_hill.hpp
+//! \brief The interface for hypoelastic Hill local plasticity residuals
 
 #include "local_residual.hpp"
 
 namespace calibr8 {
 
-//! \brief The local residual for HillPlaneStress plasticity models
+//! \brief The local residual for HypoHill plasticity models
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the LocalResidual
-//! base class for a HillPlaneStress plasticity model
+//! base class for a HypoHill plasticity model
 template <typename T>
-class HillPlaneStress : public LocalResidual<T> {
+class HypoHill : public LocalResidual<T> {
 
   public:
 
-    //! \brief The HillPlaneStress constructor
+    //! \brief The HypoHill constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    HillPlaneStress(ParameterList const& inputs, int ndims);
+    HypoHill(ParameterList const& inputs, int ndims);
 
-    //! \brief The HillPlaneStress destructor
-    ~HillPlaneStress();
+    //! \brief The HypoHill destructor
+    ~HypoHill();
 
     //! \brief Initialize the parameters
     void init_params();

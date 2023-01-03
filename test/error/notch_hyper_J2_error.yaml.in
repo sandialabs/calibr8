@@ -1,4 +1,4 @@
-notch hyperJ2:
+cube hyperJ2:
 
   problem:
     name: J2
@@ -18,7 +18,7 @@ notch hyperJ2:
       nonlinear relative tol: 1.e-8
       print convergence: true
     local residual:
-      type: 'J2'
+      type: 'hyper_J2'
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
@@ -29,20 +29,16 @@ notch hyperJ2:
           K: 100.
           Y: 10.
 
+  quantity of interest:
+    type: 'average displacement'
+
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
     expression:
       bc 1: [0, 0, xmin, 0.0]
       bc 2: [0, 1, ymin, 0.0]
       bc 3: [0, 2, zmin, 0.0]
-      bc 4: [0, 1, ymax, 0.005 * t]
-
-  quantity of interest:
-    type: 'average displacement'
-
-  regression:
-    QoI: 7.0080671510235862e-04
-    relative error tol: 1.0e-4
+      bc 4: [0, 1, ymax, 0.001 * t]
 
   linear algebra:
     Linear Solver Type: "Belos"

@@ -1,28 +1,28 @@
 #pragma once
 
-//! \file Hill_plane_strain.hpp
-//! \brief The interface for hypoelastic HillPlaneStrain local plasticity residuals
+//! \file small_J2.hpp
+//! \brief The interface for small strain J2 local plasticity residuals
 
 #include "local_residual.hpp"
 
 namespace calibr8 {
 
-//! \brief The local residual for HillPlaneStrain plasticity models
+//! \brief The local residual for small strain J2 plasticity models
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the LocalResidual
-//! base class for a HillPlaneStrain plasticity model
+//! base class for a small strain J2 plasticity model
 template <typename T>
-class HillPlaneStrain : public LocalResidual<T> {
+class SmallJ2 : public LocalResidual<T> {
 
   public:
 
-    //! \brief The HillPlaneStrain constructor
+    //! \brief The SmallJ2 constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    HillPlaneStrain(ParameterList const& inputs, int ndims);
+    SmallJ2(ParameterList const& inputs, int ndims);
 
-    //! \brief The HillPlaneStrain destructor
-    ~HillPlaneStrain();
+    //! \brief The SmallJ2 destructor
+    ~SmallJ2();
 
     //! \brief Initialize the parameters
     void init_params();
@@ -39,12 +39,12 @@ class HillPlaneStrain : public LocalResidual<T> {
     //! \param force_path Force a specific evaluation path
     //! \param path The evaluation path to force
     int evaluate(
-        RCP<GlobalResidual<T>> global,
+        RCP<GlobalResidual<T>> global, 
         bool force_path = false,
         int path = 0);
 
     //! \brief Do these equations correspond to finite deformation
-    bool is_finite_deformation() { return true; }
+    bool is_finite_deformation() { return false; }
 
     //! \brief Get the Cauchy stress tensor
     //! \param global The global residual equations
@@ -64,15 +64,9 @@ class HillPlaneStrain : public LocalResidual<T> {
 
   private:
 
-    //! \brief Get the rotated Cauchy stress tensor
-    //! \param global The global residual equations
-    Tensor<T> rotated_cauchy(RCP<GlobalResidual<T>> global);
-
     int m_max_iters;
     double m_abs_tol;
     double m_rel_tol;
-
-    int m_z_stress_idx = -1;
 
     enum {ELASTIC = 0, PLASTIC = 1};
 

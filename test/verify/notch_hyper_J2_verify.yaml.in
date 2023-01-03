@@ -1,8 +1,8 @@
-notch plastic mfe verify:
+notch verify test:
 
   problem:
     name: J2
-    num steps: 2
+    num steps: 1
     step size: 1.
     do regression: true
 
@@ -15,33 +15,23 @@ notch plastic mfe verify:
     global residual:
       type: 'mechanics'
       nonlinear max iters: 15
-      nonlinear absolute tol: 1.e-11
-      nonlinear relative tol: 1.e-11
+      nonlinear absolute tol: 1.e-8
+      nonlinear relative tol: 1.e-8
       print convergence: true
-
     local residual:
-      type: 'J2'
-      nonlinear max iters: 30
-      nonlinear absolute tol: 1.e-11
-      nonlinear relative tol: 1.e-11
+      type: 'hyper_J2'
+      nonlinear max iters: 500
+      nonlinear absolute tol: 1.e-12
+      nonlinear relative tol: 1.e-12
       materials:
         body:
-          E: 200e3
-          nu: 0.3
-          Y: 200.
-          K: 1e3
+          E: 1000.
+          nu: 0.25
+          K: 100.
+          Y: 100000.
 
-    fine local residual:
-      type: 'J2'
-      nonlinear max iters: 15
-      nonlinear absolute tol: 1.e-11
-      nonlinear relative tol: 1.e-11
-      materials:
-        body:
-          E: 150e3
-          nu: 0.35
-          Y: 150.
-          K: 8e2
+  quantity of interest:
+    type: 'average displacement'
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
@@ -49,10 +39,7 @@ notch plastic mfe verify:
       bc 1: [0, 0, xmin, 0.0]
       bc 2: [0, 1, ymin, 0.0]
       bc 3: [0, 2, zmin, 0.0]
-      bc 4: [0, 1, ymax , 0.001 * t]
-
-  quantity of interest:
-    type: 'average displacement'
+      bc 4: [0, 1, ymax, 0.001 * t]
 
   linear algebra:
     Linear Solver Type: "Belos"
@@ -89,13 +76,11 @@ notch plastic mfe verify:
             number of equations: 3
             verbosity: "none"
             'problem: symmetric': false
-            'coarse: max size': 10000000
           AMG1:
             Type: "MueLu"
             verbosity: "none"
             number of equations: 1
             'problem: symmetric': false
-            'coarse: max size': 10000000
           GS:
             Type: "Ifpack2"
             Overlap: 1

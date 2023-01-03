@@ -1,28 +1,28 @@
 #pragma once
 
-//! \file Hill.hpp
-//! \brief The interface for hypoelastic Hill local plasticity residuals
+//! \file hyper_J2.hpp
+//! \brief The interface for HyperJ2 local plasticity residuals
 
 #include "local_residual.hpp"
 
 namespace calibr8 {
 
-//! \brief The local residual for Hill plasticity models
+//! \brief The local residual for HyperJ2 plasticity models
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the LocalResidual
-//! base class for a Hill plasticity model
+//! base class for a HyperJ2 plasticity model
 template <typename T>
-class Hill : public LocalResidual<T> {
+class HyperJ2 : public LocalResidual<T> {
 
   public:
 
-    //! \brief The Hill constructor
+    //! \brief The HyperJ2 constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    Hill(ParameterList const& inputs, int ndims);
+    HyperJ2(ParameterList const& inputs, int ndims);
 
-    //! \brief The Hill destructor
-    ~Hill();
+    //! \brief The HyperJ2 destructor
+    ~HyperJ2();
 
     //! \brief Initialize the parameters
     void init_params();
@@ -63,10 +63,6 @@ class Hill : public LocalResidual<T> {
     T pressure_scale_factor();
 
   private:
-
-    //! \brief Get the rotated Cauchy stress tensor
-    //! \param global The global residual equations
-    Tensor<T> rotated_cauchy(RCP<GlobalResidual<T>> global);
 
     int m_max_iters;
     double m_abs_tol;

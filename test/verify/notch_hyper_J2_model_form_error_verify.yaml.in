@@ -1,33 +1,47 @@
-cube hyperJ2:
+notch plastic mfe verify:
 
   problem:
-    name: cube_hyperJ2
-    num steps: 10
+    name: J2
+    num steps: 2
     step size: 1.
+    do regression: true
 
   discretization:
-    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.dmg'
-    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.smb'
-    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.txt'
+    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
+    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.smb'
+    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.txt'
 
   residuals:
     global residual:
       type: 'mechanics'
       nonlinear max iters: 15
-      nonlinear absolute tol: 1.e-8
-      nonlinear relative tol: 1.e-8
+      nonlinear absolute tol: 1.e-11
+      nonlinear relative tol: 1.e-11
       print convergence: true
+
     local residual:
-      type: 'J2'
+      type: 'hyper_J2'
       nonlinear max iters: 30
-      nonlinear absolute tol: 1.e-12
-      nonlinear relative tol: 1.e-12
+      nonlinear absolute tol: 1.e-11
+      nonlinear relative tol: 1.e-11
       materials:
         body:
-          E: 1000.
-          nu: 0.25
-          K: 100.
-          Y: 10.
+          E: 200e3
+          nu: 0.3
+          Y: 200.
+          K: 1e3
+
+    fine local residual:
+      type: 'hyper_J2'
+      nonlinear max iters: 15
+      nonlinear absolute tol: 1.e-11
+      nonlinear relative tol: 1.e-11
+      materials:
+        body:
+          E: 150e3
+          nu: 0.35
+          Y: 150.
+          K: 8e2
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
@@ -35,14 +49,10 @@ cube hyperJ2:
       bc 1: [0, 0, xmin, 0.0]
       bc 2: [0, 1, ymin, 0.0]
       bc 3: [0, 2, zmin, 0.0]
-      bc 4: [0, 1, ymax, 0.01 * t]
+      bc 4: [0, 1, ymax , 0.001 * t]
 
   quantity of interest:
     type: 'average displacement'
-
-  regression:
-    QoI: 1.57817536611772440e-02
-    relative error tol: 1.0e-4
 
   linear algebra:
     Linear Solver Type: "Belos"
@@ -79,11 +89,13 @@ cube hyperJ2:
             number of equations: 3
             verbosity: "none"
             'problem: symmetric': false
+            'coarse: max size': 10000000
           AMG1:
             Type: "MueLu"
             verbosity: "none"
             number of equations: 1
             'problem: symmetric': false
+            'coarse: max size': 10000000
           GS:
             Type: "Ifpack2"
             Overlap: 1

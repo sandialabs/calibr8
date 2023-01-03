@@ -2,16 +2,16 @@
 #include "disc.hpp"
 #include "elastic.hpp"
 #include "fad.hpp"
-#include "Hill.hpp"
-#include "Hill_plane_strain.hpp"
-#include "Hill_plane_stress.hpp"
+#include "hyper_J2.hpp"
+#include "hyper_J2_plane_strain.hpp"
+#include "hyper_J2_plane_stress.hpp"
+#include "hypo_hill.hpp"
+#include "hypo_hill_plane_strain.hpp"
+#include "hypo_hill_plane_stress.hpp"
 #include "isotropic_elastic.hpp"
-#include "J2.hpp"
-#include "J2_plane_strain.hpp"
-#include "J2_plane_stress.hpp"
-#include "J2_small_strain.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
+#include "small_J2.hpp"
 #include "state.hpp"
 
 namespace calibr8 {
@@ -720,22 +720,22 @@ RCP<LocalResidual<T>> create_local_residual(
   std::string const type = params.get<std::string>("type");
   if (type == "elastic") {
     return rcp(new Elastic<T>(params, ndims));
-  } else if (type == "Hill") {
-    return rcp(new Hill<T>(params, ndims));
-  } else if (type == "Hill_plane_strain") {
-    return rcp(new HillPlaneStrain<T>(params, ndims));
-  } else if (type == "Hill_plane_stress") {
-    return rcp(new HillPlaneStress<T>(params, ndims));
+  } else if (type == "hyper_J2") {
+    return rcp(new HyperJ2<T>(params, ndims));
+  } else if (type == "hyper_J2_plane_strain") {
+    return rcp(new HyperJ2PlaneStrain<T>(params, ndims));
+  } else if (type == "hyper_J2_plane_stress") {
+    return rcp(new HyperJ2PlaneStress<T>(params, ndims));
+  } else if (type == "hypo_hill") {
+    return rcp(new HypoHill<T>(params, ndims));
+  } else if (type == "hypo_hill_plane_strain") {
+    return rcp(new HypoHillPlaneStrain<T>(params, ndims));
+  } else if (type == "hypo_hill_plane_stress") {
+    return rcp(new HypoHillPlaneStress<T>(params, ndims));
   } else if (type == "isotropic_elastic") {
     return rcp(new IsotropicElastic<T>(params, ndims));
-  } else if (type == "J2") {
-    return rcp(new J2<T>(params, ndims));
-  } else if (type == "J2_plane_strain") {
-    return rcp(new J2PlaneStrain<T>(params, ndims));
-  } else if (type == "J2_plane_stress") {
-    return rcp(new J2PlaneStress<T>(params, ndims));
-  } else if (type == "J2_small_strain") {
-    return rcp(new J2SmallStrain<T>(params, ndims));
+  } else if (type == "small_J2") {
+    return rcp(new SmallJ2<T>(params, ndims));
   } else {
     fail("unknown local residual name: %s", type.c_str());
     return Teuchos::null;
