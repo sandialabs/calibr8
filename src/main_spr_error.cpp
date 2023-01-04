@@ -209,6 +209,7 @@ void Driver::estimate_error() {
   double const dt = prob.get<double>("step size");
 
   double t = 0.;
+  double error = 0.;
   for (int step = 1; step < nsteps; ++step) {
     Array1D<apf::Field*> x = m_nested->primal(step).global;
     t += dt;
@@ -225,10 +226,10 @@ void Driver::estimate_error() {
     for (int i = 0; i < Z_fields.size(); ++i) {
       step_error += R[i]->dot(*(Z[i]));
     }
-
-    std::cout << step_error << "\n";
-
+    error += step_error;
   }
+
+  std::cout << "error: " << error << "\n";
 }
 
 void Driver::drive() {
