@@ -13,6 +13,7 @@
 #include "macros.hpp"
 #include "small_hill.hpp"
 #include "small_hill_plane_strain.hpp"
+#include "small_hill_plane_stress.hpp"
 #include "small_J2.hpp"
 #include "state.hpp"
 
@@ -740,6 +741,8 @@ RCP<LocalResidual<T>> create_local_residual(
     return rcp(new SmallHill<T>(params, ndims));
   } else if (type == "small_hill_plane_strain") {
     return rcp(new SmallHillPlaneStrain<T>(params, ndims));
+  } else if (type == "small_hill_plane_stress") {
+    return rcp(new SmallHillPlaneStress<T>(params, ndims));
   } else if (type == "small_J2") {
     return rcp(new SmallJ2<T>(params, ndims));
   } else {

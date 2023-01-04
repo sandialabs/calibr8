@@ -37,6 +37,7 @@ set(CALIBR8_SOURCES
   qoi.cpp
   small_hill.cpp
   small_hill_plane_strain.cpp
+  small_hill_plane_stress.cpp
   small_J2.cpp
   state.cpp
   synthetic.cpp
