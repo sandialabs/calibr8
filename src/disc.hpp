@@ -283,6 +283,9 @@ class Disc {
         Array1D<RCP<VectorT>> const& dx,
         double const alpha = 1.);
 
+    //! \brief Get the owned nodes local to this process
+    apf::DynamicArray<apf::Node> get_owned_nodes();
+
     //! \brief Fill a VectorT with field data
     //! \param x The field (of global variables)
     //! \param dx The VectorT

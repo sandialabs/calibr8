@@ -5,6 +5,7 @@ set(CALIBR8_SOURCES
   avg_stress.cpp
   calibration.cpp
   control.cpp
+  cspr.cpp
   dbcs.cpp
   disc.cpp
   disp_comp.cpp
@@ -75,6 +76,10 @@ set_code_standards(inverse)
 add_executable(error main_error.cpp)
 target_link_libraries(error PRIVATE calibr8)
 set_code_standards(error)
+
+add_executable(spr_error main_spr_error.cpp)
+target_link_libraries(spr_error PRIVATE calibr8)
+set_code_standards(spr_error)
 
 add_executable(model_form_exact_error main_model_form_exact_error.cpp)
 target_link_libraries(model_form_exact_error PRIVATE calibr8)

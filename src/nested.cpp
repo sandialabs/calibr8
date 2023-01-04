@@ -25,6 +25,7 @@ NestedDisc::NestedDisc(RCP<Disc> disc, int type) {
   store_old_verts();
   initialize();
   create_primal(disc);
+  create_adjoint_for_spr(disc);
 }
 
 void NestedDisc::number_elems() {
@@ -157,6 +158,31 @@ void NestedDisc::create_primal(RCP<Disc> disc) {
   }
 }
 
+void NestedDisc::create_adjoint_for_spr(RCP<Disc> disc) {
+  Array1D<Fields> const& base_adjoint = disc->adjoint();
+  if (base_adjoint.size() == 0) return;
+  int const nsteps = base_adjoint.size();
+  for (int step = 0; step < nsteps; ++step) {
+    int const model_form = BASE_MODEL;
+    int const ngr = base_adjoint[0].global.size();
+    int const nlr = base_adjoint[0].local[model_form].size();
+    Fields fields;
+    for (int i = 0; i < ngr; ++i) {
+      const char* name = apf::getName(base_adjoint[step].global[i]);
+      apf::Field* f = m_mesh->findField(name);
+      ALWAYS_ASSERT(f);
+      fields.global.push_back(f);
+    }
+    for (int i = 0; i < nlr; ++i) {
+      const char* name = apf::getName(base_adjoint[step].local[model_form][i]);
+      apf::Field* f = m_mesh->findField(name);
+      ALWAYS_ASSERT(f);
+      fields.local[model_form].push_back(f);
+    }
+    m_adjoint.push_back(fields);
+  }
+}
+
 apf::Field* NestedDisc::get_coarse(apf::Field* f) {
   int tags[2];
   double comps0[3];
@@ -184,7 +210,6 @@ apf::Field* NestedDisc::get_coarse(apf::Field* f) {
   }
   return coarse;
 }
-
 
 void NestedDisc::set_error(
     apf::Field* nested_global_error,

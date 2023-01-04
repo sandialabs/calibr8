@@ -36,6 +36,7 @@ class NestedDisc : public Disc {
     void refine();
     void store_old_verts();
     void create_primal(RCP<Disc> disc);
+    void create_adjoint_for_spr(RCP<Disc> disc);
 
   private:
 

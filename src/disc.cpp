@@ -730,6 +730,12 @@ void Disc::destroy_virtual() {
   m_virtual.resize(0);
 }
 
+apf::DynamicArray<apf::Node> Disc::get_owned_nodes() {
+  apf::DynamicArray<apf::Node> nodes;
+  apf::getNodes(m_owned_nmbr, nodes);
+  return nodes;
+}
+
 void Disc::add_to_soln(
     Array1D<apf::Field*>& x,
     Array1D<RCP<VectorT>> const& dx,
@@ -793,7 +799,7 @@ void Disc::populate_vector(
     Array1D<RCP<VectorT>> const& vec) {
 
   int const num_comps = v.size();
-  DEBUG_ASSERT(vec_v.size() == num_comps);
+  DEBUG_ASSERT(vec.size() == num_comps);
 
   // get the nodes associated with the nodes in the mesh
   apf::DynamicArray<apf::Node> nodes;
