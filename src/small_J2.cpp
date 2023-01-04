@@ -202,10 +202,6 @@ int SmallJ2<T>::evaluate(
   T const sigma_yield = Y + K * alpha;
   T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
-  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
-  Array2D<int> const& active_indices = this->active_indices();
-  T const dummy3 = this->params(active_indices[0][0]);
-
   Tensor<T> R_pstrain;
   T R_alpha;
 

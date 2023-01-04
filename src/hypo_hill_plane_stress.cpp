@@ -357,7 +357,9 @@ Tensor<T> HypoHillPlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global) {
 
 template <typename T>
 Tensor<T> HypoHillPlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
-  return dev(this->rotated_cauchy(global));
+  int const ndims = this->m_num_dims;
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  return this->rotated_cauchy(global) - this->hydro_cauchy(global) * I;
 }
 
 template <typename T>

@@ -316,7 +316,7 @@ T SmallHillPlaneStress<T>::epsilon_zz(RCP<GlobalResidual<T>> global) {
   Tensor<T> const epsilon = 0.5 * (grad_u + transpose(grad_u));
   Tensor<T> const pstrain = this->sym_tensor_xi(0);
   T const epsilon_zz = -(lambda * trace(epsilon) + 2. * mu * trace(pstrain))
-    / (lambda + 2. * mu);
+      / (lambda + 2. * mu);
   return epsilon_zz;
 
 }
