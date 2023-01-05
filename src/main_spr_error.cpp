@@ -176,6 +176,7 @@ void Driver::perform_SPR() {
   std::vector<apf::Field*> diffs;
   auto& adjoint = m_nested->adjoint();
   int const nsteps = adjoint.size();
+  ParameterList& dbcs = m_params->sublist("dirichlet bcs", true);
   for (int step = 0; step < nsteps; ++step) {
     auto& fields = adjoint[step].global;
     int const num_gr = fields.size();
@@ -191,6 +192,7 @@ void Driver::perform_SPR() {
 //      fields[i] = f_diff;
       fields[i] = f_spr;
     }
+    apply_adjoint_dbcs(dbcs, m_nested, fields);
   }
 }
 
@@ -198,12 +200,10 @@ void Driver::estimate_error() {
   print("ESTIMATING THE ERROR");
   int const nsteps = m_nested->adjoint().size();
 
-  Array2D<RCP<MatrixT>>& dR_dx = m_state->la->A[OWNED];
   Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
   Array1D<RCP<VectorT>>& R_ghost = m_state->la->b[GHOST];
   Array1D<RCP<VectorT>>& Z = m_state->la->x[OWNED];
 
-  ParameterList& dbcs = m_params->sublist("dirichlet bcs", true);
   ParameterList& tbcs = m_params->sublist("traction bcs");
   ParameterList& prob = m_params->sublist("problem", true);
   double const dt = prob.get<double>("step size");
@@ -211,15 +211,13 @@ void Driver::estimate_error() {
   double t = 0.;
   double error = 0.;
   for (int step = 1; step < nsteps; ++step) {
-    Array1D<apf::Field*> x = m_nested->primal(step).global;
+    // should apply global DBCs to x when they are not constant or linear
+    //Array1D<apf::Field*> x = m_nested->primal(step).global;
     t += dt;
-    m_state->la->resume_fill_A();
     m_state->la->zero_all();
-    eval_forward_jacobian(m_state, m_nested, step);
+    eval_global_residual(m_state, m_nested, step);
     apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
-    m_state->la->gather_A();
     m_state->la->gather_b();
-    apply_primal_dbcs(dbcs, m_nested, dR_dx, R, x, t, step);
     Array1D<apf::Field*> Z_fields = m_nested->adjoint(step).global;
     m_nested->populate_vector(Z_fields, Z);
     double step_error = 0.;
@@ -229,7 +227,7 @@ void Driver::estimate_error() {
     error += step_error;
   }
 
-  std::cout << "error: " << error << "\n";
+  print("error = %.15e", error);
 }
 
 void Driver::drive() {

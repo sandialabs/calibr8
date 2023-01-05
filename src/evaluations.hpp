@@ -35,6 +35,17 @@ void eval_forward_jacobian(
     RCP<Disc> disc,
     int step);
 
+//! \brief Evaluate the residual vector (and wrong Jacobian)
+//! \param state The application state object
+//! \param disc The discretization object
+//! \param step The current load/time step
+//! \details This will populate:
+//!   state->la->b[GHOST] as the residual R
+void eval_global_residual(
+    RCP<State> state,
+    RCP<Disc> disc,
+    int step);
+
 //! \brief Evaluate the Jacobian transpose matrix
 //! \param state The application state object
 //! \param disc The discretization object

@@ -249,4 +249,54 @@ void apply_primal_dbcs(
 
 }
 
+void apply_adjoint_dbcs(
+    ParameterList const& full_dbcs,
+    RCP<Disc> disc,
+    Array1D<apf::Field*>& z) {
+
+  ParameterList dbcs;
+  if (full_dbcs.isSublist("expression")) {
+    dbcs = full_dbcs.sublist("expression");
+  } else if (full_dbcs.isSublist("field")) {
+    dbcs = full_dbcs.sublist("field");
+  }
+
+  int const num_resids = disc->num_residuals();
+
+  // sanity check
+  DEBUG_ASSERT(z.size() == size_t(num_resids));
+
+  // storage used below
+  Teuchos::Array<double> entries;
+  Teuchos::Array<LO> indices;
+  Array1D<double> sol_comps(3);
+
+  apf::Mesh* m = disc->apf_mesh();
+
+  // loop through all the dirichlet boundary conditions
+  for (auto it = dbcs.begin(); it != dbcs.end(); ++it) {
+
+    // get the data for this specific dbc
+    auto pentry = dbcs.entry(it);
+    auto a = Teuchos::getValue<Teuchos::Array<std::string>>(pentry);
+    int i = std::stoi(a[0]); // the residual index
+    int eq = std::stoi(a[1]);
+    std::string const set = a[2];
+    NodeSet const& nodes = disc->nodes(set);
+
+    // apply the dbcs to all nodes
+    for (size_t node = 0; node < nodes.size(); ++node) {
+
+      // get the current value of the solution for this resid/eq
+      // and the intended specified DBC and set it to zero
+      apf::Node n = nodes[node];
+      LO const row = disc->get_lid(n, i, eq);
+      apf::getComponents(z[i], n.entity, n.node, &(sol_comps[0]));
+      sol_comps[eq] = 0.;
+      apf::setComponents(z[i], n.entity, n.node, &(sol_comps[0]));
+
+    }
+  }
+}
+
 }
