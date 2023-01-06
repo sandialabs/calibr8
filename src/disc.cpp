@@ -526,7 +526,7 @@ LO Disc::get_lid(apf::MeshEntity* ent, int i, int n, int eq) {
   return get_dof(node_ids[n], eq, num_i_eqs);
 }
 
-static int get_value_type(int neqs, int ndims) {
+int Disc::get_value_type(int neqs, int ndims) {
   if (neqs == 1) {
     return apf::SCALAR;
   } else if ((neqs == 2) && (ndims == 2)) {
@@ -795,10 +795,10 @@ void Disc::add_to_soln(
 }
 
 void Disc::populate_vector(
-    Array1D<apf::Field*>& v,
-    Array1D<RCP<VectorT>> const& vec) {
+    Array1D<apf::Field*> const& fields,
+    Array1D<RCP<VectorT>>& vec) {
 
-  int const num_comps = v.size();
+  int const num_comps = fields.size();
   DEBUG_ASSERT(vec.size() == num_comps);
 
   // get the nodes associated with the nodes in the mesh
@@ -826,7 +826,7 @@ void Disc::populate_vector(
     for (int i = 0; i < num_comps; ++i) {
 
       // get the field corresponding to this residual at this step
-      apf::Field* f = v[i];
+      apf::Field* f = fields[i];
 
       // get the solution for the current residual at the node
       apf::getComponents(f, ent, ent_node, &(sol_comps[0]));
@@ -838,8 +838,40 @@ void Disc::populate_vector(
       }
     }
 
-  }
+    // scatter needed here?
 
+  }
+}
+
+void Disc::populate_field(
+    Array1D<RCP<VectorT>> const& vec,
+    Array1D<apf::Field*>& f) {
+
+  int const num_comps = f.size();
+  DEBUG_ASSERT(vec.size() == num_comps);
+
+  // get the nodes associated with the nodes in the mesh
+  apf::DynamicArray<apf::Node> nodes;
+  apf::getNodes(m_owned_nmbr, nodes);
+
+  for (int i = 0; i < num_comps; ++i) {
+
+    int const neqs = apf::countComponents(f[i]);
+    auto vec_data = vec[i]->get1dView();
+    std::vector<double> vals(neqs, 0.);
+
+    for (auto& node : nodes) {
+      apf::MeshEntity* ent = node.entity;
+      int const local_node = node.node;
+      for (int eq = 0; eq < neqs; ++eq) {
+        LO const row = get_lid(node, i, eq);
+        vals[eq] = vec_data[row];
+      }
+      apf::setComponents(f[i], ent, local_node, &(vals[0]));
+    }
+
+    apf::synchronize(f[i]);
+  }
 }
 
 void Disc::create_verification_data(int model_form) {

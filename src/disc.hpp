@@ -191,6 +191,11 @@ class Disc {
     //! \details Only available after build_data has been called
     int num_eqs(int residual) const { return m_num_eqs[residual]; }
 
+    //! \brief Get the apf value type
+    //! \param neqs number of equations
+    //! \param ndims dimension of space
+    int get_value_type(int neqs, int ndims);
+
     //! \brief Get the local IDs associated with a PDE residual
     //! \param elem The mesh entity corresponding to an element
     //! \param i The residual index of interest
@@ -286,12 +291,19 @@ class Disc {
     //! \brief Get the owned nodes local to this process
     apf::DynamicArray<apf::Node> get_owned_nodes();
 
-    //! \brief Fill a VectorT with field data
-    //! \param x The field (of global variables)
-    //! \param dx The VectorT
+    //! \brief Fill a VectorT array with field data
+    //! \param v The field (of global variables)
+    //! \param vec The VectorT
     void populate_vector(
-        Array1D<apf::Field*>& v,
-        Array1D<RCP<VectorT>> const& vec);
+        Array1D<apf::Field*> const& v,
+        Array1D<RCP<VectorT>>& vec);
+
+    //! \brief Fill a field array with VectorT data
+    //! \param dx The VectorT
+    //! \param x The field (of global variables)
+    void populate_field(
+        Array1D<RCP<VectorT>> const& vec,
+        Array1D<apf::Field*>& f);
 
     //! \brief Is the geometric model '.null'
     bool is_null() { return m_is_null_model; }

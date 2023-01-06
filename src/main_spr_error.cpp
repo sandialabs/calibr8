@@ -204,6 +204,27 @@ void Driver::estimate_error() {
   Array1D<RCP<VectorT>>& R_ghost = m_state->la->b[GHOST];
   Array1D<RCP<VectorT>>& Z = m_state->la->x[OWNED];
 
+  auto global = m_state->residuals->global;
+  int const num_global_residuals = global->num_residuals();
+  Array1D<RCP<VectorT>> eta_vec(num_global_residuals);
+  Array1D<apf::Field*> eta_field(num_global_residuals);
+
+  int const num_dims = m_nested->num_dims();
+  auto gv_shape = m_nested->gv_shape();
+  auto m = m_nested->apf_mesh();
+
+  for (int i = 0; i < num_global_residuals; ++i) {
+    auto map = m_nested->map(OWNED, i);
+    eta_vec[i] = rcp(new VectorT(map));
+
+    std::string name = global->resid_name(i);
+    name = "eta_" + name;
+    int const vtype = m_nested->get_value_type(global->num_eqs(i), num_dims);
+    apf::Field* error = apf::createField(m, name.c_str(), vtype, gv_shape);
+    apf::zeroField(error);
+    eta_field[i] = error;
+  }
+
   ParameterList& tbcs = m_params->sublist("traction bcs");
   ParameterList& prob = m_params->sublist("problem", true);
   double const dt = prob.get<double>("step size");
@@ -223,10 +244,11 @@ void Driver::estimate_error() {
     double step_error = 0.;
     for (int i = 0; i < Z_fields.size(); ++i) {
       step_error += R[i]->dot(*(Z[i]));
+      eta_vec[i]->elementWiseMultiply(1., *(R[i]), *(Z[i]), 0.);
     }
+    m_nested->add_to_soln(eta_field, eta_vec, 1.);
     error += step_error;
   }
-
   print("error = %.15e", error);
 }
 
