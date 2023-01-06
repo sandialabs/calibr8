@@ -625,11 +625,12 @@ apf::Field* Physics::evaluate_PU_residual(int space, apf::Field* u, apf::Field* 
 }
 
 apf::Field* Physics::compute_eta2(apf::Field* u, apf::Field* z) {
+  print("localizing error using partition of unity approach");
   return m_residual->assemble(u, z);
 }
 
 apf::Field* Physics::localize_error(apf::Field* R, apf::Field* z) {
-  print("localizing error");
+  print("localizing error using simple approach");
   ASSERT(apf::getShape(R) == m_disc->shape(FINE));
   ASSERT(apf::getShape(z) == m_disc->shape(FINE));
   return op(negate_multiply, m_disc, R, z, "eta");

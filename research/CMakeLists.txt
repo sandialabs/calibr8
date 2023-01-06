@@ -5,6 +5,7 @@ set(RESEARCH_SOURCES
   cspr.cpp
   disc.cpp
   error.cpp
+  error_R_dot_zh.cpp
   linalg.cpp
   nlpoisson.cpp
   residual.cpp

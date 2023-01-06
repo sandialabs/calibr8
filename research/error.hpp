@@ -1,11 +1,15 @@
 #pragma once
 
+#include <fstream>
+
 #include <apf.h>
 #include "defines.hpp"
 
 namespace calibr8 {
 
 class Physics;
+
+enum {SIMPLE, PU};
 
 class Error {
   public:
@@ -15,6 +19,11 @@ class Error {
     void write_pvd(std::string const& file, int nctr);
     virtual void write_history(std::string const& file, double J_ex=0.) = 0;
 };
+
+int get_ndofs(int space, RCP<Physics> physics);
+int get_nelems(RCP<Physics> physics);
+void write_stream(std::string const& path, std::stringstream const& stream);
+apf::Field* interp_error_to_cells(apf::Field* eta);
 
 RCP<Error> create_error(ParameterList const& params);
 
