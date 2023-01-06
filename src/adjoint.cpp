@@ -20,7 +20,8 @@ static int get_num_global_dofs(RCP<State> state) {
 }
 
 static int get_num_local_dofs(RCP<State> state) {
-  RCP<LocalResidual<double>> local = state->residuals->local;
+  int const model_form = state->model_form;
+  RCP<LocalResidual<double>> local = state->residuals->local[model_form];
   int ndofs = 0;
   for (int i = 0; i < local->num_residuals(); ++i) {
     ndofs += local->num_eqs(i);

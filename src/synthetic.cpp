@@ -19,12 +19,14 @@ void write_synthetic(
   for (int step = 0; step <= num_steps; ++step) {
 
     Fields& fields = disc->primal(step);
-    int const nlocal_fields = fields.local.size();
+    // BASE MODEL
+    int const model_form = BASE_MODEL;
+    int const nlocal_fields = fields.local[model_form].size();
     int const nglobal_fields = fields.global.size();
 
     // delete non-measured local fields
     for (int i = 0; i < nlocal_fields; ++i) {
-      const char* name = apf::getName(fields.local[i]);
+      const char* name = apf::getName(fields.local[model_form][i]);
       apf::Field* synth_local = synth_mesh->findField(name);
       apf::destroyField(synth_local);
     }

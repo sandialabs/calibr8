@@ -4,8 +4,11 @@
 #include <apfShape.h>
 #include <ma.h>
 #include <PCU.h>
+#include "global_residual.hpp"
+#include "local_residual.hpp"
 #include "nested.hpp"
 #include "macros.hpp"
+#include "state.hpp"
 
 namespace calibr8 {
 
@@ -22,6 +25,7 @@ NestedDisc::NestedDisc(RCP<Disc> disc, int type) {
   store_old_verts();
   initialize();
   create_primal(disc);
+  create_adjoint_for_spr(disc);
 }
 
 void NestedDisc::number_elems() {
@@ -135,7 +139,8 @@ void NestedDisc::create_primal(RCP<Disc> disc) {
   int const nsteps = base_primal.size();
   for (int step = 0; step < nsteps; ++step) {
     int const ngr = base_primal[0].global.size();
-    int const nlr = base_primal[0].local.size();
+    int const model_form = BASE_MODEL;
+    int const nlr = base_primal[0].local[model_form].size();
     Fields fields;
     for (int i = 0; i < ngr; ++i) {
       const char* name = apf::getName(base_primal[step].global[i]);
@@ -144,57 +149,38 @@ void NestedDisc::create_primal(RCP<Disc> disc) {
       fields.global.push_back(f);
     }
     for (int i = 0; i < nlr; ++i) {
-      const char* name = apf::getName(base_primal[step].local[i]);
+      const char* name = apf::getName(base_primal[step].local[model_form][i]);
       apf::Field* f = m_mesh->findField(name);
       ALWAYS_ASSERT(f);
-      fields.local.push_back(f);
+      fields.local[model_form].push_back(f);
     }
     m_primal.push_back(fields);
   }
 }
 
-void NestedDisc::create_verification_data() {
-
-  // gather some data
-  int const nsteps = m_primal.size();
-  int const ngr = m_primal[0].global.size();
-  int const nlr = m_primal[0].local.size();
-
-  // create the fine fields by copying the prolonged coarse fields
+void NestedDisc::create_adjoint_for_spr(RCP<Disc> disc) {
+  Array1D<Fields> const& base_adjoint = disc->adjoint();
+  if (base_adjoint.size() == 0) return;
+  int const nsteps = base_adjoint.size();
   for (int step = 0; step < nsteps; ++step) {
+    int const model_form = BASE_MODEL;
+    int const ngr = base_adjoint[0].global.size();
+    int const nlr = base_adjoint[0].local[model_form].size();
     Fields fields;
     for (int i = 0; i < ngr; ++i) {
-      std::string name = apf::getName(m_primal[step].global[i]);
-      apf::Field* coarse = m_mesh->findField(name.c_str());
-      name = "fine_" + name;
-      int const vtype = apf::getValueType(coarse);
-      apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_gv_shape);
-      apf::copyData(fine, coarse);
-      fields.global.push_back(fine);
+      const char* name = apf::getName(base_adjoint[step].global[i]);
+      apf::Field* f = m_mesh->findField(name);
+      ALWAYS_ASSERT(f);
+      fields.global.push_back(f);
     }
     for (int i = 0; i < nlr; ++i) {
-      std::string name = apf::getName(m_primal[step].local[i]);
-      apf::Field* coarse = m_mesh->findField(name.c_str());
-      name = "fine_" + name;
-      int const vtype = apf::getValueType(coarse);
-      apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_lv_shape);
-      apf::copyData(fine, coarse);
-      fields.local.push_back(fine);
+      const char* name = apf::getName(base_adjoint[step].local[model_form][i]);
+      apf::Field* f = m_mesh->findField(name);
+      ALWAYS_ASSERT(f);
+      fields.local[model_form].push_back(f);
     }
-    m_primal_fine.push_back(fields);
+    m_adjoint.push_back(fields);
   }
-
-  // create the branch paths
-  m_branch_paths.resize(nsteps);
-  for (int step = 0; step < nsteps; ++step) {
-    m_branch_paths[step].resize(m_num_elem_sets);
-    for (int set = 0; set < m_num_elem_sets; ++set) {
-      std::string const es_name = elem_set_name(set);
-      int const nelems = elems(es_name).size();
-      m_branch_paths[step][set].resize(nelems);
-    }
-  }
-
 }
 
 apf::Field* NestedDisc::get_coarse(apf::Field* f) {

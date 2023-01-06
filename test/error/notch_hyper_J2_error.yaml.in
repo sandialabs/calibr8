@@ -1,10 +1,9 @@
-notch hyperJ2 synthetic:
+cube hyperJ2:
 
   problem:
-    name: notch_hyperJ2
+    name: J2
     num steps: 4
     step size: 1.
-    write synthetic: true
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
@@ -19,7 +18,7 @@ notch hyperJ2 synthetic:
       nonlinear relative tol: 1.e-8
       print convergence: true
     local residual:
-      type: 'J2'
+      type: 'hyper_J2'
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
@@ -29,6 +28,9 @@ notch hyperJ2 synthetic:
           nu: 0.25
           K: 100.
           Y: 10.
+
+  quantity of interest:
+    type: 'average displacement'
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:

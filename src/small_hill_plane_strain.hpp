@@ -1,28 +1,28 @@
 #pragma once
 
-//! \file J2.hpp
-//! \brief The interface for J2 local plasticity residuals
+//! \file small_hill_plane_strain.hpp
+//! \brief The interface for small strain Hill plane strain local plasticity residuals
 
 #include "local_residual.hpp"
 
 namespace calibr8 {
 
-//! \brief The local residual for J2 plasticity models
+//! \brief The local residual for small strain Hill plane strain plasticity model
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the LocalResidual
-//! base class for a J2 plasticity model
+//! base class for a small strain Hill plane strain plasticity model
 template <typename T>
-class J2 : public LocalResidual<T> {
+class SmallHillPlaneStrain : public LocalResidual<T> {
 
   public:
 
-    //! \brief The J2 constructor
+    //! \brief The SmallHillPlaneStrain constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    J2(ParameterList const& inputs, int ndims);
+    SmallHillPlaneStrain(ParameterList const& inputs, int ndims);
 
-    //! \brief The J2 destructor
-    ~J2();
+    //! \brief The SmallHillPlaneStrain destructor
+    ~SmallHillPlaneStrain();
 
     //! \brief Initialize the parameters
     void init_params();
@@ -44,16 +44,23 @@ class J2 : public LocalResidual<T> {
         int path = 0);
 
     //! \brief Do these equations correspond to finite deformation
-    bool is_finite_deformation() { return true; }
+    bool is_finite_deformation() { return false; }
+
+    //! \brief Get the Cauchy stress tensor
+    //! \param global The global residual equations
+    Tensor<T> cauchy(RCP<GlobalResidual<T>> global);
 
     //! \brief Get the deviatoric part of the Cauchy stress tensor
     //! \param global The global residual equations
     Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global);
 
-    //! \brief Get the deviatoric part of the Cauchy stress tensor
+    //! \brief Get the hydrostatic part of the Cauchy stress tensor
     //! \param global The global residual equations
-    //! \param p The pressure
-    Tensor<T> cauchy(RCP<GlobalResidual<T>> global, T p);
+    T hydro_cauchy(RCP<GlobalResidual<T>> global);
+
+    //! \brief Get the pressure variable scale factor
+    //! \param global The global residual equations
+    T pressure_scale_factor();
 
   private:
 

@@ -3,55 +3,52 @@
 #include "defines.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
-#include "J2.hpp"
 #include "material_params.hpp"
+#include "small_J2.hpp"
 
 namespace calibr8 {
 
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
-  p.set<std::string>("type", "J2");
+  p.set<std::string>("type", "small_J2");
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
   p.sublist("materials");
   return p;
 }
-
 static ParameterList get_valid_material_params() {
   ParameterList p;
   p.set<double>("E", 0.);
   p.set<double>("nu", 0.);
   p.set<double>("K", 0.);
   p.set<double>("Y", 0.);
+  p.set<double>("cte", 0.);
+  p.set<double>("delta_T", 0.);
   return p;
 }
 
 template <typename T>
-J2<T>::J2(ParameterList const& inputs, int ndims) {
+SmallJ2<T>::SmallJ2(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
 
-  int const num_residuals = 3;
+  int const num_residuals = 2;
+  int const num_params = 6;
 
   this->m_num_residuals = num_residuals;
   this->m_num_eqs.resize(num_residuals);
   this->m_var_types.resize(num_residuals);
   this->m_resid_names.resize(num_residuals);
 
-
-  this->m_resid_names[0] = "zeta";
+  this->m_resid_names[0] = "pstrain";
   this->m_var_types[0] = SYM_TENSOR;
   this->m_num_eqs[0] = get_num_eqs(SYM_TENSOR, ndims);
 
-  this->m_resid_names[1] = "Ie";
+  this->m_resid_names[1] = "alpha";
   this->m_var_types[1] = SCALAR;
   this->m_num_eqs[1] = get_num_eqs(SCALAR, ndims);
-
-  this->m_resid_names[2] = "alpha";
-  this->m_var_types[2] = SCALAR;
-  this->m_num_eqs[2] = get_num_eqs(SCALAR, ndims);
 
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
@@ -60,21 +57,22 @@ J2<T>::J2(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-J2<T>::~J2() {
+SmallJ2<T>::~SmallJ2() {
 }
 
 template <typename T>
-void J2<T>::init_params() {
+void SmallJ2<T>::init_params() {
 
-  int const num_params = 4;
+  int const num_params = 6;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
 
-  this->m_param_names.resize(num_params);
   this->m_param_names[0] = "E";
   this->m_param_names[1] = "nu";
   this->m_param_names[2] = "K";
   this->m_param_names[3] = "Y";
+  this->m_param_names[4] = "cte";
+  this->m_param_names[5] = "delta_T";
 
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
@@ -91,6 +89,8 @@ void J2<T>::init_params() {
     this->m_param_values[es][1] = material_params.get<double>("nu");
     this->m_param_values[es][2] = material_params.get<double>("K");
     this->m_param_values[es][3] = material_params.get<double>("Y");
+    this->m_param_values[es][4] = material_params.get<double>("cte");
+    this->m_param_values[es][5] = material_params.get<double>("delta_T");
   }
 
   this->m_active_indices.resize(1);
@@ -99,65 +99,38 @@ void J2<T>::init_params() {
 }
 
 template <typename T>
-void J2<T>::init_variables_impl() {
+void SmallJ2<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
-  int const zeta_idx = 0;
-  int const Ie_idx = 1;
-  int const alpha_idx = 2;
+  int const pstrain_idx = 0;
+  int const alpha_idx = 1;
 
-  T const Ie = 1.0;
   T const alpha = 0.0;
-  Tensor<T> const zeta = minitensor::zero<T>(ndims);
+  Tensor<T> const pstrain = minitensor::zero<T>(ndims);
 
-  this->set_scalar_xi(Ie_idx, Ie);
   this->set_scalar_xi(alpha_idx, alpha);
-  this->set_sym_tensor_xi(zeta_idx, zeta);
+  this->set_sym_tensor_xi(pstrain_idx, pstrain);
 
-}
-
-template <typename T>
-Tensor<T> eval_be_bar(
-    RCP<GlobalResidual<T>> global,
-    Tensor<T> const& zeta,
-    T const& Ie) {
-  int const ndims = global->num_dims();
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
-  Tensor<T> const F = grad_u + I;
-  Tensor<T> const F_prev = grad_u_prev + I;
-  Tensor<T> const rF = F * minitensor::inverse(F_prev);
-  T const det_rF = minitensor::det(rF);
-  T const det_rF_13 = cbrt(det_rF);
-  Tensor<T> const rF_bar = rF / det_rF_13;
-  Tensor<T> const rF_barT = minitensor::transpose(rF_bar);
-  Tensor<T> const be_bar = rF_bar * (zeta + Ie * I) * rF_barT;
-  return be_bar;
 }
 
 template <>
-int J2<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int SmallJ2<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int J2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int SmallJ2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
   // pick an initial guess for the local variables
   {
-    Tensor<FADT> const zeta_old = this->sym_tensor_xi_prev(0);
-    FADT const Ie_old = this->scalar_xi_prev(1);
-    FADT const alpha_old = this->scalar_xi_prev(2);
-    Tensor<FADT> const be_bar_trial = eval_be_bar(global, zeta_old, Ie_old);
-    Tensor<FADT> const zeta = minitensor::dev(be_bar_trial);
-    FADT const Ie = minitensor::trace(be_bar_trial) / 3.;
+    Tensor<FADT> const pstrain_old = this->sym_tensor_xi_prev(0);
+    Tensor<FADT> const pstrain = pstrain_old;
+    FADT const alpha_old = this->scalar_xi_prev(1);
     FADT const alpha = alpha_old;
-    this->set_sym_tensor_xi(0, zeta);
-    this->set_scalar_xi(1, Ie);
-    this->set_scalar_xi(2, alpha);
+    this->set_sym_tensor_xi(0, pstrain);
+    this->set_scalar_xi(1, alpha);
     path = ELASTIC;
   }
 
@@ -185,7 +158,6 @@ int J2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
     this->add_to_sym_tensor_xi(0, dxi);
     this->add_to_scalar_xi(1, dxi);
-    this->add_to_scalar_xi(2, dxi);
 
     iter++;
 
@@ -193,7 +165,7 @@ int J2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("J2:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("SmallJ2:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
@@ -201,7 +173,7 @@ int J2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
-int J2<T>::evaluate(
+int SmallJ2<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
@@ -217,39 +189,33 @@ int J2<T>::evaluate(
   T const Y = this->m_params[3];
   T const mu = compute_mu(E, nu);
 
-  Tensor<T> const zeta_old = this->sym_tensor_xi_prev(0);
-  T const Ie_old = this->scalar_xi_prev(1);
-  T const alpha_old = this->scalar_xi_prev(2);
+  Tensor<T> const pstrain_old = this->sym_tensor_xi_prev(0);
+  T const alpha_old = this->scalar_xi_prev(1);
 
-  Tensor<T> const zeta = this->sym_tensor_xi(0);
-  T const Ie = this->scalar_xi(1);
-  T const alpha = this->scalar_xi(2);
+  Tensor<T> const pstrain = this->sym_tensor_xi(0);
+  T const alpha = this->scalar_xi(1);
 
   Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const be_bar_trial = eval_be_bar(global, zeta_old, Ie_old);
-  Tensor<T> const s = mu * zeta;
+  Tensor<T> const s = this->dev_cauchy(global);
   T const s_mag = minitensor::norm(s);
   Tensor<T> const n = s / s_mag;
   T const sigma_yield = Y + K * alpha;
-  T const f = s_mag - sqrt_23 * sigma_yield;
+  T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
-  Tensor<T> R_zeta;
-  T R_Ie;
+  Tensor<T> R_pstrain;
   T R_alpha;
 
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_zeta = zeta - minitensor::dev(be_bar_trial) + 2. * dgam * Ie * n;
-      R_Ie = minitensor::det(zeta + Ie * I) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
+      R_pstrain = pstrain - pstrain_old - dgam * n;
+      R_alpha = f;
       path = PLASTIC;
     }
     // elastic step
     else {
-      R_zeta = zeta - minitensor::dev(be_bar_trial);
-      R_Ie = Ie - minitensor::trace(be_bar_trial) / 3.;
+      R_pstrain = pstrain - pstrain_old;
       R_alpha = alpha - alpha_old;
       path = ELASTIC;
     }
@@ -261,50 +227,71 @@ int J2<T>::evaluate(
     // plastic step
     if (path == PLASTIC) {
       T const dgam = sqrt_32 * (alpha - alpha_old);
-      R_zeta = zeta - minitensor::dev(be_bar_trial) + 2. * dgam * Ie * n;
-      R_Ie = minitensor::det(zeta + Ie * I) - 1.;
-      R_alpha = (s_mag - sqrt_23 * sigma_yield) / val(mu);
+      R_pstrain = pstrain - pstrain_old - dgam * n;
+      R_alpha = f;
     }
     // elastic step
     else {
-      R_zeta = zeta - minitensor::dev(be_bar_trial);
-      R_Ie = Ie - minitensor::trace(be_bar_trial) / 3.;
+      R_pstrain = pstrain - pstrain_old;
       R_alpha = alpha - alpha_old;
     }
   }
 
-  this->set_sym_tensor_R(0, R_zeta);
-  this->set_scalar_R(1, R_Ie);
-  this->set_scalar_R(2, R_alpha);
+  this->set_sym_tensor_R(0, R_pstrain);
+  this->set_scalar_R(1, R_alpha);
 
   return path;
 
 }
 
 template <typename T>
-Tensor<T> J2<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> SmallJ2<T>::cauchy(RCP<GlobalResidual<T>> global) {
+  int const pressure_idx = 1;
+  T const p = global->scalar_x(pressure_idx);
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
-  T const mu = E / (2. * (1. + nu));
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const F = grad_u + I;
-  Tensor<T> const zeta = this->sym_tensor_xi(0);
-  T const J = minitensor::det(F);
-  return mu * zeta / J;
-}
-
-template <typename T>
-Tensor<T> J2<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
-  int const ndims = global->num_dims();
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const dev_sigma = this->dev_cauchy(global);
   Tensor<T> const sigma = dev_sigma - p * I;
   return sigma;
 }
 
-template class J2<double>;
-template class J2<FADT>;
+template <typename T>
+Tensor<T> SmallJ2<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+  int const ndims = global->num_dims();
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
+  T const mu = compute_mu(E, nu);
+  Tensor<T> const pstrain = this->sym_tensor_xi(0);
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
+  Tensor<T> const dev_eps = eps - (minitensor::trace(eps) / 3.) * I;
+  return 2. * mu * (dev_eps - pstrain);
+}
+
+template <typename T>
+T SmallJ2<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
+  T const kappa = compute_kappa(E, nu);
+  T const cte = this->m_params[4];
+  T const delta_T = this->m_params[5];
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
+  return kappa * trace(eps) - cte * delta_T * E / (1. - 2. * nu);
+}
+
+template <typename T>
+T SmallJ2<T>::pressure_scale_factor() {
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
+  T const kappa = compute_kappa(E, nu);
+  return kappa;
+}
+
+template class SmallJ2<double>;
+template class SmallJ2<FADT>;
 
 }

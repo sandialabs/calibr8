@@ -1,9 +1,6 @@
 #include "control.hpp"
-#include "evaluations.hpp"
-#include "local_residual.hpp"
 #include "objective.hpp"
-#include "primal.hpp"
-#include "state.hpp"
+#include "local_residual.hpp"
 
 namespace calibr8 {
 
@@ -41,22 +38,22 @@ Array1D<double> Objective::transform_params(Array1D<double> const& params,
 }
 
 Array1D<double> Objective::active_params() const {
-  return m_state->residuals->local->active_params();
+  return m_state->residuals->local[m_model_form]->active_params();
 }
 
 Array2D<std::string> Objective::active_param_names() const {
-  return m_state->residuals->local->active_param_names();
+  return m_state->residuals->local[m_model_form]->active_param_names();
 }
 
 Array1D<std::string> Objective::elem_set_names() const {
-  return m_state->residuals->local->elem_set_names();
+  return m_state->residuals->local[m_model_form]->elem_set_names();
 }
 
 void Objective::setup_opt_params(ParameterList const& inverse_params) {
   Array1D<std::string> const& elem_set_names =
-      m_state->residuals->local->elem_set_names();
+      m_state->residuals->local[m_model_form]->elem_set_names();
   Array1D<std::string> const& param_names =
-      m_state->residuals->local->param_names();
+      m_state->residuals->local[m_model_form]->param_names();
 
   ParameterList const& all_material_params =
       inverse_params.sublist("materials");
@@ -84,8 +81,8 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
       }
     }
   }
-  m_state->residuals->local->set_active_indices(active_indices);
-  m_state->d_residuals->local->set_active_indices(active_indices);
+  m_state->residuals->local[m_model_form]->set_active_indices(active_indices);
+  m_state->d_residuals->local[m_model_form]->set_active_indices(active_indices);
 
   // initialize p_old
   m_p_old.resize(m_num_opt_params);

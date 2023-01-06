@@ -110,8 +110,9 @@ Disc::Disc(ParameterList const& params) {
 
 Disc::~Disc() {
   destroy_data();
-  destroy_primal();
+  destroy_primal(false);
   destroy_adjoint();
+  destroy_virtual();
   m_mesh->destroyNative();
   apf::destroyMesh(m_mesh);
   if (m_is_base) delete m_sets;
@@ -539,13 +540,15 @@ static int get_value_type(int neqs, int ndims) {
 
 void Disc::create_primal(
     RCP<Residuals<double>> R,
-    int step) {
+    int step,
+    bool use_measured) {
   DEBUG_ASSERT(m_primal.size() == size_t(step));
   Fields fields;
   int const ngr = R->global->num_residuals();
-  int const nlr = R->local->num_residuals();
+  int const model_form = BASE_MODEL;
+  int const nlr = R->local[model_form]->num_residuals();
   resize(fields.global, ngr);
-  resize(fields.local, nlr);
+  resize(fields.local[model_form], nlr);
   for (int i = 0; i < ngr; ++i) {
     std::string const name = R->global->resid_name(i);
     std::string const fname = name + "_" + std::to_string(step);
@@ -553,31 +556,117 @@ void Disc::create_primal(
     fields.global[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_gv_shape);
     if (step == 0) {
       apf::zeroField(fields.global[i]);
+    } else if (use_measured && i == 0) {
+      std::string name = "measured_" + std::to_string(step);
+      apf::Field* f_meas = m_mesh->findField(name.c_str());
+      ALWAYS_ASSERT(f_meas);
+      apf::copyData(fields.global[i], f_meas);
     } else {
       apf::copyData(fields.global[i], m_primal[step - 1].global[i]);
     }
   }
   for (int i = 0; i < nlr; ++i) {
-    std::string const name = R->local->resid_name(i);
+    std::string const name = R->local[model_form]->resid_name(i);
     std::string const fname = name + "_" + std::to_string(step);
-    int const vtype = get_value_type(R->local->num_eqs(i), m_num_dims);
-    fields.local[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
-    apf::zeroField(fields.local[i]);
+    int const vtype = get_value_type(R->local[model_form]->num_eqs(i), m_num_dims);
+    fields.local[model_form][i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
+    apf::zeroField(fields.local[model_form][i]);
     if (step == 0) {
-      apf::zeroField(fields.local[i]);
+      apf::zeroField(fields.local[model_form][i]);
     } else {
-      apf::copyData(fields.local[i], m_primal[step - 1].local[i]);
+      apf::copyData(fields.local[model_form][i], m_primal[step - 1].local[model_form][i]);
     }
   }
   m_primal.push_back(fields);
 }
 
+// TODO: add in local residual prolong operation
+void Disc::create_primal_fine_model(
+    RCP<Residuals<double>> R,
+    int num_steps) {
+  int const base_model_form = BASE_MODEL;
+  int const fine_model_form = FINE_MODEL;
+  int const nlr = R->local[base_model_form]->num_residuals();
+  for (int step = 0; step < num_steps; ++step ) {
+    resize(m_primal[step].local[fine_model_form], nlr);
+    for (int i = 0; i < nlr; ++i) {
+      std::string const name = R->local[base_model_form]->resid_name(i);
+      std::string const fname = "prolonged_" + name + "_" + std::to_string(step);
+      int const vtype = get_value_type(R->local[base_model_form]->num_eqs(i), m_num_dims);
+      m_primal[step].local[fine_model_form][i] = apf::createField(m_mesh,
+          fname.c_str(), vtype, m_lv_shape);
+      apf::copyData(m_primal[step].local[fine_model_form][i],
+          m_primal[step].local[base_model_form][i]);
+    }
+  }
+}
+
+static Array1D<std::string> get_vf_expressions(
+    ParameterList const& vf_list) {
+  Array1D<std::string> vf_expressions;
+  for (auto it = vf_list.begin(); it != vf_list.end(); ++it) {
+    auto pentry = vf_list.entry(it);
+    std::string const val = Teuchos::getValue<std::string>(pentry);
+    vf_expressions.push_back(val);
+  }
+  return vf_expressions;
+}
+
+Array1D<double> Disc::get_vals(
+    Array1D<std::string> const& val_expressions,
+    apf::Node const& node) {
+  Array1D<double> vals;
+  apf::Vector3 x;
+  apf::MeshEntity* e = node.entity;
+  int const ent_node = node.node;
+  m_mesh->getPoint(e, ent_node, x);
+  for (auto& val : val_expressions) {
+    double const v = eval(val, x[0], x[1], x[2], 0.);
+    vals.push_back(v);
+  }
+  return vals;
+}
+
+void Disc::create_virtual(
+    RCP<Residuals<double>> R,
+    ParameterList const& vf_list) {
+  Fields fields;
+  int const ngr = R->global->num_residuals();
+  ALWAYS_ASSERT(ngr == 1);
+  resize(fields.virtual_field, ngr);
+  std::string const name = R->global->resid_name(0);
+  std::string const fname = "virtual_" + name;
+  int const vtype = get_value_type(R->global->num_eqs(0), m_num_dims);
+  fields.virtual_field[0] = apf::createField(
+      m_mesh, fname.c_str(), vtype, m_gv_shape);
+  Array1D<std::string> const vf_expressions = get_vf_expressions(vf_list);
+  ALWAYS_ASSERT(vf_expressions.size() == m_num_dims);
+  Array1D<double> vf_vals(m_num_dims);
+  apf::DynamicArray<apf::Node> owned;
+  apf::getNodes(m_owned_nmbr, owned);
+  for (size_t n = 0; n < owned.size(); ++n) {
+    apf::Node const node = owned[n];
+    apf::MeshEntity* ent = node.entity;
+    int const ent_node = node.node;
+    vf_vals = get_vals(vf_expressions, node);
+    apf::setComponents(fields.virtual_field[0], ent, ent_node, &(vf_vals[0]));
+  }
+  m_virtual.push_back(fields);
+}
+
+
+
 static void destroy_fields(Fields& fields) {
   for (size_t i = 0; i < fields.global.size(); ++i) {
     apf::destroyField(fields.global[i]);
   }
-  for (size_t i = 0; i < fields.local.size(); ++i) {
-    apf::destroyField(fields.local[i]);
+  for (size_t m = 0; m < 2; ++m) {
+    for (size_t i = 0; i < fields.local[m].size(); ++i) {
+      apf::destroyField(fields.local[m][i]);
+    }
+  }
+  for (size_t i = 0; i < fields.virtual_field.size(); ++i) {
+    apf::destroyField(fields.virtual_field[i]);
   }
 }
 
@@ -589,18 +678,24 @@ void Disc::destroy_primal(bool keep_ic) {
   for (int n = start; n < num_steps; ++n) {
     destroy_fields(m_primal[n]);
   }
-  m_primal.resize(1);
+  if (keep_ic) {
+    m_primal.resize(1);
+  } else {
+    m_primal.resize(0);
+  }
+
 }
 
 void Disc::create_adjoint(
     RCP<Residuals<double>> R,
-    int num_steps) {
+    int const num_steps,
+    int const model_form) {
   for (int step = 0; step <= num_steps; ++step) {
     Fields fields;
     int const ngr = R->global->num_residuals();
-    int const nlr = R->local->num_residuals();
+    int const nlr = R->local[model_form]->num_residuals();
     resize(fields.global, ngr);
-    resize(fields.local, nlr);
+    resize(fields.local[model_form], nlr);
     for (int i = 0; i < ngr; ++i) {
       std::string const name = R->global->resid_name(i);
       std::string const fname = "adjoint_" + name + "_" + std::to_string(step);
@@ -609,11 +704,11 @@ void Disc::create_adjoint(
       apf::zeroField(fields.global[i]);
     }
     for (int i = 0; i < nlr; ++i) {
-      std::string const name = R->local->resid_name(i);
+      std::string const name = R->local[model_form]->resid_name(i);
       std::string const fname = "adjoint_" + name + "_" + std::to_string(step);
-      int const vtype = get_value_type(R->local->num_eqs(i), m_num_dims);
-      fields.local[i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
-      apf::zeroField(fields.local[i]);
+      int const vtype = get_value_type(R->local[model_form]->num_eqs(i), m_num_dims);
+      fields.local[model_form][i] = apf::createField(m_mesh, fname.c_str(), vtype, m_lv_shape);
+      apf::zeroField(fields.local[model_form][i]);
     }
     m_adjoint.push_back(fields);
   }
@@ -627,9 +722,24 @@ void Disc::destroy_adjoint() {
   m_adjoint.resize(0);
 }
 
+void Disc::destroy_virtual() {
+  int const num_steps = m_virtual.size();
+  for (int n = 0; n < num_steps; ++n) {
+    destroy_fields(m_virtual[n]);
+  }
+  m_virtual.resize(0);
+}
+
+apf::DynamicArray<apf::Node> Disc::get_owned_nodes() {
+  apf::DynamicArray<apf::Node> nodes;
+  apf::getNodes(m_owned_nmbr, nodes);
+  return nodes;
+}
+
 void Disc::add_to_soln(
     Array1D<apf::Field*>& x,
-    Array1D<RCP<VectorT>> const& dx) {
+    Array1D<RCP<VectorT>> const& dx,
+    double const alpha) {
 
   // sanity check
   int const num_resids = m_num_residuals;
@@ -668,7 +778,7 @@ void Disc::add_to_soln(
       // add the increment to the current solution
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
         LO row = get_lid(node, i, eq);
-        sol_comps[eq] += dx_data[i][row];
+        sol_comps[eq] += alpha * dx_data[i][row];
       }
 
       // set the added solution for the current residual at the node
@@ -682,6 +792,121 @@ void Disc::add_to_soln(
     apf::synchronize(x[i]);
   }
 
+}
+
+void Disc::populate_vector(
+    Array1D<apf::Field*>& v,
+    Array1D<RCP<VectorT>> const& vec) {
+
+  int const num_comps = v.size();
+  DEBUG_ASSERT(vec.size() == num_comps);
+
+  // get the nodes associated with the nodes in the mesh
+  apf::DynamicArray<apf::Node> nodes;
+  apf::getNodes(m_owned_nmbr, nodes);
+
+  // grab data from the blocked vector
+  Array1D<Teuchos::ArrayRCP<double>> vec_data(num_comps);
+  for (int i = 0; i < num_comps; ++i) {
+    vec_data[i] = vec[i]->get1dViewNonConst();
+  }
+
+  // storage used below
+  Array1D<double> sol_comps(3);
+
+  // loop over all the nodes in the discretization
+  for (size_t n = 0; n < nodes.size(); ++n) {
+
+    // get information about the current node
+    apf::Node node = nodes[n];
+    apf::MeshEntity* ent = node.entity;
+    int const ent_node = node.node;
+
+    // loop over the global residuals
+    for (int i = 0; i < num_comps; ++i) {
+
+      // get the field corresponding to this residual at this step
+      apf::Field* f = v[i];
+
+      // get the solution for the current residual at the node
+      apf::getComponents(f, ent, ent_node, &(sol_comps[0]));
+
+      // set the data in the parallel vector
+      for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
+        LO row = get_lid(node, i, eq);
+        vec_data[i][row] = sol_comps[eq];
+      }
+    }
+
+  }
+
+}
+
+void Disc::create_verification_data(int model_form) {
+
+  // gather some data
+  int const nsteps = m_primal.size();
+  int const ngr = m_primal[0].global.size();
+  int const nlr = m_primal[0].local[model_form].size();
+
+  // create the fine fields by copying the prolonged coarse fields
+  for (int step = 0; step < nsteps; ++step) {
+    Fields fields;
+    for (int i = 0; i < ngr; ++i) {
+      std::string name = apf::getName(m_primal[step].global[i]);
+      apf::Field* coarse = m_mesh->findField(name.c_str());
+      name = "fine_" + name;
+      int const vtype = apf::getValueType(coarse);
+      apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_gv_shape);
+      apf::zeroField(fine);
+      fields.global.push_back(fine);
+    }
+    for (int i = 0; i < nlr; ++i) {
+      std::string name = apf::getName(m_primal[step].local[model_form][i]);
+      apf::Field* coarse = m_mesh->findField(name.c_str());
+      name = "fine_" + name;
+      int const vtype = apf::getValueType(coarse);
+      apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_lv_shape);
+      apf::zeroField(fine);
+      if (name == "fine_Ie_0") {
+        apf::MeshEntity* elem;
+        apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
+        while ((elem = m_mesh->iterate(elems))) {
+          apf::setScalar(fine, elem, 0, 1.);
+        }
+        m_mesh->end(elems);
+      }
+      fields.local[model_form].push_back(fine);
+    }
+    m_primal_fine.push_back(fields);
+  }
+
+  // create the branch paths
+  m_branch_paths.resize(nsteps);
+  for (int step = 0; step < nsteps; ++step) {
+    m_branch_paths[step].resize(m_num_elem_sets);
+    for (int set = 0; set < m_num_elem_sets; ++set) {
+      std::string const es_name = elem_set_name(set);
+      int const nelems = elems(es_name).size();
+      m_branch_paths[step][set].resize(nelems);
+    }
+  }
+
+}
+
+void Disc::initialize_primal_fine(
+    RCP<Residuals<double>> R,
+    int step,
+    int model_form) {
+  int const ngr = R->global->num_residuals();
+  int const nlr = R->local[model_form]->num_residuals();
+  for (int i = 0; i < ngr; ++i) {
+    apf::copyData(m_primal_fine[step].global[i], m_primal_fine[step - 1].global[i]);
+  }
+  for (int i = 0; i < nlr; ++i) {
+    apf::copyData(m_primal_fine[step].local[model_form][i],
+        m_primal_fine[step - 1].local[model_form][i]);
+  }
 }
 
 }

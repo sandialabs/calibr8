@@ -2,11 +2,19 @@
 #include "disc.hpp"
 #include "elastic.hpp"
 #include "fad.hpp"
-#include "J2.hpp"
-#include "J2_plane_strain.hpp"
-#include "J2_small_strain.hpp"
+#include "hyper_J2.hpp"
+#include "hyper_J2_plane_strain.hpp"
+#include "hyper_J2_plane_stress.hpp"
+#include "hypo_hill.hpp"
+#include "hypo_hill_plane_strain.hpp"
+#include "hypo_hill_plane_stress.hpp"
+#include "isotropic_elastic.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
+#include "small_hill.hpp"
+#include "small_hill_plane_strain.hpp"
+#include "small_hill_plane_stress.hpp"
+#include "small_J2.hpp"
 #include "state.hpp"
 
 namespace calibr8 {
@@ -20,7 +28,9 @@ LocalResidual<T>::~LocalResidual() {
 }
 
 template <typename T>
-void LocalResidual<T>::init_variables(RCP<State> state) {
+void LocalResidual<T>::init_variables(
+    RCP<State> state,
+    bool set_IC) {
   RCP<Disc> disc = state->disc;
   int const num_elem_sets = disc->num_elem_sets();
   m_elem_set_names.resize(num_elem_sets);
@@ -29,25 +39,33 @@ void LocalResidual<T>::init_variables(RCP<State> state) {
   }
   this->init_params();
 
-  Array1D<apf::Field*>& xi = state->disc->primal(/*step=*/ 0).local;
-  int const q_order = state->disc->lv_shape()->getOrder();
-  apf::MeshEntity* elem = nullptr;
-  apf::Mesh* mesh = state->disc->apf_mesh();
-  apf::MeshIterator* elems = mesh->begin(disc->num_dims());
-  int const dummy_es = 0;
-  this->before_elems(dummy_es, disc);
-  while ((elem = mesh->iterate(elems))) {
-    apf::MeshElement* me = apf::createMeshElement(mesh, elem);
-    this->set_elem(me);
-    int const npts = apf::countIntPoints(me, q_order);
-    for (int pt = 0; pt < npts; ++pt) {
-      this->init_variables_impl();
-      this->scatter(pt, xi);
+  if (set_IC) {
+    int const model_form = state->model_form;
+    Array1D<apf::Field*>* xi;
+    if (disc->type() == VERIFICATION) {
+      xi = &state->disc->primal_fine(/*step=*/ 0).local[model_form];
+    } else {
+      xi = &state->disc->primal(/*step=*/ 0).local[model_form];
     }
-    this->unset_elem();
-    apf::destroyMeshElement(me);
+    int const q_order = state->disc->lv_shape()->getOrder();
+    apf::MeshEntity* elem = nullptr;
+    apf::Mesh* mesh = state->disc->apf_mesh();
+    apf::MeshIterator* elems = mesh->begin(disc->num_dims());
+    int const dummy_es = 0;
+    this->before_elems(dummy_es, disc);
+    while ((elem = mesh->iterate(elems))) {
+      apf::MeshElement* me = apf::createMeshElement(mesh, elem);
+      this->set_elem(me);
+      int const npts = apf::countIntPoints(me, q_order);
+      for (int pt = 0; pt < npts; ++pt) {
+        this->init_variables_impl();
+        this->scatter(pt, *xi);
+      }
+      this->unset_elem();
+      apf::destroyMeshElement(me);
+    }
+    mesh->end(elems);
   }
-  mesh->end(elems);
 
 }
 
@@ -705,12 +723,28 @@ RCP<LocalResidual<T>> create_local_residual(
   std::string const type = params.get<std::string>("type");
   if (type == "elastic") {
     return rcp(new Elastic<T>(params, ndims));
-  } else if (type == "J2") {
-    return rcp(new J2<T>(params, ndims));
-  } else if (type == "J2_plane_strain") {
-    return rcp(new J2_plane_strain<T>(params, ndims));
-  } else if (type == "J2_small_strain") {
-    return rcp(new J2_small_strain<T>(params, ndims));
+  } else if (type == "hyper_J2") {
+    return rcp(new HyperJ2<T>(params, ndims));
+  } else if (type == "hyper_J2_plane_strain") {
+    return rcp(new HyperJ2PlaneStrain<T>(params, ndims));
+  } else if (type == "hyper_J2_plane_stress") {
+    return rcp(new HyperJ2PlaneStress<T>(params, ndims));
+  } else if (type == "hypo_hill") {
+    return rcp(new HypoHill<T>(params, ndims));
+  } else if (type == "hypo_hill_plane_strain") {
+    return rcp(new HypoHillPlaneStrain<T>(params, ndims));
+  } else if (type == "hypo_hill_plane_stress") {
+    return rcp(new HypoHillPlaneStress<T>(params, ndims));
+  } else if (type == "isotropic_elastic") {
+    return rcp(new IsotropicElastic<T>(params, ndims));
+  } else if (type == "small_hill") {
+    return rcp(new SmallHill<T>(params, ndims));
+  } else if (type == "small_hill_plane_strain") {
+    return rcp(new SmallHillPlaneStrain<T>(params, ndims));
+  } else if (type == "small_hill_plane_stress") {
+    return rcp(new SmallHillPlaneStress<T>(params, ndims));
+  } else if (type == "small_J2") {
+    return rcp(new SmallJ2<T>(params, ndims));
   } else {
     fail("unknown local residual name: %s", type.c_str());
     return Teuchos::null;

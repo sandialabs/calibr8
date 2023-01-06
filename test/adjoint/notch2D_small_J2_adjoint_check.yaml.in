@@ -18,7 +18,7 @@ cube hyperJ2:
       nonlinear relative tol: 1.e-12
       print convergence: false
     local residual:
-      type: 'J2_small_strain'
+      type: 'small_J2'
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
@@ -35,7 +35,7 @@ cube hyperJ2:
     type: 'average displacement'
 
   inverse:
-    gradient type: "adjoint"
+    objective type: "adjoint"
     check gradient: true
     iteration limit: 0
     materials:

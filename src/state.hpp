@@ -35,7 +35,7 @@ class Residuals {
     RCP<GlobalResidual<T>> global;
 
     //! \brief The local residual objects
-    RCP<LocalResidual<T>> local;
+    RCP<LocalResidual<T>> local[2];
 
 };
 
@@ -43,6 +43,8 @@ class Residuals {
 class State {
 
   public:
+
+    int model_form = BASE_MODEL;
 
     //! \brief The discretization data structure
     RCP<Disc> disc;

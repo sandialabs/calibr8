@@ -90,31 +90,52 @@ int Elastic<T>::evaluate(
 }
 
 template <typename T>
-Tensor<T> Elastic<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> Elastic<T>::cauchy(RCP<GlobalResidual<T>> global) {
+  int const pressure_idx = 1;
+  T const p = global->scalar_x(pressure_idx);
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
-  T const mu = compute_mu(E, nu);
-  T const lambda = compute_kappa(E, nu);
+  T const cte = this->m_params[4];
+  T const kappa = compute_kappa(E, nu);
+  T const delta_T = this->m_params[5];
   Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const grad_u_T = minitensor::transpose(grad_u);
-  Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-  return 2.*mu* minitensor::dev(eps);
+  Tensor<T> const dev_sigma = this->dev_cauchy(global);
+  Tensor<T> const sigma = dev_sigma - p * I;
+  return sigma;
 }
 
 template <typename T>
-Tensor<T> Elastic<T>::cauchy(RCP<GlobalResidual<T>> global, T p) {
+Tensor<T> Elastic<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
+  Tensor<T> const I = minitensor::eye<T>(ndims);
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
+  T const mu = compute_mu(E, nu);
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
+  Tensor<T> const dev_eps = eps - (minitensor::trace(eps) / 3.) * I;
+  return 2. * mu * dev_eps;
+}
+
+template <typename T>
+T Elastic<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
+  T const kappa = compute_kappa(E, nu);
   T const cte = this->m_params[2];
   T const delta_T = this->m_params[3];
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
+  return kappa * trace(eps) - cte * delta_T * E / (1. - 2. * nu);
+}
+
+template <typename T>
+T Elastic<T>::pressure_scale_factor() {
+  T const E = this->m_params[0];
+  T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const dev_sigma = this->dev_cauchy(global);
-  Tensor<T> const sigma = dev_sigma - p*I;
-  return sigma;
+  return kappa;
 }
 
 template class Elastic<double>;

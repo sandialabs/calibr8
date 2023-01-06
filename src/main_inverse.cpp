@@ -10,6 +10,7 @@
 #include "adjoint_objective.hpp"
 #include "control.hpp"
 #include "defines.hpp"
+#include "fd_vfm_objective.hpp"
 #include "femu_objective.hpp"
 #include "macros.hpp"
 
@@ -35,19 +36,20 @@ static ParameterList get_valid_params() {
   p.sublist("quantity of interest");
   //p.sublist("regression");
   p.sublist("inverse");
+  p.sublist("virtual fields");
   return p;
 }
 
 RCP<Objective> create_rol_objective(
   RCP<ParameterList> params,
-  std::string const& grad_type) {
-  if (grad_type == "FEMU") {
-    return rcp(new FEMU_Objective(params));
-  }
-  else if (grad_type == "adjoint") {
+  std::string const& obj_type) {
+  if (obj_type == "adjoint") {
     return rcp(new Adjoint_Objective(params));
-  }
-  else {
+  } else if (obj_type == "FEMU") {
+    return rcp(new FEMU_Objective(params));
+  } else if (obj_type == "VFM") {
+    return rcp(new FD_VFM_Objective(params));
+  } else {
     return Teuchos::null;
   }
 }
@@ -67,7 +69,7 @@ int main(int argc, char** argv) {
 
     ParameterList& inverse_params = params->sublist("inverse", true);
     //ParameterList& regression_params = params->sublist("regression", false);
-    std::string const grad_type = inverse_params.get<std::string>("gradient type");
+    std::string const obj_type = inverse_params.get<std::string>("objective type");
 
     bool check_gradient  = inverse_params.get<bool>("check gradient", false);
     int const iteration_limit = inverse_params.get<int>("iteration limit", 20);
@@ -84,7 +86,7 @@ int main(int argc, char** argv) {
       .sublist("Line Search")
       .set("Function Evaluation Limit", max_line_search_evals);
 
-    auto rol_objective = create_rol_objective(params, grad_type);
+    auto rol_objective = create_rol_objective(params, obj_type);
 
     Array1D<double> const& active_params = rol_objective->active_params();
     Array1D<double> const& initial_guess =
@@ -111,7 +113,7 @@ int main(int argc, char** argv) {
 
     bool isProcZero = (PCU_Comm_Self() == 0);
 
-    if (grad_type != "femu" && check_gradient) {
+    if (obj_type == "adjoint" && check_gradient) {
       int const num_steps = 13;
       Array2D<double> fd_results;
       ROL::Ptr<Array1D<double>> d_ptr = ROL::makePtr<Array1D<double>>(dim, 0.1);

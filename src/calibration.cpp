@@ -186,10 +186,9 @@ T Calibration<T>::compute_load(
     int const pressure_idx = 1;
     global->interpolate(iota_elem);
     Tensor<T> const grad_u = global->grad_vector_x(disp_idx);
-    T const p = global->scalar_x(pressure_idx);
 
     // compute the stress
-    Tensor<T> stress = local->cauchy(global, p);
+    Tensor<T> stress = local->cauchy(global);
     if (local->is_finite_deformation()) {
       Tensor<T> const I = minitensor::eye<T>(ndims);
       Tensor<T> const F = grad_u + I;

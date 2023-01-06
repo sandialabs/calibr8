@@ -20,10 +20,6 @@ class NestedDisc : public Disc {
     //! \brief Destroy the nested discretization object
     ~NestedDisc();
 
-    //! \brief Create the data needed for verification
-    //! \details create the fine primal fields and the branch flags
-    void create_verification_data();
-
     //! \brief Set the nested error contribs to the base mesh
     //! \param E_global The global residual error contribs
     //! \param E_local The local residual error contribs
@@ -31,17 +27,6 @@ class NestedDisc : public Disc {
 
     //! \brief Get a coarse nodal representation of a fine field
     apf::Field* get_coarse(apf::Field* f);
-
-    //! \brief Get the fine primal fields
-    //! \details For VERIFICATION discretizations
-    Array1D<Fields>& primal_fine() { return m_primal_fine; }
-
-    //! \brief Get the fine primal fields at a step
-    //! \details For VERIFICATION discretizations
-    Fields& primal_fine(int step) { return m_primal_fine[step]; }
-
-    //! \brief Get the branch paths
-    Array3D<bool>& branch_paths() { return m_branch_paths; }
 
   private:
 
@@ -51,6 +36,7 @@ class NestedDisc : public Disc {
     void refine();
     void store_old_verts();
     void create_primal(RCP<Disc> disc);
+    void create_adjoint_for_spr(RCP<Disc> disc);
 
   private:
 
@@ -60,8 +46,6 @@ class NestedDisc : public Disc {
     EntArray m_base_elems;
     EntArray m_old_vertices;
 
-    Array1D<Fields> m_primal_fine;
-    Array3D<bool> m_branch_paths; /* [load step, elem_set, elem] */
 
 };
 

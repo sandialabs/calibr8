@@ -3,8 +3,6 @@
 #include "evaluations.hpp"
 #include "femu_objective.hpp"
 #include "local_residual.hpp"
-#include "primal.hpp"
-#include "state.hpp"
 
 namespace calibr8 {
 
@@ -18,8 +16,8 @@ double FEMU_Objective::value(ROL::Vector<double> const& p, double&) {
 
   if (param_diff(*xp)) {
     Array1D<double> const unscaled_params = transform_params(*xp, false);
-    m_state->residuals->local->set_params(unscaled_params);
-    m_state->d_residuals->local->set_params(unscaled_params);
+    m_state->residuals->local[m_model_form]->set_params(unscaled_params);
+    m_state->d_residuals->local[m_model_form]->set_params(unscaled_params);
 
     ParameterList problem_params = m_params->sublist("problem", true);
     int const nsteps = problem_params.get<int>("num steps");

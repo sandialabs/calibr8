@@ -1,13 +1,13 @@
-cube hyperJ2:
+notch hyperJ2 FEMU:
 
   problem:
-    name: J2
+    name: notch_hyperJ2_FEMU
     num steps: 4
     step size: 1.
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
-    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.smb'
+    mesh file: '@CMAKE_BINARY_DIR@/test/femu/notch_hyperJ2_synthetic/'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.txt'
 
   residuals:
@@ -16,9 +16,9 @@ cube hyperJ2:
       nonlinear max iters: 15
       nonlinear absolute tol: 1.e-8
       nonlinear relative tol: 1.e-8
-      print convergence: true
+      print convergence: false
     local residual:
-      type: 'J2'
+      type: 'hyper_J2'
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
@@ -30,7 +30,18 @@ cube hyperJ2:
           Y: 10.
 
   quantity of interest:
-    type: 'average displacement'
+    type: 'surface mismatch'
+    side set: 'zmax'
+
+  inverse:
+    objective type: "FEMU"
+    iteration limit: 0
+    materials:
+      body:
+        E: [800., 1000.]
+        nu: [0.2, 0.3]
+        K: [90., 110.]
+        Y: [9., 11.]
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:

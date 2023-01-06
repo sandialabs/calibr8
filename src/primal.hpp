@@ -9,6 +9,7 @@ namespace calibr8 {
 
 //! \cond
 // forward declarations
+class Disc;
 class State;
 //! \endcond
 

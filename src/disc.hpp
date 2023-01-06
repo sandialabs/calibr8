@@ -52,8 +52,12 @@ class Fields {
     //! \brief The global fields stored by residual index
     Array1D<apf::Field*> global;
 
-    //! \brief The local fields stored by residual index
-    Array1D<apf::Field*> local;
+    //! \brief The local fields stored by residual index for
+    //! the base and fine constitutive models
+    Array1D<apf::Field*> local[2];
+
+    //! \brief The virtual field stored by residual index
+    Array1D<apf::Field*> virtual_field;
 
 };
 
@@ -214,9 +218,25 @@ class Disc {
     //! \brief Create the primal fields at a step
     //! \param R The global/local residuals defining the problem
     //! \param step The current load/time step
+    //! \param use_measured Fill in the values with the measured state field
     void create_primal(
         RCP<Residuals<double>> R,
-        int step);
+        int step,
+        bool use_measured = false);
+
+    //! \brief Create the fine model primal fields
+    //! \param R The global/local residuals defining the problem
+    //! \param step The total number of time steps
+    void create_primal_fine_model(
+        RCP<Residuals<double>> R,
+        int num_steps);
+
+    //! \brief Create the virtual fields
+    //! \param R The global/local residuals defining the problem
+    //! \param vf_list The expressions for the virtual fields
+    void create_virtual(
+        RCP<Residuals<double>> R,
+        ParameterList const& vf_list);
 
     //! \brief Destroy the primal fields
     //! \param keep_ic Keep the initial condition?
@@ -227,10 +247,14 @@ class Disc {
     //! \param num_steps The number of load/time steps
     void create_adjoint(
         RCP<Residuals<double>> R,
-        int num_steps);
+        int const num_steps,
+        int const model_form = BASE_MODEL);
 
     //! \brief Destroy the adjoint fields
     void destroy_adjoint();
+
+    //! \brief Destroy the virtual fields
+    void destroy_virtual();
 
     //! \brief Get the primal fields stored on this discretization
     Array1D<Fields>& primal() { return m_primal; }
@@ -238,21 +262,75 @@ class Disc {
     //! \brief Get the adjoint fields stored on this discretization
     Array1D<Fields>& adjoint() { return m_adjoint; }
 
+    //! \brief Get the virtual fields stored on this discretization
+    Array1D<Fields>& virtual_fields() { return m_virtual; }
+
     //! \brief Get the primal fields at a step
     Fields& primal(int step) { return m_primal[step]; }
 
     //! \brief Get the adjoint fields at a step
     Fields& adjoint(int step) { return m_adjoint[step]; }
 
+    //! \brief Get the adjoint fields at a step
+    Fields& virtual_fields(int step) { return m_virtual[step]; }
+
     //! \brief Add a solution increment at the current step
     //! \param x The solution fields (of global variables)
     //! \param dx The solution increment (of global variables)
+    //! \param alpha Scaling to apply
     void add_to_soln(
         Array1D<apf::Field*>& x,
-        Array1D<RCP<VectorT>> const& dx);
+        Array1D<RCP<VectorT>> const& dx,
+        double const alpha = 1.);
+
+    //! \brief Get the owned nodes local to this process
+    apf::DynamicArray<apf::Node> get_owned_nodes();
+
+    //! \brief Fill a VectorT with field data
+    //! \param x The field (of global variables)
+    //! \param dx The VectorT
+    void populate_vector(
+        Array1D<apf::Field*>& v,
+        Array1D<RCP<VectorT>> const& vec);
 
     //! \brief Is the geometric model '.null'
     bool is_null() { return m_is_null_model; }
+
+    //! \brief Get a values at a point from a vector of expressions
+    //! \param val_expressions String expressions for a field
+    //! \param node Evaluation point
+    Array1D<double> get_vals(
+        Array1D<std::string> const& val_expressions,
+        apf::Node const& node);
+
+    //! \brief Create the data needed for verification
+    //! \details create the fine primal fields and the branch flags
+    //! \param model_form Local residual type
+    void create_verification_data(int model_form=BASE_MODEL);
+
+    //! \brief Set the primal fine fields to the values at the previous step
+    //! \param R The global/local residuals defining the problem
+    //! \param step The current load/time step
+    //! \param model_form Local residual type
+    void initialize_primal_fine(
+        RCP<Residuals<double>> R,
+        int step,
+        int model_form);
+
+    //! \brief Get the fine primal fields
+    //! \details For VERIFICATION discretizations
+    Array1D<Fields>& primal_fine() { return m_primal_fine; }
+
+    //! \brief Get the fine primal fields at a step
+    //! \details For VERIFICATION discretizations
+    Fields& primal_fine(int step) { return m_primal_fine[step]; }
+
+    //! \brief Get the branch paths
+    Array3D<bool>& branch_paths() { return m_branch_paths; }
+
+    //! \brief Set the discretization type
+    //! \details Change the discretization type after construction
+    void set_disc_type(int type) { m_disc_type = type; }
 
   protected:
 
@@ -296,6 +374,7 @@ class Disc {
 
     Array1D<Fields> m_primal;
     Array1D<Fields> m_adjoint;
+    Array1D<Fields> m_virtual;
 
     bool m_is_base = true;
     int m_disc_type = COARSE;
@@ -319,6 +398,8 @@ class Disc {
     void compute_ghost_graph(int i, int j);
     void compute_owned_graph(int i, int j);
 
+    Array1D<Fields> m_primal_fine;
+    Array3D<bool> m_branch_paths; /* [load step, elem_set, elem] */
 
 };
 

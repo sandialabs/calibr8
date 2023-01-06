@@ -12,6 +12,17 @@ namespace calibr8 {
 class Disc;
 class State;
 
+//! \brief Evaluate the residual vector given measured displacement data
+//! \param state The application state object
+//! \param disc The discretization object
+//! \param step The current load/time step
+//! \details This will populate:
+//!   state->la->b[GHOST] as the residual R
+void eval_measured_residual(
+    RCP<State> state,
+    RCP<Disc> disc,
+    int step);
+
 //! \brief Evaluate the Jacobian matrix and residual vector
 //! \param state The application state object
 //! \param disc The discretization object
@@ -20,6 +31,17 @@ class State;
 //!   state->la->A[GHOST] as the Jacobian dR_dx
 //!   state->la->b[GHOST] as the residual R
 void eval_forward_jacobian(
+    RCP<State> state,
+    RCP<Disc> disc,
+    int step);
+
+//! \brief Evaluate the residual vector (and wrong Jacobian)
+//! \param state The application state object
+//! \param disc The discretization object
+//! \param step The current load/time step
+//! \details This will populate:
+//!   state->la->b[GHOST] as the residual R
+void eval_global_residual(
     RCP<State> state,
     RCP<Disc> disc,
     int step);
@@ -94,6 +116,19 @@ void eval_linearization_errors(
     int step,
     double& E_lin_R,
     double& E_lin_C);
+
+//! \brief Evalaute exact contributions to the error at a step
+//! \param state The application state object
+//! \param disc The (nested) discretization object
+//! \param R_error The global residual element-wise error field
+//! \param C_error The local residual element-wise error field
+//! \param step The current load/time step
+void eval_exact_errors(
+    RCP<State> state,
+    RCP<Disc> disc,
+    apf::Field* R_error_field,
+    apf::Field* C_error_field,
+    int step);
 
 //! \brief Evaluate and store the Cauchy stress tensor in a field
 //! \param state The application state object

@@ -1,10 +1,9 @@
 #pragma once
 
+#include "adjoint.hpp"
 #include "objective.hpp"
 
 namespace calibr8 {
-
-class Adjoint;
 
 class Adjoint_Objective: public Objective {
 

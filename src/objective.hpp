@@ -4,11 +4,10 @@
 #include <ROL_StdVector.hpp>
 #include "arrays.hpp"
 #include "defines.hpp"
+#include "primal.hpp"
+#include "state.hpp"
 
 namespace calibr8 {
-
-class Primal;
-class State;
 
 using V = ROL::Vector<double>;
 using SV = ROL::StdVector<double>;
@@ -40,8 +39,8 @@ class Objective : public ROL::Objective<double> {
     ROL::Ptr<Array1D<double>> getVector(V& vec);
 
     RCP<ParameterList> m_params;
-    RCP<State> m_state;
     RCP<Primal> m_primal;
+    RCP<State> m_state;
 
     bool param_diff(std::vector<double> const&);
 
@@ -52,6 +51,8 @@ class Objective : public ROL::Objective<double> {
     double m_J_old = 0.;
     std::vector<double> m_p_old;
     double const m_difftol = 1.0e-15;
+
+    int const m_model_form = 0;
 
 };
 

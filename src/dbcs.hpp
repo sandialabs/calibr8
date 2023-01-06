@@ -71,4 +71,13 @@ void apply_primal_dbcs(
     int step,
     bool is_adjoint = false);
 
+//! \brief Apply homogenous DBCs to the adjoint solution
+//! \param dbcs The dirichlet BC parameter lsit
+//! \param disc The discretization object
+//! \param x The apf fields corresponding to the global adjoint solutions
+void apply_adjoint_dbcs(
+    ParameterList const& dbcs,
+    RCP<Disc> disc,
+    Array1D<apf::Field*>& x);
+
 }

@@ -77,4 +77,7 @@ using Teuchos::ParameterList;
 //! \brief A Teuchos MPI communication object
 using Comm = Teuchos::Comm<int>;
 
+//! \brief Local residual index
+enum { BASE_MODEL = 0, FINE_MODEL = 1 };
+
 }

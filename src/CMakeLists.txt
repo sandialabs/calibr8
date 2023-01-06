@@ -5,6 +5,7 @@ set(CALIBR8_SOURCES
   avg_stress.cpp
   calibration.cpp
   control.cpp
+  cspr.cpp
   dbcs.cpp
   disc.cpp
   disp_comp.cpp
@@ -12,27 +13,38 @@ set(CALIBR8_SOURCES
   error_weight.cpp
   evaluations.cpp
   femu_objective.cpp
+  fd_vfm_objective.cpp
   fields.cpp
   global_residual.cpp
-  J2.cpp
-  J2_plane_strain.cpp
-  J2_small_strain.cpp
+  isotropic_elastic.cpp
+  hyper_J2.cpp
+  hyper_J2_plane_strain.cpp
+  hyper_J2_plane_stress.cpp
+  hypo_hill.cpp
+  hypo_hill_plane_strain.cpp
+  hypo_hill_plane_stress.cpp
   load_mismatch.cpp
   linear_alg.cpp
   linear_solve.cpp
   local_residual.cpp
   mechanics.cpp
+  mechanics_plane_stress.cpp
   mesh_size.cpp
   nested.cpp
   normal_traction.cpp
   objective.cpp
+  point_wise.cpp
   primal.cpp
   qoi.cpp
+  small_hill.cpp
+  small_hill_plane_strain.cpp
+  small_hill_plane_stress.cpp
+  small_J2.cpp
   state.cpp
   synthetic.cpp
   surface_mismatch.cpp
   tbcs.cpp
-  thermoelastic.cpp
+  virtual_power.cpp
   weight.cpp
 )
 
@@ -65,6 +77,22 @@ add_executable(error main_error.cpp)
 target_link_libraries(error PRIVATE calibr8)
 set_code_standards(error)
 
+add_executable(spr_error main_spr_error.cpp)
+target_link_libraries(spr_error PRIVATE calibr8)
+set_code_standards(spr_error)
+
+add_executable(model_form_exact_error main_model_form_exact_error.cpp)
+target_link_libraries(model_form_exact_error PRIVATE calibr8)
+set_code_standards(model_form_exact_error)
+
+add_executable(model_form_error main_model_form_error.cpp)
+target_link_libraries(model_form_error PRIVATE calibr8)
+set_code_standards(model_form_error)
+
+add_executable(model_form_error_verify main_model_form_error_verify.cpp)
+target_link_libraries(model_form_error_verify PRIVATE calibr8)
+set_code_standards(model_form_error_verify)
+
 add_executable(perturber perturber.cpp)
 target_link_libraries(perturber PRIVATE calibr8)
 set_code_standards(perturber)
@@ -72,3 +100,11 @@ set_code_standards(perturber)
 add_executable(verify main_verify.cpp)
 target_link_libraries(verify PRIVATE calibr8)
 set_code_standards(verify)
+
+add_executable(exact_error main_exact_error.cpp)
+target_link_libraries(exact_error PRIVATE calibr8)
+set_code_standards(exact_error)
+
+add_executable(virtual_fields_method main_virtual_fields_method.cpp)
+target_link_libraries(virtual_fields_method PRIVATE calibr8)
+set_code_standards(virtual_fields_method)

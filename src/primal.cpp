@@ -19,8 +19,9 @@ Primal::Primal(
   m_disc = disc_in;
   if (m_disc->type() == COARSE) {
     m_disc->create_primal(m_state->residuals, 0);
-    m_state->residuals->local->init_variables(m_state);
-    m_state->d_residuals->local->init_variables(m_state);
+    int const model_form = m_state->model_form;
+    m_state->residuals->local[model_form]->init_variables(m_state, false);
+    m_state->d_residuals->local[model_form]->init_variables(m_state);
   }
 }
 
@@ -40,6 +41,7 @@ void Primal::solve_at_step(int step, double t, double) {
   double const abs_tol = global.get<double>("nonlinear absolute tol");
   double const rel_tol = global.get<double>("nonlinear relative tol");
   bool const do_print = global.get<bool>("print convergence");
+  int const max_line_search_evals = global.get<int>("max line search evals", 5);
 
   // print the step information
   if (do_print) print("ON PRIMAL STEP (%d)", step);
@@ -50,8 +52,9 @@ void Primal::solve_at_step(int step, double t, double) {
   }
   Array1D<apf::Field*> x = m_disc->primal(step).global;
   if (m_disc->type() == VERIFICATION) {
-    RCP<NestedDisc> nested = Teuchos::rcp_static_cast<NestedDisc>(m_disc);
-    x = nested->primal_fine(step).global;
+    int const model_form = m_state->model_form;
+    m_disc->initialize_primal_fine(m_state->residuals, step, model_form);
+    x = m_disc->primal_fine(step).global;
   }
 
   // Newton's method below
@@ -104,9 +107,8 @@ void Primal::solve_at_step(int step, double t, double) {
 
     {
       // backtracking line search parameters
-      int const max_line_search_evals = 5;
       double const beta = 1.0e-4;
-      double const eta = 0.1;
+      double const eta = 0.5;
 
       // check the current residual value
       // this is not optimized in any sense
@@ -141,17 +143,14 @@ void Primal::solve_at_step(int step, double t, double) {
               j, alpha_j);
         }
 
-        for (int i = 0 ; i < dx.size(); ++i) {
-          dx[i]->scale(alpha_j - alpha_prev);
-        }
-
-        m_disc->add_to_soln(x, dx);
-
         if (j == max_line_search_evals) {
+          print(" > Reached max line search evals");
           break;
         }
 
         ++j;
+
+        m_disc->add_to_soln(x, dx, alpha_j - alpha_prev);
 
         m_state->la->resume_fill_A();
         m_state->la->zero_A();
