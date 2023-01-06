@@ -29,7 +29,8 @@ class Driver {
     void solve_adjoint();
     void prepare_fine_space();
     void perform_SPR();
-    void estimate_error();
+    Array1D<apf::Field*> estimate_error();
+    void localize_error(Array1D<apf::Field*> const& eta);
   private:
     int m_ncycles = 1;
     RCP<ParameterList> m_params;
@@ -196,7 +197,7 @@ void Driver::perform_SPR() {
   }
 }
 
-void Driver::estimate_error() {
+Array1D<apf::Field*> Driver::estimate_error() {
   print("ESTIMATING THE ERROR");
   int const nsteps = m_nested->adjoint().size();
 
@@ -209,9 +210,9 @@ void Driver::estimate_error() {
   Array1D<RCP<VectorT>> eta_vec(num_global_residuals);
   Array1D<apf::Field*> eta_field(num_global_residuals);
 
-  int const num_dims = m_nested->num_dims();
   auto gv_shape = m_nested->gv_shape();
   auto m = m_nested->apf_mesh();
+  int const num_dims = m->getDimension();
 
   for (int i = 0; i < num_global_residuals; ++i) {
     auto map = m_nested->map(OWNED, i);
@@ -250,6 +251,52 @@ void Driver::estimate_error() {
     error += step_error;
   }
   print("error = %.15e", error);
+  return eta_field;
+}
+
+void Driver::localize_error(Array1D<apf::Field*> const& eta) {
+  print("LOCALIZING THE ERROR");
+
+  apf::Mesh* m = m_nested->apf_mesh();
+  apf::Field* error = apf::createStepField(m, "error", apf::SCALAR);
+  apf::zeroField(error);
+
+  auto global = m_state->residuals->global;
+  int const num_global_residuals = global->num_residuals();
+  int const dim = m->getDimension();
+  int const q_order = 1;
+
+  for (int i = 0; i < num_global_residuals; ++i) {
+    auto f = eta[i];
+    int const neqs = apf::countComponents(f);
+    std::string const f_cell_name = std::string(apf::getName(f)) + "_e";
+    auto f_cell = interpolate_to_cell_center(f, f_cell_name);
+
+    apf::MeshEntity* elem;
+    apf::MeshIterator* elems = m->begin(dim);
+    Array1D<double> field_comps(neqs);
+
+    while ((elem = m->iterate(elems))) {
+      apf::MeshElement* me = apf::createMeshElement(m, elem);
+      apf::Element* nodal_elem = apf::createElement(f, me);
+      int const npts = apf::countIntPoints(me, q_order);
+      double error_pt = apf::getScalar(error, elem, 0);
+      for (int pt = 0; pt < npts; ++pt) {
+        apf::Vector3 iota;
+        apf::getIntPoint(me, q_order, pt, iota);
+        apf::getComponents(nodal_elem, iota, &(field_comps[0]));
+        for (int eq = 0; eq < neqs; ++eq) {
+          error_pt += field_comps[eq];
+        }
+      }
+      apf::setScalar(error, elem, 0, error_pt);
+      apf::destroyElement(nodal_elem);
+      apf::destroyMeshElement(me);
+    }
+    m->end(elems);
+    apf::destroyField(f_cell);
+  }
+  m_nested->set_error(error);
 }
 
 void Driver::drive() {
@@ -257,10 +304,11 @@ void Driver::drive() {
   print("*** solve-adapt cycle: %d", cycle);
   double const J = solve_primal();
   solve_adjoint();
-  write_base_files(m_state, cycle, m_params);
   prepare_fine_space();
   perform_SPR();
-  estimate_error();
+  auto eta = estimate_error();
+  localize_error(eta);
+  write_base_files(m_state, cycle, m_params);
   write_nested_files(m_nested, cycle, m_params);
 }
 

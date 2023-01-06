@@ -20,6 +20,10 @@ class NestedDisc : public Disc {
     //! \brief Destroy the nested discretization object
     ~NestedDisc();
 
+    //! \brief Set the global nested error contribs to the base mesh
+    //! \param E_global The global residual error contribs
+    void set_error(apf::Field* E_global);
+
     //! \brief Set the nested error contribs to the base mesh
     //! \param E_global The global residual error contribs
     //! \param E_local The local residual error contribs
