@@ -1,6 +1,7 @@
 #include <PCU.h>
 #include "bcs.hpp"
 #include "control.hpp"
+#include "cspr.hpp"
 #include "disc.hpp"
 #include "linalg.hpp"
 #include "residual.hpp"
@@ -451,9 +452,8 @@ static apf::Field* compute_linearization_error(
     RCP<Residual<double>> resid,
     RCP<Residual<FADT>> jacobian,
     apf::Field* uH_h,
-    apf::Field* uh_minus_uH_h,
-    double& norm_R,
-    double& norm_E) {
+    apf::Field* uh_minus_uH_h) {
+  double norm_R, norm_E;
   apf::Mesh2* mesh = disc->apf_mesh();
   disc->change_shape(FINE);
   Vector U(FINE, disc);
@@ -604,6 +604,15 @@ apf::Field* Physics::add_R_fine_to_EL_fine(apf::Field* Rh, apf::Field* ELh) {
   return op(add, m_disc, Rh, ELh, "Rh_plus_ELh");
 }
 
+apf::Field* Physics::recover_z_fine_from_z_coarse(apf::Field* zH) {
+  print("performing spr recovery on zH");
+  ASSERT(apf::getShape(zH) == m_disc->shape(COARSE));
+  apf::Field* zH_ips = interpolate_to_ips(zH);
+  apf::Field* zh_spr = spr_recovery(zH_ips);
+  apf::renameField(zh_spr, "zh_spr");
+  return zh_spr;
+}
+
 apf::Field* Physics::evaluate_residual(int space, apf::Field* u) {
   print("evaluating residual");
   return calibr8::evaluate_residual(
@@ -673,9 +682,7 @@ double Physics::estimate_error_bound(apf::Field* eta) {
 
 apf::Field* Physics::compute_linearization_error(
     apf::Field* uH_h,
-    apf::Field* uh_minus_uH_h,
-    double& norm_R,
-    double& norm_E) {
+    apf::Field* uh_minus_uH_h) {
   print("computing linearization error");
   ASSERT(apf::getShape(uH_h) == m_disc->shape(FINE));
   ASSERT(apf::getShape(uh_minus_uH_h) == m_disc->shape(FINE));
@@ -685,9 +692,7 @@ apf::Field* Physics::compute_linearization_error(
     m_residual,
     m_jacobian,
     uH_h,
-    uh_minus_uH_h,
-    norm_R,
-    norm_E);
+    uh_minus_uH_h);
 }
 
 double Physics::compute_eta_L(apf::Field* z, apf::Field* E_L) {

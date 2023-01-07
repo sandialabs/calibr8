@@ -24,6 +24,7 @@ class Physics {
     apf::Field* restrict_z_fine_onto_fine(apf::Field* z);
     apf::Field* subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH);
     apf::Field* add_R_fine_to_EL_fine(apf::Field* Rh, apf::Field* ELh);
+    apf::Field* recover_z_fine_from_z_coarse(apf::Field* zH);
     apf::Field* evaluate_residual(int space, apf::Field* u);
     apf::Field* evaluate_PU_residual(int space, apf::Field* u, apf::Field* z);
     apf::Field* localize_error(apf::Field* R, apf::Field* z);
@@ -33,9 +34,7 @@ class Physics {
     double estimate_error2(apf::Field* R, apf::Field* Z);
     apf::Field* compute_linearization_error(
         apf::Field* uH_h,
-        apf::Field* uh_minus_uH_h,
-        double& norm_R,
-        double& norm_E);
+        apf::Field* uh_minus_uH_h);
     double compute_eta_L(apf::Field* z, apf::Field* E_L);
 
     // debug

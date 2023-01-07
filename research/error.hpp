@@ -9,8 +9,6 @@ namespace calibr8 {
 
 class Physics;
 
-enum {SIMPLE, PU};
-
 class Error {
   public:
     virtual apf::Field* compute_error(RCP<Physics> physics) = 0;
