@@ -684,6 +684,18 @@ void Disc::destroy_primal(bool keep_ic) {
     m_primal.resize(0);
   }
 
+  int const num_steps_fine = m_primal_fine.size();
+  // Keep the initial condition
+  start = 0;
+  if (keep_ic) start = 1;
+  for (int n = start; n < num_steps_fine; ++n) {
+    destroy_fields(m_primal_fine[n]);
+  }
+  if (keep_ic) {
+    m_primal_fine.resize(1);
+  } else {
+    m_primal_fine.resize(0);
+  }
 }
 
 void Disc::create_adjoint(
@@ -720,6 +732,12 @@ void Disc::destroy_adjoint() {
     destroy_fields(m_adjoint[n]);
   }
   m_adjoint.resize(0);
+
+  int const num_steps_fine = m_adjoint_fine.size();
+  for (int n = 0; n < num_steps_fine; ++n) {
+    destroy_fields(m_adjoint_fine[n]);
+  }
+  m_adjoint_fine.resize(0);
 }
 
 void Disc::destroy_virtual() {

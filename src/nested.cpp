@@ -12,6 +12,18 @@
 
 namespace calibr8 {
 
+static double get_size(apf::Mesh* mesh, apf::MeshElement* me) {
+  double h = 0.;
+  apf::Downward edges;
+  apf::MeshEntity* ent = apf::getMeshEntity(me);
+  int const nedges = mesh->getDownward(ent, 1, edges);
+  for (int e = 0; e < nedges; ++e) {
+    double const l = apf::measure(mesh, edges[e]);
+    h += l * l;
+  }
+  return std::sqrt(h / nedges);
+}
+
 NestedDisc::NestedDisc(RCP<Disc> disc, int type) {
   m_is_base = false;
   m_disc_type = type;
@@ -28,6 +40,7 @@ NestedDisc::NestedDisc(RCP<Disc> disc, int type) {
   create_adjoint_for_spr(disc);
 }
 
+
 void NestedDisc::number_elems() {
   int i = 0;
   int const vt = apf::SCALAR;
@@ -35,11 +48,16 @@ void NestedDisc::number_elems() {
   m_base_elems.resize(m_base_mesh->count(dim));
   apf::FieldShape* s = apf::getIPFitShape(dim, 1);
   apf::Field* f = apf::createField(m_base_mesh, "elems", vt, s);
+  apf::Field* f_h = apf::createField(m_base_mesh, "h", vt, s);
   apf::MeshEntity* elem;
   apf::MeshIterator* elems = m_base_mesh->begin(dim);
   while ((elem = m_base_mesh->iterate(elems))) {
     m_base_elems[i] = elem;
     apf::setScalar(f, elem, 0, i++);
+    apf::MeshElement* me = apf::createMeshElement(m_base_mesh, elem);
+    double const h = get_size(m_base_mesh, me);
+    apf::setScalar(f_h, elem, 0, h);
+    apf::destroyMeshElement(me);
   }
   m_base_mesh->end(elems);
 }
@@ -47,8 +65,12 @@ void NestedDisc::number_elems() {
 NestedDisc::~NestedDisc() {
   apf::Field* e1 = m_base_mesh->findField("elems");
   apf::Field* e2 = m_mesh->findField("elems");
+  apf::Field* e3 = m_base_mesh->findField("h");
+  apf::Field* e4 = m_mesh->findField("h");
   apf::destroyField(e1);
   apf::destroyField(e2);
+  apf::destroyField(e3);
+  apf::destroyField(e4);
   apf::removeTagFromDimension(m_mesh, m_old_vtx_tag, 0);
   apf::removeTagFromDimension(m_mesh, m_new_vtx_tag, 0);
   m_mesh->destroyTag(m_old_vtx_tag);
@@ -167,11 +189,15 @@ void NestedDisc::create_adjoint_for_spr(RCP<Disc> disc) {
     int const ngr = base_adjoint[0].global.size();
     int const nlr = base_adjoint[0].local[model_form].size();
     Fields fields;
+    // SPR is only performed on the fine fields
+    Fields fields_fine;
     for (int i = 0; i < ngr; ++i) {
       const char* name = apf::getName(base_adjoint[step].global[i]);
       apf::Field* f = m_mesh->findField(name);
       ALWAYS_ASSERT(f);
       fields.global.push_back(f);
+      // the coarse fields serve as a placeholder
+      fields_fine.global.push_back(f);
     }
     for (int i = 0; i < nlr; ++i) {
       const char* name = apf::getName(base_adjoint[step].local[model_form][i]);
@@ -180,6 +206,7 @@ void NestedDisc::create_adjoint_for_spr(RCP<Disc> disc) {
       fields.local[model_form].push_back(f);
     }
     m_adjoint.push_back(fields);
+    m_adjoint_fine.push_back(fields_fine);
   }
 }
 

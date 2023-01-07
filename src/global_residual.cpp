@@ -541,6 +541,11 @@ Array1D<int> GlobalResidual<T>::ip_sets() const {
   return m_ip_sets;
 }
 
+template <typename T>
+void GlobalResidual<T>::set_stabilization_h(int stabilization_h) {
+  m_stabilization_h = stabilization_h;
+}
+
 template class GlobalResidual<double>;
 template class GlobalResidual<FADT>;
 

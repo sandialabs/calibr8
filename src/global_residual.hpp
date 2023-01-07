@@ -17,6 +17,9 @@ class Disc;
 template <typename T> class LocalResidual;
 //! \endcond
 
+//! \brief Use stabilization h from the current or base mesh
+enum {CURRENT, BASE};
+
 //! \brief The global residual interface
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This object is intended to evaluate local element-wise
@@ -263,6 +266,8 @@ class GlobalResidual {
 
     Array1D<int> ip_sets() const;
 
+    void set_stabilization_h(int stabilization_h);
+
   private:
 
     int dx_idx(int i, int node, int eq) const;
@@ -279,6 +284,8 @@ class GlobalResidual {
     int m_num_dims = -1;
     int m_num_nodes = -1;
     int m_num_dofs = -1;
+
+    int m_stabilization_h = CURRENT;
 
     Array1D<int> m_dx_offsets;
 

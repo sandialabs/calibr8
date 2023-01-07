@@ -337,6 +337,14 @@ class Disc {
     //! \details For VERIFICATION discretizations
     Fields& primal_fine(int step) { return m_primal_fine[step]; }
 
+    //! \brief Get the fine adjoint fields
+    //! \details For error localization
+    Array1D<Fields>& adjoint_fine() { return m_adjoint_fine; }
+
+    //! \brief Get the fine adjoint fields
+    //! \details For error localization
+    Fields& adjoint_fine(int step) { return m_adjoint_fine[step]; }
+
     //! \brief Get the branch paths
     Array3D<bool>& branch_paths() { return m_branch_paths; }
 
@@ -411,6 +419,7 @@ class Disc {
     void compute_owned_graph(int i, int j);
 
     Array1D<Fields> m_primal_fine;
+    Array1D<Fields> m_adjoint_fine;
     Array3D<bool> m_branch_paths; /* [load step, elem_set, elem] */
 
 };

@@ -176,13 +176,16 @@ void Driver::perform_SPR() {
   print("IT'S SPR TIME");
   std::vector<apf::Field*> diffs;
   auto& adjoint = m_nested->adjoint();
+  auto& adjoint_fine = m_nested->adjoint_fine();
   int const nsteps = adjoint.size();
   ParameterList& dbcs = m_params->sublist("dirichlet bcs", true);
   for (int step = 0; step < nsteps; ++step) {
     auto& fields = adjoint[step].global;
+    auto& fields_fine = adjoint_fine[step].global;
     int const num_gr = fields.size();
     for (int i = 0; i < num_gr; ++i) {
       auto f = fields[i];
+      auto f_fine = fields_fine[i];
       std::string const f_cell_name = std::string(apf::getName(f)) + "_e";
       std::string const f_diff_name = std::string(apf::getName(f)) + "_diff";
       auto f_cell = interpolate_to_cell_center(f, f_cell_name);
@@ -191,9 +194,9 @@ void Driver::perform_SPR() {
 //      apf::destroyField(f_spr);
 //      apf::destroyField(f);
 //      fields[i] = f_diff;
-      fields[i] = f_spr;
+      fields_fine[i] = f_spr;
     }
-    apply_adjoint_dbcs(dbcs, m_nested, fields);
+    apply_adjoint_dbcs(dbcs, m_nested, fields_fine);
   }
 }
 
@@ -236,21 +239,69 @@ Array1D<apf::Field*> Driver::estimate_error() {
     // should apply global DBCs to x when they are not constant or linear
     //Array1D<apf::Field*> x = m_nested->primal(step).global;
     t += dt;
+
+    double step_error = 0.;
+
     m_state->la->zero_all();
     eval_global_residual(m_state, m_nested, step);
     apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
     m_state->la->gather_b();
-    Array1D<apf::Field*> Z_fields = m_nested->adjoint(step).global;
-    m_nested->populate_vector(Z_fields, Z);
-    double step_error = 0.;
-    for (int i = 0; i < Z_fields.size(); ++i) {
+    Array1D<apf::Field*> Z_fine_fields = m_nested->adjoint_fine(step).global;
+    m_nested->populate_vector(Z_fine_fields, Z);
+    for (int i = 0; i < Z_fine_fields.size(); ++i) {
       step_error += R[i]->dot(*(Z[i]));
       eta_vec[i]->elementWiseMultiply(1., *(R[i]), *(Z[i]), 0.);
     }
     m_nested->add_to_soln(eta_field, eta_vec, 1.);
+
+    m_state->la->zero_all();
+    global->set_stabilization_h(BASE);
+    eval_global_residual(m_state, m_nested, step);
+    global->set_stabilization_h(CURRENT);
+    apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
+    m_state->la->gather_b();
+    Array1D<apf::Field*> Z_coarse_fields = m_nested->adjoint(step).global;
+    m_nested->populate_vector(Z_coarse_fields, Z);
+    for (int i = 0; i < Z_coarse_fields.size(); ++i) {
+      step_error -= R[i]->dot(*(Z[i]));
+      eta_vec[i]->elementWiseMultiply(1., *(R[i]), *(Z[i]), 0.);
+    }
+    m_nested->add_to_soln(eta_field, eta_vec, -1.);
+
     error += step_error;
   }
-  print("error = %.15e", error);
+
+  double error_bound = 0.;
+
+  // get the nodes associated with the nodes in the mesh
+  apf::DynamicArray<apf::Node> nodes;
+  auto owned_numbering = m_nested->owned_numbering();
+  apf::getNodes(owned_numbering, nodes);
+
+  // loop over all the nodes in the discretization
+  for (size_t n = 0; n < nodes.size(); ++n) {
+
+    // get information about the current node
+    apf::Node node = nodes[n];
+    apf::MeshEntity* ent = node.entity;
+    int const ent_node = node.node;
+
+    double eta_node = 0.;
+    for (int i = 0; i < num_global_residuals; ++i) {
+      apf::Field* f = eta_field[i];
+      int const neqs = apf::countComponents(f);
+      Array1D<double> sol_comps(9);
+      apf::getComponents(f, ent, ent_node, &(sol_comps[0]));
+      for (int eq = 0; eq < neqs; ++eq) {
+        eta_node += sol_comps[eq];
+      }
+    }
+
+    error_bound += std::abs(eta_node);
+  }
+
+  print("error ~ %.15e", error);
+  print("error bound ~ %.15e", error_bound);
   return eta_field;
 }
 

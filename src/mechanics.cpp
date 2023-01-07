@@ -118,7 +118,15 @@ void Mechanics<T>::evaluate(
     }
 
     // compute the pressure stabilization residual
-    double const h = get_size(this->m_mesh, this->m_mesh_elem);
+    double h = 0.;
+    if (this->m_stabilization_h == CURRENT) {
+      h = get_size(this->m_mesh, this->m_mesh_elem);
+    } else if (this->m_stabilization_h == BASE) {
+      apf::Field* f_h = this->m_mesh->findField("h");
+      apf::MeshEntity* ent = apf::getMeshEntity(this->m_mesh_elem);
+      h = apf::getScalar(f_h, ent, 0);
+    }
+
     T const tau = 0.5 * h * h / mu;
     Tensor<T> stab_matrix = tau * I;
     if (local->is_finite_deformation()) {
