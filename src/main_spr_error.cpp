@@ -31,6 +31,10 @@ class Driver {
     void perform_SPR();
     Array1D<apf::Field*> estimate_error();
     void localize_error(Array1D<apf::Field*> const& eta);
+    void clean_up_fine_space();
+    void adapt_mesh(int cycle);
+    void rebuild_coarse_space();
+    void print_final_summary();
   private:
     int m_ncycles = 1;
     RCP<ParameterList> m_params;
@@ -38,6 +42,10 @@ class Driver {
     RCP<NestedDisc> m_nested;
     RCP<Primal> m_primal;
     RCP<Adjoint> m_adjoint;
+    Array1D<double> m_eta;
+    Array1D<double> m_eta_bound;
+    Array1D<double> m_J_H;
+    Array1D<double> m_nnodes;
 };
 
 Driver::Driver(std::string const& input_file) {
@@ -300,6 +308,9 @@ Array1D<apf::Field*> Driver::estimate_error() {
     error_bound += std::abs(eta_node);
   }
 
+  m_eta.push_back(error);
+  m_eta_bound.push_back(error_bound);
+
   print("error ~ %.15e", error);
   print("error bound ~ %.15e", error_bound);
   return eta_field;
@@ -350,17 +361,99 @@ void Driver::localize_error(Array1D<apf::Field*> const& eta) {
   m_nested->set_error(error);
 }
 
+static apf::Field* get_size_field(apf::Field* error, int cycle, ParameterList& p) {
+  double const scale = p.get<double>("target growth", 1.0);
+  int target = p.get<int>("target elems");
+  target = int(target * std::pow(scale, cycle));
+  return get_iso_target_size(error, target);
+}
+
+static void configure_ma(ma::Input* in, ParameterList& p) {
+  int const adapt_iters = p.get<int>("adapt iters", 1);
+  bool const should_coarsen = p.get<bool>("should coarsen", false);
+  bool const fix_shape = p.get<bool>("fix shape", false);
+  double const good_quality = p.get<double>("good quality", 0.5);
+  print("ma inputs----");
+  print(" > adapt iters: %d", adapt_iters);
+  print(" > should coarsen: %d", should_coarsen);
+  print(" > fix shape: %d", fix_shape);
+  print(" > good quality: %f", good_quality);
+  print("----");
+  in->maximumIterations = adapt_iters;
+  in->shouldCoarsen = should_coarsen;
+  in->shouldFixShape = fix_shape;
+  in->goodQuality = good_quality;
+  in->shouldRunPreParma = true;
+  in->shouldRunMidParma = true;
+  in->shouldRunPostParma = true;
+}
+
+void Driver::adapt_mesh(int cycle) {
+  print("ADAPTING MESH");
+  ParameterList adapt_params = m_params->sublist("adaptivity", true);
+  apf::Mesh2* m = m_state->disc()->apf_mesh();
+  apf::Field* error = m->findField("error");
+  apf::Field* size = get_size_field(error, cycle, adapt_params);
+  auto in = ma::makeAdvanced(ma::configure(m, size));
+  configure_ma(in, adapt_params);
+  ma::adapt(in);
+  apf::destroyField(size);
+}
+
+void Driver::clean_up_fine_space() {
+  m_state->disc->destroy_primal();
+  m_state->disc->destroy_adjoint();
+  m_state->la->destroy_data();
+  m_nested = Teuchos::null;
+}
+
+void Driver::rebuild_coarse_space() {
+  RCP<Disc> disc = m_state->disc;
+  int const ngr = m_state->residuals->global->num_residuals();
+  Array1D<int> const neqs = m_state->residuals->global->num_eqs();
+  disc->build_data(ngr, neqs);
+  m_state->la->build_data(disc);
+}
+
+void Driver::print_final_summary() {
+  ALWAYS_ASSERT(m_J_H.size() == m_eta.size());
+  ALWAYS_ASSERT(m_J_H.size() == m_eta_bound.size());
+  print("*******************************************");
+  print(" FINAL SUMMARY\n");
+  print("*******************************************");
+  print("step | nodes | J_H  | eta | eta_bound");
+  print("--------------------------------");
+  for (size_t step = 0; step < m_J_H.size(); ++step) {
+    int const nnodes = m_nnodes[step];
+    double const JH = m_J_H[step];
+    double const eta = m_eta[step];
+    double const eta_bound = m_eta_bound[step];
+    print("%d | %d | %.15e | %.15e | %.15e", step, nnodes, JH, eta, eta_bound);
+  }
+}
+
 void Driver::drive() {
-  int cycle = 0;
-  print("*** solve-adapt cycle: %d", cycle);
-  double const J = solve_primal();
-  solve_adjoint();
-  prepare_fine_space();
-  perform_SPR();
-  auto eta = estimate_error();
-  localize_error(eta);
-  write_base_files(m_state, cycle, m_params);
-  write_nested_files(m_nested, cycle, m_params);
+  for (int cycle = 0; cycle < m_ncycles; ++cycle) {
+    print("*** solve-adapt cycle: %d", cycle);
+    double const J = solve_primal();
+    double nnodes = apf::countOwned(m_state->disc->apf_mesh(), 0);
+    nnodes = PCU_Add_Double(nnodes);
+    m_J_H.push_back(J);
+    m_nnodes.push_back(nnodes);
+    solve_adjoint();
+    prepare_fine_space();
+    perform_SPR();
+    auto eta = estimate_error();
+    localize_error(eta);
+    write_base_files(m_state, cycle, m_params);
+    write_nested_files(m_nested, cycle, m_params);
+    clean_up_fine_space();
+    if (cycle < (m_ncycles - 1)) {
+      adapt_mesh(cycle);
+      rebuild_coarse_space();
+    }
+  }
+  print_final_summary();
 }
 
 int main(int argc, char** argv) {
