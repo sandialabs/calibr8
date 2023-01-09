@@ -32,14 +32,14 @@ class VirtualPower {
     //! \param dt The time increment used to get to the current time
     double compute_at_step(int step, double t, double dt);
 
-    ~VirtualPower() { resize(m_vf_vec, 0); }
+    ~VirtualPower() { resize(m_vf_vec[OWNED], 0); resize(m_vf_vec[GHOST], 0); }
 
   private:
 
     RCP<ParameterList> m_params;
     RCP<State> m_state;
     RCP<Disc> m_disc;
-    Array1D<RCP<VectorT>> m_vf_vec;
+    Array1D<RCP<VectorT>> m_vf_vec[NUM_DISTRIB];
 
 };
 

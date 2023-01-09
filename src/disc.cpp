@@ -291,6 +291,15 @@ void Disc::compute_exporters() {
   }
 }
 
+void Disc::compute_importers() {
+  resize(m_importers, m_num_residuals);
+  for (int i = 0; i < m_num_residuals; ++i) {
+    RCP<const MapT> owned_map = m_maps[OWNED][i];
+    RCP<const MapT> ghost_map = m_maps[GHOST][i];
+    m_importers[i] = rcp(new ImportT(owned_map, ghost_map));
+  }
+}
+
 Array1D<size_t> Disc::compute_nentries(int i, int j) {
   int const num_i_eqs = num_eqs(i);
   int const num_j_eqs = num_eqs(j);
@@ -458,6 +467,7 @@ void Disc::build_data(int num_residuals, Array1D<int> const& num_eqs) {
   compute_owned_maps();
   compute_ghost_maps();
   compute_exporters();
+  compute_importers();
   compute_graphs();
   compute_elem_sets();
   compute_side_sets();
@@ -814,10 +824,12 @@ void Disc::add_to_soln(
 
 void Disc::populate_vector(
     Array1D<apf::Field*> const& fields,
-    Array1D<RCP<VectorT>>& vec) {
+    Array1D<RCP<VectorT>> vec[]) {
 
+  auto& vec_owned = vec[OWNED];
+  auto& vec_ghost = vec[GHOST];
   int const num_comps = fields.size();
-  DEBUG_ASSERT(vec.size() == num_comps);
+  DEBUG_ASSERT(vec_owned.size() == num_comps);
 
   // get the nodes associated with the nodes in the mesh
   apf::DynamicArray<apf::Node> nodes;
@@ -826,11 +838,8 @@ void Disc::populate_vector(
   // grab data from the blocked vector
   Array1D<Teuchos::ArrayRCP<double>> vec_data(num_comps);
   for (int i = 0; i < num_comps; ++i) {
-    vec_data[i] = vec[i]->get1dViewNonConst();
+    vec_data[i] = vec_owned[i]->get1dViewNonConst();
   }
-
-  // storage used below
-  Array1D<double> sol_comps(3);
 
   // loop over all the nodes in the discretization
   for (size_t n = 0; n < nodes.size(); ++n) {
@@ -847,6 +856,8 @@ void Disc::populate_vector(
       apf::Field* f = fields[i];
 
       // get the solution for the current residual at the node
+      int const neqs = apf::countComponents(f);
+      Array1D<double> sol_comps(neqs, 0.);
       apf::getComponents(f, ent, ent_node, &(sol_comps[0]));
 
       // set the data in the parallel vector
@@ -855,18 +866,23 @@ void Disc::populate_vector(
         vec_data[i][row] = sol_comps[eq];
       }
     }
-
-    // scatter needed here?
-
   }
+
+  // scatter to ghosted nodes
+  for (int i = 0; i < num_comps; ++i) {
+    RCP<VectorT> vec_i_owned = vec_owned[i];
+    RCP<VectorT> vec_i_ghost = vec_ghost[i];
+    vec_i_ghost->doImport(*vec_i_owned, *(m_importers[i]), Tpetra::INSERT);
+  }
+
 }
 
 void Disc::populate_field(
-    Array1D<RCP<VectorT>> const& vec,
+    Array1D<RCP<VectorT>> const& owned_vec,
     Array1D<apf::Field*>& f) {
 
   int const num_comps = f.size();
-  DEBUG_ASSERT(vec.size() == num_comps);
+  DEBUG_ASSERT(owned_vec.size() == num_comps);
 
   // get the nodes associated with the nodes in the mesh
   apf::DynamicArray<apf::Node> nodes;
@@ -875,8 +891,8 @@ void Disc::populate_field(
   for (int i = 0; i < num_comps; ++i) {
 
     int const neqs = apf::countComponents(f[i]);
-    auto vec_data = vec[i]->get1dView();
-    std::vector<double> vals(neqs, 0.);
+    auto vec_data = owned_vec[i]->get1dView();
+    Array1D<double> vals(neqs, 0.);
 
     for (auto& node : nodes) {
       apf::MeshEntity* ent = node.entity;

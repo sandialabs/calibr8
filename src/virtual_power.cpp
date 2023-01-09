@@ -21,9 +21,12 @@ VirtualPower::VirtualPower(
   m_disc = disc_in;
   ParameterList& vf_list = m_params->sublist("virtual fields", true);
   m_disc->create_virtual(m_state->residuals, vf_list);
-  resize(m_vf_vec, 1);
-  RCP<const MapT> map = m_disc->map(0, 0);
-  m_vf_vec[0] = rcp(new VectorT(map));
+  resize(m_vf_vec[OWNED], 1);
+  resize(m_vf_vec[GHOST], 1);
+  RCP<const MapT> owned_map = m_disc->map(0, 0);
+  RCP<const MapT> ghost_map = m_disc->map(1, 0);
+  m_vf_vec[OWNED][0] = rcp(new VectorT(owned_map));
+  m_vf_vec[GHOST][0] = rcp(new VectorT(ghost_map));
   m_disc->populate_vector(m_disc->virtual_fields(0).virtual_field, m_vf_vec);
 
 }
@@ -52,7 +55,7 @@ double VirtualPower::compute_at_step(int step, double t, double) {
   m_state->la->gather_b();  // gather the residual R
 
   auto R_int = VectorT(*R[0], Teuchos::Copy);
-  double const internal_virtual_power = R[0]->dot(*m_vf_vec[0]);
+  double const internal_virtual_power = R[0]->dot(*m_vf_vec[OWNED][0]);
 
   return internal_virtual_power;
 

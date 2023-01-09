@@ -182,6 +182,10 @@ class Disc {
     //! \param i The residual index of interest
     RCP<const ExportT> exporter(int i) const { return m_exporters[i]; }
 
+    //! \brief Get the importer for a given residual
+    //! \param i The residual index of interest
+    RCP<const ImportT> importer(int i) const { return m_importers[i]; }
+
     //! \brief Get the number of PDE residuals associated with this disc
     //! \details Only available after build_data has been called
     int num_residuals() const { return m_num_residuals; }
@@ -296,7 +300,7 @@ class Disc {
     //! \param vec The VectorT
     void populate_vector(
         Array1D<apf::Field*> const& v,
-        Array1D<RCP<VectorT>>& vec);
+        Array1D<RCP<VectorT>> vec[]);
 
     //! \brief Fill a field array with VectorT data
     //! \param dx The VectorT
@@ -387,6 +391,7 @@ class Disc {
     Array1D<RCP<const MapT>> m_maps[NUM_DISTRIB];
     Array2D<RCP<GraphT>> m_graphs[NUM_DISTRIB];
     Array1D<RCP<const ExportT>> m_exporters;
+    Array1D<RCP<const ImportT>> m_importers;
 
     ElemSets m_elem_sets;
     SideSets m_side_sets;
@@ -408,6 +413,7 @@ class Disc {
     void compute_owned_maps();
     void compute_ghost_maps();
     void compute_exporters();
+    void compute_importers();
     void compute_graphs();
     void compute_elem_sets();
     void compute_side_sets();

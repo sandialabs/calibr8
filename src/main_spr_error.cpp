@@ -214,7 +214,8 @@ Array1D<apf::Field*> Driver::estimate_error() {
 
   Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
   Array1D<RCP<VectorT>>& R_ghost = m_state->la->b[GHOST];
-  Array1D<RCP<VectorT>>& Z = m_state->la->x[OWNED];
+  auto Z = m_state->la->x;
+  auto& Z_owned = Z[OWNED];
 
   auto global = m_state->residuals->global;
   int const num_global_residuals = global->num_residuals();
@@ -257,8 +258,8 @@ Array1D<apf::Field*> Driver::estimate_error() {
     Array1D<apf::Field*> Z_fine_fields = m_nested->adjoint_fine(step).global;
     m_nested->populate_vector(Z_fine_fields, Z);
     for (int i = 0; i < Z_fine_fields.size(); ++i) {
-      step_error += R[i]->dot(*(Z[i]));
-      eta_vec[i]->elementWiseMultiply(1., *(R[i]), *(Z[i]), 0.);
+      step_error += R[i]->dot(*(Z_owned[i]));
+      eta_vec[i]->elementWiseMultiply(1., *(R[i]), *(Z_owned[i]), 0.);
     }
     m_nested->add_to_soln(eta_field, eta_vec, 1.);
 
@@ -271,8 +272,8 @@ Array1D<apf::Field*> Driver::estimate_error() {
     Array1D<apf::Field*> Z_coarse_fields = m_nested->adjoint(step).global;
     m_nested->populate_vector(Z_coarse_fields, Z);
     for (int i = 0; i < Z_coarse_fields.size(); ++i) {
-      step_error -= R[i]->dot(*(Z[i]));
-      eta_vec[i]->elementWiseMultiply(1., *(R[i]), *(Z[i]), 0.);
+      step_error -= R[i]->dot(*(Z_owned[i]));
+      eta_vec[i]->elementWiseMultiply(1., *(R[i]), *(Z_owned[i]), 0.);
     }
     m_nested->add_to_soln(eta_field, eta_vec, -1.);
 
