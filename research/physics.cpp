@@ -638,11 +638,20 @@ apf::Field* Physics::compute_eta2(apf::Field* u, apf::Field* z) {
   return m_residual->assemble(u, z);
 }
 
-apf::Field* Physics::localize_error(apf::Field* R, apf::Field* z) {
+apf::Field* Physics::localize_error(apf::Field* R, apf::Field* z, int post) {
   print("localizing error using simple approach");
   ASSERT(apf::getShape(R) == m_disc->shape(FINE));
   ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  return op(negate_multiply, m_disc, R, z, "eta");
+  std::string name = "eta";
+  if (post > 0) name += std::to_string(post);
+  return op(negate_multiply, m_disc, R, z, name);
+}
+
+apf::Field* Physics::localize_linearization_error(apf::Field* eta1, apf::Field* eta2) {
+  print("localizing error w/ linearization using simple approach");
+  ASSERT(apf::getShape(eta1) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(eta2) == m_disc->shape(FINE));
+  return op(add, m_disc, eta1, eta2, "eta");
 }
 
 apf::Field* Physics::interpolate_to_ips(apf::Field* z) {

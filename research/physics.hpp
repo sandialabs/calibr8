@@ -27,7 +27,8 @@ class Physics {
     apf::Field* recover_z_fine_from_z_coarse(apf::Field* zH);
     apf::Field* evaluate_residual(int space, apf::Field* u);
     apf::Field* evaluate_PU_residual(int space, apf::Field* u, apf::Field* z);
-    apf::Field* localize_error(apf::Field* R, apf::Field* z);
+    apf::Field* localize_error(apf::Field* R, apf::Field* z, int post = 0);
+    apf::Field* localize_linearization_error(apf::Field* eta1, apf::Field* eta2);
     apf::Field* interpolate_to_ips(apf::Field* z);
     double estimate_error(apf::Field* eta);
     double estimate_error_bound(apf::Field* eta);

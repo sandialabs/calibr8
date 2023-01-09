@@ -76,10 +76,22 @@ void Adjoint::compute_adjoint_weight(RCP<Physics> physics) {
   }
 }
 
+void Adjoint::compute_linearization_error(RCP<Physics> physics, double& eta_L) {
+  if (!linearization) return;
+  m_uh_minus_uH_h = physics->subtract_u_coarse_from_u_fine(m_uh, m_uH_h);
+  m_ELh = physics->compute_linearization_error(m_uH_h, m_uh_minus_uH_h);
+  eta_L = physics->compute_eta_L(m_zh, m_ELh);
+  m_Rh_uH_h_plus_ELh = physics->add_R_fine_to_EL_fine(m_Rh_uH_h, m_ELh);
+}
+
 void Adjoint::localize_error(RCP<Physics> physics) {
   if (localization == SIMPLE) {
     if (linearization) {
-      m_eta = physics->localize_error(m_Rh_uH_h_plus_ELh, m_z_weight);
+      apf::Field* m_eta1 = physics->localize_error(m_Rh_uH_h, m_z_weight, 1);
+      apf::Field* m_eta2 = physics->localize_error(m_ELh, m_zh, 2);
+      m_eta = physics->localize_linearization_error(m_eta1, m_eta2);
+      apf::destroyField(m_eta1);
+      apf::destroyField(m_eta2);
     } else {
       m_eta = physics->localize_error(m_Rh_uH_h, m_z_weight);
     }
@@ -97,14 +109,6 @@ void Adjoint::compute_error(RCP<Physics> physics, double& eta, double& eta_bound
   print(" > eta_diff = %.15e", eta_diff);
 }
 
-void Adjoint::compute_linearization_error(RCP<Physics> physics, double& eta_L) {
-  if (!linearization) return;
-  m_uh_minus_uH_h = physics->subtract_u_coarse_from_u_fine(m_uh, m_uH_h);
-  m_ELh = physics->compute_linearization_error(m_uH_h, m_uh_minus_uH_h);
-  eta_L = physics->compute_eta_L(m_zh, m_ELh);
-  m_Rh_uH_h_plus_ELh = physics->add_R_fine_to_EL_fine(m_Rh_uH_h, m_ELh);
-}
-
 void Adjoint::collect_data(
     RCP<Physics> physics,
     double JH,
@@ -119,7 +123,7 @@ void Adjoint::collect_data(
   m_Jh.push_back(Jh);
   m_estimate.push_back(eta);
   m_estimate_bound.push_back(eta_bound);
-  if (localization) m_estimate_L.push_back(eta_L);
+  if (linearization) m_estimate_L.push_back(eta_L);
 }
 
 apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
@@ -139,14 +143,17 @@ void Adjoint::write_history(std::string const& file, double J_ex) {
   std::stringstream stream;
   stream << std::scientific << std::setprecision(16);
   stream << "elems H_dofs h_dofs JH Jh eta eta_bound Eh Ih Iboundh ";
+  if (linearization) {
+    stream << "eta_L ";
+  }
   if (J_ex != 0.0) {
-    stream << " E I Ibound";
+    stream << "E I Ibound";
   }
   stream << "\n";
   for (size_t ctr = 0; ctr < m_nelems.size(); ++ctr) {
     double const Eh = m_Jh[ctr] - m_JH[ctr];
     double const Ih = m_estimate[ctr] / Eh;
-    double const Iboundh = m_estimate_bound[ctr] / Eh;
+    double const Iboundh = m_estimate_bound[ctr] / std::abs(Eh);
     stream
       << m_nelems[ctr] << " "
       << m_H_dofs[ctr] << " "
@@ -158,10 +165,13 @@ void Adjoint::write_history(std::string const& file, double J_ex) {
       << Eh << " "
       << Ih << " "
       << Iboundh << " ";
+    if (linearization) {
+      stream << m_estimate_L[ctr] << " ";
+    }
     if (J_ex != 0.0) {
       double const E = J_ex - m_JH[ctr];
       double const I = m_estimate[ctr] / E;
-      double const Ibound = m_estimate_bound[ctr] / E;
+      double const Ibound = m_estimate_bound[ctr] / std::abs(E);
       stream
         << E << " "
         << I << " "
@@ -186,6 +196,7 @@ void Adjoint::destroy_intermediate_fields() {
   if (m_z_weight) apf::destroyField(m_z_weight);
   if (m_Rh_uH_h) apf::destroyField(m_Rh_uH_h);
   if (m_Rh_uH_h_plus_ELh) apf::destroyField(m_Rh_uH_h_plus_ELh);
+  if (m_ELh) apf::destroyField(m_ELh);
   if (m_eta) apf::destroyField(m_eta);
   m_uH = nullptr;
   m_uh = nullptr;
@@ -200,6 +211,7 @@ void Adjoint::destroy_intermediate_fields() {
   m_z_weight = nullptr;
   m_Rh_uH_h = nullptr;
   m_Rh_uH_h_plus_ELh = nullptr;
+  m_ELh = nullptr;
   m_eta = nullptr;
 }
 
