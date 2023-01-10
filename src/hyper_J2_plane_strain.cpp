@@ -41,7 +41,7 @@ HyperJ2PlaneStrain<T>::HyperJ2PlaneStrain(ParameterList const& inputs, int ndims
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
 
-  int const num_residuals = 4;
+  int const num_residuals = 3;
 
   this->m_num_residuals = num_residuals;
   this->m_num_eqs.resize(num_residuals);
@@ -59,10 +59,6 @@ HyperJ2PlaneStrain<T>::HyperJ2PlaneStrain(ParameterList const& inputs, int ndims
   this->m_resid_names[2] = "alpha";
   this->m_var_types[2] = SCALAR;
   this->m_num_eqs[2] = get_num_eqs(SCALAR, ndims);
-
-  this->m_resid_names[3] = "zeta_zz";
-  this->m_var_types[3] = SCALAR;
-  this->m_num_eqs[3] = get_num_eqs(SCALAR, ndims);
 
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
@@ -120,18 +116,14 @@ void HyperJ2PlaneStrain<T>::init_variables_impl() {
   int const zeta_idx = 0;
   int const Ie_idx = 1;
   int const alpha_idx = 2;
-  int const zeta_zz_idx = 3;
 
   T const Ie = 1.;
   T const alpha = 0.;
   Tensor<T> const zeta = minitensor::zero<T>(ndims);
-  T const zeta_zz = 0.;
 
   this->set_scalar_xi(Ie_idx, Ie);
   this->set_scalar_xi(alpha_idx, alpha);
   this->set_sym_tensor_xi(zeta_idx, zeta);
-  this->set_scalar_xi(zeta_zz_idx, zeta_zz);
-
 }
 
 template <typename T>
@@ -139,7 +131,6 @@ void eval_be_bar_plane_strain(
     RCP<GlobalResidual<T>> global,
     Tensor<T> const& zeta,
     T const& Ie,
-    T const& zeta_zz,
     Tensor<T>& be_bar) {
   int const ndims = global->num_dims();
   Tensor<T> const I = minitensor::eye<T>(ndims);
@@ -153,21 +144,10 @@ void eval_be_bar_plane_strain(
   Tensor<T> const rF_bar = rF / det_rF_13;
   Tensor<T> const rF_barT = transpose(rF_bar);
   Tensor<T> const be_bar_2D = rF_bar * (zeta + Ie * I) * rF_barT;
+  T const zeta_zz = -trace(zeta);
   T const be_bar_zz = (zeta_zz + Ie) / (det_rF_13 * det_rF_13);
   be_bar = insert_2D_tensor_into_3D(be_bar_2D);
   be_bar(2, 2) = be_bar_zz;
-}
-
-template <typename T>
-T norm_s_3D(Tensor<T> const& s_2D, T const& s_zz) {
-  return sqrt(s_2D(0, 0) * s_2D(0, 0) + s_2D(1, 1) * s_2D(1, 1)
-      + 2. * s_2D(0, 1) * s_2D(0, 1) + s_zz * s_zz);
-}
-
-template <typename T>
-T det_be_bar_3D(Tensor<T> const& zeta_2D, T const& zeta_zz, T const& Ie) {
-  return ((zeta_2D(0, 0) + Ie) * (zeta_2D(1, 1) + Ie)
-      - zeta_2D(0, 1) * zeta_2D(0, 1)) * (zeta_zz + Ie);
 }
 
 template <>
@@ -185,22 +165,18 @@ int HyperJ2PlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) 
     Tensor<FADT> const zeta_old = this->sym_tensor_xi_prev(0);
     FADT const Ie_old = this->scalar_xi_prev(1);
     FADT const alpha_old = this->scalar_xi_prev(2);
-    FADT const zeta_zz_old = this->scalar_xi_prev(3);
 
     int const ndims = global->num_dims();
     Tensor<FADT> be_bar_trial;
-    eval_be_bar_plane_strain(global, zeta_old, Ie_old, zeta_zz_old,
-        be_bar_trial);
+    eval_be_bar_plane_strain(global, zeta_old, Ie_old, be_bar_trial);
     FADT const Ie_trial = trace(be_bar_trial) / 3.;
     Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
     Tensor<FADT> const be_bar_trial_2D = extract_2D_tensor_from_3D(be_bar_trial);
     Tensor<FADT> const zeta_trial = be_bar_trial_2D - Ie_trial * I;
-    FADT const zeta_zz_trial = be_bar_trial(2, 2) - Ie_trial;
     FADT const alpha_trial = alpha_old;
     this->set_sym_tensor_xi(0, zeta_trial);
     this->set_scalar_xi(1, Ie_trial);
     this->set_scalar_xi(2, alpha_trial);
-    this->set_scalar_xi(3, zeta_zz_trial);
     path = ELASTIC;
   }
 
@@ -229,7 +205,6 @@ int HyperJ2PlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) 
     this->add_to_sym_tensor_xi(0, dxi);
     this->add_to_scalar_xi(1, dxi);
     this->add_to_scalar_xi(2, dxi);
-    this->add_to_scalar_xi(3, dxi);
 
     iter++;
 
@@ -266,33 +241,34 @@ int HyperJ2PlaneStrain<T>::evaluate(
   Tensor<T> const zeta_old = this->sym_tensor_xi_prev(0);
   T const Ie_old = this->scalar_xi_prev(1);
   T const alpha_old = this->scalar_xi_prev(2);
-  T const zeta_zz_old = this->scalar_xi_prev(3);
 
   Tensor<T> const zeta = this->sym_tensor_xi(0);
   T const Ie = this->scalar_xi(1);
   T const alpha = this->scalar_xi(2);
-  T const zeta_zz = this->scalar_xi(3);
 
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> be_bar_trial;
-  eval_be_bar_plane_strain(global, zeta_old, Ie_old, zeta_zz_old, be_bar_trial);
+  eval_be_bar_plane_strain(global, zeta_old, Ie_old, be_bar_trial);
   T const Ie_trial = trace(be_bar_trial) / 3.;
   Tensor<T> const be_bar_trial_2D = extract_2D_tensor_from_3D(be_bar_trial);
-  T const be_bar_trial_zz = be_bar_trial(2, 2);
   Tensor<T> const zeta_trial = be_bar_trial_2D - Ie_trial * I;
-  T const zeta_zz_trial = be_bar_trial_zz - Ie_trial;
+
   Tensor<T> zeta_3D = insert_2D_tensor_into_3D(zeta);
-  zeta_3D(2, 2) = zeta_zz;
+  zeta_3D(2, 2) = -trace(zeta);
+
+  Tensor<T> const I_3D = minitensor::eye<T>(3);
+  Tensor<T> be_bar_3D = zeta_3D + Ie * I_3D;
+
   Tensor<T> const s_3D = mu * zeta_3D;
   T const s_mag = norm(s_3D);
   T const sigma_yield = Y + K * alpha + (Y_inf - Y)
       * (1. - std::exp(-delta * alpha));
   T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
+
   Tensor<T> R_zeta;
   T R_Ie;
   T R_alpha;
-  T R_zeta_zz;
 
   if (!force_path) {
     // plastic step
@@ -300,9 +276,8 @@ int HyperJ2PlaneStrain<T>::evaluate(
       Tensor<T> const n_2D = mu * zeta / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
-      R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
+      R_Ie = det(be_bar_3D) - 1.;
       R_alpha = f;
-      R_zeta_zz = zeta_zz + trace(zeta);
       path = PLASTIC;
     }
     // elastic step
@@ -310,7 +285,6 @@ int HyperJ2PlaneStrain<T>::evaluate(
       R_zeta = zeta - zeta_trial;
       R_Ie = Ie - Ie_trial;
       R_alpha = alpha - alpha_old;
-      R_zeta_zz = zeta_zz - zeta_zz_trial;
       path = ELASTIC;
     }
   }
@@ -323,23 +297,20 @@ int HyperJ2PlaneStrain<T>::evaluate(
       Tensor<T> const n_2D = mu * zeta / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - zeta_trial + 2. * dgam * Ie * n_2D;
-      R_Ie = det_be_bar_3D(zeta, zeta_zz, Ie) - 1.;
+      R_Ie = det(be_bar_3D) - 1.;
       R_alpha = f;
-      R_zeta_zz = zeta_zz + trace(zeta);
     }
     // elastic step
     else {
       R_zeta = zeta - zeta_trial;
       R_Ie = Ie - Ie_trial;
       R_alpha = alpha - alpha_old;
-      R_zeta_zz = zeta_zz - zeta_zz_trial;
     }
   }
 
   this->set_sym_tensor_R(0, R_zeta);
   this->set_scalar_R(1, R_Ie);
   this->set_scalar_R(2, R_alpha);
-  this->set_scalar_R(3, R_zeta_zz);
 
   return path;
 

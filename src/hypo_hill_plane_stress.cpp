@@ -178,7 +178,7 @@ int HypoHillPlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global)
     FADT const alpha_old = this->scalar_xi_prev(1);
     FADT const lambda_z_old = this->scalar_xi_prev(2);
     Tensor<FADT> const d = eval_d(global);
-    FADT const d_zz = -lambda * trace(d) / (lambda +  2. * mu);
+    FADT const d_zz = -lambda * trace(d) / (lambda + 2. * mu);
     Tensor<FADT> const TC = TC_old + lambda * (trace(d) + d_zz) * I + 2. * mu * d;
     FADT const alpha = alpha_old;
     FADT const lambda_z = lambda_z_old / (1. - d_zz);

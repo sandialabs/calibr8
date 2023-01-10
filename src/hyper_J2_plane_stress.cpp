@@ -35,7 +35,7 @@ HyperJ2PlaneStress<T>::HyperJ2PlaneStress(ParameterList const& inputs, int ndims
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
 
-  int const num_residuals = 5;
+  int const num_residuals = 4;
 
   this->m_num_residuals = num_residuals;
   this->m_num_eqs.resize(num_residuals);
@@ -58,10 +58,6 @@ HyperJ2PlaneStress<T>::HyperJ2PlaneStress(ParameterList const& inputs, int ndims
   this->m_resid_names[3] = "alpha";
   this->m_var_types[3] = SCALAR;
   this->m_num_eqs[3] = get_num_eqs(SCALAR, ndims);
-
-  this->m_resid_names[4] = "zeta_zz";
-  this->m_var_types[4] = SCALAR;
-  this->m_num_eqs[4] = get_num_eqs(SCALAR, ndims);
 
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
@@ -118,19 +114,16 @@ void HyperJ2PlaneStress<T>::init_variables_impl() {
   int const Ie_idx = 1;
   int const lambda_z_idx = 2;
   int const alpha_idx = 3;
-  int const zeta_zz_idx = 4;
 
   Tensor<T> const zeta = minitensor::zero<T>(ndims);
   T const Ie = 1.0;
   T const lambda_z = 1.0;
   T const alpha = 0.0;
-  T const zeta_zz = 0.0;
 
   this->set_sym_tensor_xi(zeta_idx, zeta);
   this->set_scalar_xi(Ie_idx, Ie);
   this->set_scalar_xi(lambda_z_idx, lambda_z);
   this->set_scalar_xi(alpha_idx, alpha);
-  this->set_scalar_xi(zeta_zz_idx, zeta_zz);
 
 }
 
@@ -140,7 +133,6 @@ void eval_be_bar_plane_stress(
     RCP<GlobalResidual<T>> global,
     Tensor<T> const& zeta_2D,
     T const& Ie,
-    T const& zeta_zz,
     T const& lambda_z_prev,
     T const& lambda_z,
     T& J_2D,
@@ -163,7 +155,7 @@ void eval_be_bar_plane_stress(
   Tensor<T> const rF_bar = rF / det_rF_13;
   Tensor<T> const rF_barT = minitensor::transpose(rF_bar);
   Tensor<T> zeta_3D = insert_2D_tensor_into_3D(zeta_2D);
-  zeta_3D(2, 2) = zeta_zz;
+  zeta_3D(2, 2) = -trace(zeta_2D);
   be_bar = rF_bar * (zeta_3D + Ie * I) * rF_barT;
 }
 
@@ -183,25 +175,22 @@ int HyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) 
     FADT const Ie_old = this->scalar_xi_prev(1);
     FADT const lambda_z_old = this->scalar_xi_prev(2);
     FADT const alpha_old = this->scalar_xi_prev(3);
-    FADT const zeta_zz_old = this->scalar_xi_prev(4);
 
-    int const ndims = global->num_dims();
+    int const ndims = m_num_dims;
     FADT J_2D;
     Tensor<FADT> be_bar_trial;
     FADT be_bar_zz_trial;
     FADT const lambda_z = this->scalar_xi(2);
-    eval_be_bar_plane_stress(global, zeta_old, Ie_old, zeta_zz_old,
-        lambda_z_old, lambda_z, J_2D, be_bar_trial);
+    eval_be_bar_plane_stress(global, zeta_old, Ie_old, lambda_z_old, lambda_z,
+        J_2D, be_bar_trial);
     FADT const Ie_trial = minitensor::trace(be_bar_trial) / 3.;
     Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
     Tensor<FADT> const be_bar_trial_2D = extract_2D_tensor_from_3D(be_bar_trial);
     Tensor<FADT> const zeta_trial = be_bar_trial_2D - Ie_trial * I;
-    FADT const zeta_zz_trial = be_bar_trial(2,2) - Ie_trial;
     FADT const alpha_trial = alpha_old;
     this->set_sym_tensor_xi(0, zeta_trial);
     this->set_scalar_xi(1, Ie_trial);
     this->set_scalar_xi(3, alpha_trial);
-    this->set_scalar_xi(4, zeta_zz_trial);
     path = ELASTIC;
   }
 
@@ -231,7 +220,6 @@ int HyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) 
     this->add_to_scalar_xi(1, dxi);
     this->add_to_scalar_xi(2, dxi);
     this->add_to_scalar_xi(3, dxi);
-    this->add_to_scalar_xi(4, dxi);
 
     iter++;
 
@@ -269,26 +257,24 @@ int HyperJ2PlaneStress<T>::evaluate(
   T const Ie_old = this->scalar_xi_prev(1);
   T const lambda_z_old = this->scalar_xi_prev(2);
   T const alpha_old = this->scalar_xi_prev(3);
-  T const zeta_zz_old = this->scalar_xi_prev(4);
 
   Tensor<T> const zeta = this->sym_tensor_xi(0);
   T const Ie = this->scalar_xi(1);
   T const lambda_z = this->scalar_xi(2);
   T const alpha = this->scalar_xi(3);
-  T const zeta_zz = this->scalar_xi(4);
 
   Tensor<T> const I = minitensor::eye<T>(3);
   T J_2D;
 
   Tensor<T> be_bar_trial;
-  eval_be_bar_plane_stress(global, zeta_old, Ie_old, zeta_zz_old,
-      lambda_z_old, lambda_z, J_2D, be_bar_trial);
+  eval_be_bar_plane_stress(global, zeta_old, Ie_old, lambda_z_old, lambda_z,
+      J_2D, be_bar_trial);
   T const Ie_trial = minitensor::trace(be_bar_trial) / 3.;
   Tensor<T> const zeta_trial_3D = be_bar_trial - Ie_trial * I;
   Tensor<T> const zeta_trial_2D = extract_2D_tensor_from_3D(zeta_trial_3D);
-  T const zeta_zz_trial = zeta_trial_3D(2, 2);
 
   Tensor<T> zeta_3D = insert_2D_tensor_into_3D(zeta);
+  T const zeta_zz = -trace(zeta);
   zeta_3D(2, 2) = zeta_zz;
   Tensor<T> const be_bar = zeta_3D + Ie * I;
 
@@ -299,9 +285,8 @@ int HyperJ2PlaneStress<T>::evaluate(
 
   Tensor<T> R_zeta;
   T R_Ie;
-  T R_alpha;
-  T R_zeta_zz;
   T R_lambda_z;
+  T R_alpha;
 
   T const mat_factor = kappa / (2. * mu);
   R_lambda_z = lambda_z - std::sqrt((1. - zeta_zz / mat_factor)
@@ -315,7 +300,6 @@ int HyperJ2PlaneStress<T>::evaluate(
       R_zeta = zeta - zeta_trial_2D + 2. * dgam * Ie * n_2D;
       R_Ie = det(be_bar) - 1.;
       R_alpha = f;
-      R_zeta_zz = zeta_zz + trace(zeta);
       path = PLASTIC;
     }
     // elastic step
@@ -323,7 +307,6 @@ int HyperJ2PlaneStress<T>::evaluate(
       R_zeta = zeta - zeta_trial_2D;
       R_Ie = Ie - Ie_trial;
       R_alpha = alpha - alpha_old;
-      R_zeta_zz = zeta_zz - zeta_zz_trial;
       path = ELASTIC;
     }
   }
@@ -338,14 +321,12 @@ int HyperJ2PlaneStress<T>::evaluate(
       R_zeta = zeta - zeta_trial_2D + 2. * dgam * Ie * n_2D;
       R_Ie = det(be_bar) - 1.;
       R_alpha = f;
-      R_zeta_zz = zeta_zz + trace(zeta);
     }
     // elastic step
     else {
       R_zeta = zeta - zeta_trial_2D;
       R_Ie = Ie - Ie_trial;
       R_alpha = alpha - alpha_old;
-      R_zeta_zz = zeta_zz - zeta_zz_trial;
     }
   }
 
@@ -353,7 +334,6 @@ int HyperJ2PlaneStress<T>::evaluate(
   this->set_scalar_R(1, R_Ie);
   this->set_scalar_R(2, R_lambda_z);
   this->set_scalar_R(3, R_alpha);
-  this->set_scalar_R(4, R_zeta_zz);
 
   return path;
 
