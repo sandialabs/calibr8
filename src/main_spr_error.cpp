@@ -182,7 +182,6 @@ apf::Field* op(
 
 void Driver::perform_SPR() {
   print("IT'S SPR TIME");
-  std::vector<apf::Field*> diffs;
   auto& adjoint = m_nested->adjoint();
   auto& adjoint_fine = m_nested->adjoint_fine();
   int const nsteps = adjoint.size();
@@ -195,13 +194,8 @@ void Driver::perform_SPR() {
       auto f = fields[i];
       auto f_fine = fields_fine[i];
       std::string const f_cell_name = std::string(apf::getName(f)) + "_e";
-      std::string const f_diff_name = std::string(apf::getName(f)) + "_diff";
       auto f_cell = interpolate_to_cell_center(f, f_cell_name);
       auto f_spr = spr_recovery(f_cell); // f_e is deleted here
-      auto f_diff = op(mysubtract, m_nested, f_spr, f, f_diff_name);
-//      apf::destroyField(f_spr);
-//      apf::destroyField(f);
-//      fields[i] = f_diff;
       fields_fine[i] = f_spr;
     }
     apply_adjoint_dbcs(dbcs, m_nested, fields_fine);
@@ -243,14 +237,14 @@ Array1D<apf::Field*> Driver::estimate_error() {
   double const dt = prob.get<double>("step size");
 
   double t = 0.;
-  double error = 0.;
+  double fine_error = 0.;
+  double coarse_error = 0.;
   for (int step = 1; step < nsteps; ++step) {
     // should apply global DBCs to x when they are not constant or linear
     //Array1D<apf::Field*> x = m_nested->primal(step).global;
     t += dt;
 
-    double step_error = 0.;
-
+    double fine_step_error = 0.;
     m_state->la->zero_all();
     eval_global_residual(m_state, m_nested, step);
     apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
@@ -258,11 +252,13 @@ Array1D<apf::Field*> Driver::estimate_error() {
     Array1D<apf::Field*> Z_fine_fields = m_nested->adjoint_fine(step).global;
     m_nested->populate_vector(Z_fine_fields, Z);
     for (int i = 0; i < Z_fine_fields.size(); ++i) {
-      step_error += R[i]->dot(*(Z_owned[i]));
+      fine_step_error += R[i]->dot(*(Z_owned[i]));
       eta_vec[i]->elementWiseMultiply(1., *(R[i]), *(Z_owned[i]), 0.);
     }
     m_nested->add_to_soln(eta_field, eta_vec, 1.);
+    fine_error += fine_step_error;
 
+    double coarse_step_error = 0.;
     m_state->la->zero_all();
     global->set_stabilization_h(BASE);
     eval_global_residual(m_state, m_nested, step);
@@ -272,12 +268,12 @@ Array1D<apf::Field*> Driver::estimate_error() {
     Array1D<apf::Field*> Z_coarse_fields = m_nested->adjoint(step).global;
     m_nested->populate_vector(Z_coarse_fields, Z);
     for (int i = 0; i < Z_coarse_fields.size(); ++i) {
-      step_error -= R[i]->dot(*(Z_owned[i]));
+      coarse_step_error -= R[i]->dot(*(Z_owned[i]));
       eta_vec[i]->elementWiseMultiply(1., *(R[i]), *(Z_owned[i]), 0.);
     }
     m_nested->add_to_soln(eta_field, eta_vec, -1.);
+    coarse_error += coarse_step_error;
 
-    error += step_error;
   }
 
   double error_bound = 0.;
@@ -309,10 +305,14 @@ Array1D<apf::Field*> Driver::estimate_error() {
     error_bound += std::abs(eta_node);
   }
 
+  error_bound = PCU_Add_Double(error_bound);
+
+  double const error = fine_error + coarse_error;
   m_eta.push_back(error);
   m_eta_bound.push_back(error_bound);
 
-  print("error ~ %.15e", error);
+  print("coarse error ~ %.15e", coarse_error);
+  print("total error ~ %.15e", error);
   print("error bound ~ %.15e", error_bound);
   return eta_field;
 }
