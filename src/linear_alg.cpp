@@ -145,4 +145,16 @@ double LinearAlg::norm_b() {
   return std::sqrt(norm);
 }
 
+double LinearAlg::norm_x() {
+  double norm = 0;
+  int const ngr = x[OWNED].size();
+  for (int i = 0; i < ngr; ++i) {
+    double const norm_xi = x[OWNED][i]->norm2();
+    norm += norm_xi * norm_xi;
+  }
+  return std::sqrt(norm);
+}
+
+
+
 }

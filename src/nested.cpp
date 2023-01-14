@@ -192,18 +192,26 @@ void NestedDisc::create_adjoint_for_spr(RCP<Disc> disc) {
     // SPR is only performed on the fine fields
     Fields fields_fine;
     for (int i = 0; i < ngr; ++i) {
-      const char* name = apf::getName(base_adjoint[step].global[i]);
-      apf::Field* f = m_mesh->findField(name);
+      std::string base_name = apf::getName(base_adjoint[step].global[i]);
+      std::string const fine_name = "fine_" + base_name;
+      apf::Field* f = m_mesh->findField(base_name.c_str());
       ALWAYS_ASSERT(f);
       fields.global.push_back(f);
-      // the coarse fields serve as a placeholder
-      fields_fine.global.push_back(f);
+      int const vtype = apf::getValueType(f);
+      apf::Field* fine = apf::createField(m_mesh, fine_name.c_str(), vtype, m_gv_shape);
+      apf::zeroField(fine);
+      fields_fine.global.push_back(fine);
     }
     for (int i = 0; i < nlr; ++i) {
-      const char* name = apf::getName(base_adjoint[step].local[model_form][i]);
-      apf::Field* f = m_mesh->findField(name);
+      std::string base_name = apf::getName(base_adjoint[step].local[model_form][i]);
+      std::string const fine_name = "fine_" + base_name;
+      apf::Field* f = m_mesh->findField(base_name.c_str());
       ALWAYS_ASSERT(f);
       fields.local[model_form].push_back(f);
+      int const vtype = apf::getValueType(f);
+      apf::Field* fine = apf::createField(m_mesh, fine_name.c_str(), vtype, m_lv_shape);
+      apf::zeroField(fine);
+      fields_fine.local[model_form].push_back(fine);
     }
     m_adjoint.push_back(fields);
     m_adjoint_fine.push_back(fields_fine);

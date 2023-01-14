@@ -85,7 +85,10 @@ void Adjoint::solve_at_step(int step) {
   // print the step information
   if (do_print) print("ON ADJOINT STEP (%d)", step);
 
-  Array1D<apf::Field*>& eta = m_disc->adjoint(step).global;
+  Array1D<apf::Field*> eta = m_disc->adjoint(step).global;
+  if (m_disc->type() == NESTED) {
+    eta = m_disc->adjoint_fine(step).global;
+  }
 
   // Newton's method below
   int iter = 1;

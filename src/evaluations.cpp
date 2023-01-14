@@ -631,6 +631,13 @@ void solve_adjoint_local(
   Array1D<apf::Field*> z = disc->adjoint(step).global;
   Array1D<apf::Field*> phi = disc->adjoint(step).local[model_form];
 
+  // modify the fields if we are doing a nested
+  bool const is_nested = (disc->type() == NESTED);
+  if (is_nested) {
+    z = disc->adjoint_fine(step).global;
+    phi = disc->adjoint_fine(step).local[model_form];
+  }
+
   // determine if we are doing verification
   bool force_path = false;
   int path = 0;

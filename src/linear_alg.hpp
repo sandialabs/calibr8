@@ -69,6 +69,9 @@ class LinearAlg {
     //! \brief Get the total norm of the blocked vector b
     double norm_b();
 
+    //! \brief Get the total norm of the blocked vector x
+    double norm_x();
+
 };
 
 }
