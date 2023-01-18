@@ -1,3 +1,5 @@
+#pragma once
+
 #include "control.hpp"
 #include "disc.hpp"
 #include "linalg.hpp"
@@ -16,7 +18,7 @@ class PointVal : public QoI<T> {
   public:
 
     PointVal(ParameterList const& params) : QoI<T>() {
-      m_node_set = params.get<std::string>("node");
+      m_node_set = params.get<std::string>("node set");
       m_eq = params.get<int>("eq");
     }
 

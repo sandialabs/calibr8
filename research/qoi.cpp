@@ -2,6 +2,7 @@
 #include "qoi.hpp"
 #include "residual.hpp"
 #include "sol_avg.hpp"
+#include "sol_avg_sub.hpp"
 #include "vm_stress.hpp"
 
 namespace calibr8 {
@@ -87,6 +88,8 @@ RCP<QoI<T>> create_QoI(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
   if (type == "solution average") {
     return rcp(new SolAvg<T>(params));
+  } else if (type == "solution average subdomain") {
+    return rcp(new SolAvgSub<T>(params));
   } else if (type == "point val" ) {
     return rcp(new PointVal<T>(params));
   } else if (type == "von mises") {
