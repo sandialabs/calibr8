@@ -230,19 +230,24 @@ apf::Field* NestedDisc::get_coarse(apf::Field* f) {
   apf::Field* coarse = apf::createField(m, name.c_str(), vt, shape);
   apf::MeshEntity* vtx;
   apf::MeshIterator* it = m_mesh->begin(0);
+  int const ncomps = apf::countComponents(f);
   while ((vtx = m->iterate(it))) {
-    if (!m->hasTag(vtx, m_new_vtx_tag)) continue;
-    m_mesh->getIntTag(vtx, m_new_vtx_tag, &(tags[0]));
-    auto vtx0 = m_old_vertices[tags[0]];
-    auto vtx1 = m_old_vertices[tags[1]];
-    apf::getComponents(f, vtx0, 0, &(comps0[0]));
-    apf::getComponents(f, vtx1, 0, &(comps1[0]));
-    int ncomps = apf::countComponents(f);
-    for (int comp = 0; comp < ncomps; ++comp) {
-      new_comps[comp] = 0.5*(comps0[comp] + comps1[comp]);
+    if (!m->hasTag(vtx, m_new_vtx_tag)) {
+      apf::getComponents(f, vtx, 0, &(comps0[0]));
+      apf::setComponents(coarse, vtx, 0, &(comps0[0]));
+    } else {
+      m_mesh->getIntTag(vtx, m_new_vtx_tag, &(tags[0]));
+      auto vtx0 = m_old_vertices[tags[0]];
+      auto vtx1 = m_old_vertices[tags[1]];
+      apf::getComponents(f, vtx0, 0, &(comps0[0]));
+      apf::getComponents(f, vtx1, 0, &(comps1[0]));
+      for (int comp = 0; comp < ncomps; ++comp) {
+        new_comps[comp] = 0.5*(comps0[comp] + comps1[comp]);
+      }
+      apf::setComponents(coarse, vtx, 0, &(new_comps[0]));
     }
-    apf::setComponents(coarse, vtx, 0, &(new_comps[0]));
   }
+  apf::synchronize(coarse);
   return coarse;
 }
 
@@ -257,8 +262,11 @@ void NestedDisc::set_error(apf::Field* nested_error) {
     apf::MeshEntity* base_elem = m_base_elems[id];
     double base_val = apf::getScalar(base_err, base_elem, 0);
     double const nested_contrib = apf::getScalar(nested_error, nested_elem, 0);
-    // consistency with goal?
-    base_val += std::abs(nested_contrib);
+    // not consistent with goal
+    base_val += nested_contrib;
+
+    // consistent with goal
+    //base_val += std::abs(nested_contrib);
     apf::setScalar(base_err, base_elem, 0, base_val);
   }
   m_mesh->end(it);
