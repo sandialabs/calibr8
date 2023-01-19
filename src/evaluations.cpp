@@ -242,7 +242,8 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
 
 }
 
-void eval_global_residual(RCP<State> state, RCP<Disc> disc, int step) {
+void eval_global_residual(RCP<State> state, RCP<Disc> disc, int step,
+    bool evaluate_error) {
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
@@ -268,7 +269,12 @@ void eval_global_residual(RCP<State> state, RCP<Disc> disc, int step) {
   }
 
   // perform initializations of the residual objects
-  global->before_elems(disc);
+  if (evaluate_error) {
+    auto& z = disc->adjoint_fine(step).global;
+    global->before_elems(disc, ERROR_WEIGHT, z);
+  } else {
+    global->before_elems(disc);
+  }
 
   // variable telling us the current number of derivatives
   int nderivs = -1;
@@ -303,7 +309,8 @@ void eval_global_residual(RCP<State> state, RCP<Disc> disc, int step) {
       for (int ip_set = 0; ip_set < num_ip_sets; ++ip_set) {
 
         // get the quadrature order for the ip set
-        int const q_order = ip_sets[ip_set];
+        int q_order = ip_sets[ip_set];
+        if (evaluate_error) q_order += 1;
         // loop over all integration points in the current element
         int const npts = apf::countIntPoints(me, q_order);
 
@@ -316,11 +323,15 @@ void eval_global_residual(RCP<State> state, RCP<Disc> disc, int step) {
           double const dv = apf::getDV(me, iota);
 
           if (ip_set == 0) {
-            local->gather(pt, xi, xi_prev);
+            local->gather(0, xi, xi_prev);
           }
 
           // evaluate the global residual at the integration point
-          global->interpolate(iota);
+          if (evaluate_error) {
+            global->interpolate_with_error(iota);
+          } else {
+            global->interpolate(iota);
+          }
           global->zero_residual();
           global->evaluate(local, iota, w, dv, ip_set);
           EMatrix const elem_resid = global->eigen_residual();

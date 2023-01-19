@@ -99,7 +99,10 @@ Tensor<T> GlobalResidual<T>::grad_vector_x_prev(int i) const {
 }
 
 template <typename T>
-void GlobalResidual<T>::before_elems(RCP<Disc> disc) {
+void GlobalResidual<T>::before_elems(
+    RCP<Disc> disc,
+    int mode,
+    Array1D<apf::Field*> const& adjoint_fields) {
 
   // set discretization-based information
   m_num_dims = disc->num_dims();
@@ -108,8 +111,15 @@ void GlobalResidual<T>::before_elems(RCP<Disc> disc) {
   m_shape = disc->gv_shape();
 
   // create weighting functions
-  m_weight = new Weight(m_shape);
-  m_stab_weight = new Weight(m_shape);
+  if (mode == NORMAL_WEIGHT) {
+      m_weight = new Weight(m_shape);
+      m_stab_weight = new Weight(m_shape);
+  } else if (mode == ERROR_WEIGHT) {
+      m_weight = new ErrorWeight(m_shape, m_num_dims, m_num_residuals,
+          m_num_nodes, m_num_eqs, adjoint_fields);
+      m_stab_weight = new ErrorWeight(m_shape, m_num_dims, m_num_residuals,
+          m_num_nodes, m_num_eqs, adjoint_fields);
+  }
 
   // resize the nodal quantities
   resize(m_x_nodal, m_num_residuals, m_num_nodes, m_num_eqs);

@@ -6,6 +6,7 @@
 #include <apf.h>
 #include "arrays.hpp"
 #include "defines.hpp"
+#include "error_weight.hpp"
 #include "fields.hpp"
 #include "weight.hpp"
 
@@ -19,6 +20,9 @@ template <typename T> class LocalResidual;
 
 //! \brief Use stabilization h from the current or base mesh
 enum {CURRENT, BASE};
+
+//! \brief Mode for weight function type
+enum {NORMAL_WEIGHT, ERROR_WEIGHT};
 
 //! \brief The global residual interface
 //! \tparam T The underlying scalar type used for evaluations
@@ -61,9 +65,12 @@ class GlobalResidual {
 
     //! \brief Perform initializations before the loop over elements
     //! \param disc The discretization object
+    //! \param mode The type of weight to use
     //! \details This will initialize the local element-level quantities
     //! that this class is responsible for using/computing
-    void before_elems(RCP<Disc> disc);
+    void before_elems(RCP<Disc> disc,
+        int mode=NORMAL_WEIGHT,
+        Array1D<apf::Field*> const& adjoint_fields=Array1D<apf::Field*>());
 
     //! \brief Set element data on element input
     //! \param mesh_elem The current mesh element to operate on

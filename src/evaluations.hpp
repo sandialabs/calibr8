@@ -39,12 +39,14 @@ void eval_forward_jacobian(
 //! \param state The application state object
 //! \param disc The discretization object
 //! \param step The current load/time step
+//! \param evaluate_error Use the error weights to get error info
 //! \details This will populate:
 //!   state->la->b[GHOST] as the residual R
 void eval_global_residual(
     RCP<State> state,
     RCP<Disc> disc,
-    int step);
+    int step,
+    bool evaluate_error=false);
 
 //! \brief Evaluate the Jacobian transpose matrix
 //! \param state The application state object

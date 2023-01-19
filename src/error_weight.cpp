@@ -35,7 +35,7 @@ void ErrorWeight::evaluate(apf::MeshElement* me, apf::Vector3 const& iota) {
     if (type == apf::SCALAR) {
       z_scal = apf::getScalar(z_elem, iota);
       apf::getGrad(z_elem, iota, z_scal_grad);
-      for (int n = 0; m_nnodes; ++n) {
+      for (int n = 0; n < m_nnodes; ++n) {
         values[r][n][0] = z_scal * m_basis[n];
         for (int i = 0; i < m_ndim; ++i) {
           gradients[r][n][0][i] =
@@ -47,7 +47,7 @@ void ErrorWeight::evaluate(apf::MeshElement* me, apf::Vector3 const& iota) {
       apf::getVector(z_elem, iota, z_vec);
       apf::getVectorGrad(z_elem, iota, z_vec_gradT);
       z_vec_grad = apf::transpose(z_vec_gradT);
-      for (int n = 0; m_nnodes; ++n) {
+      for (int n = 0; n < m_nnodes; ++n) {
         for (int i = 0; i < m_ndim; ++i) {
           values[r][n][i] = z_vec[i] * m_basis[n];
           for (int j = 0; j < m_ndim; ++j) {
