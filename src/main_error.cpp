@@ -200,6 +200,7 @@ Array1D<apf::Field*> Driver::estimate_error() {
     eval_global_residual(m_state, m_nested, step, true, Z_coarse_fields);
     //eval_global_residual(m_state, m_nested, step);
     global->set_stabilization_h(CURRENT);
+    eval_tbcs_error_contributions(tbcs, m_nested, Z_coarse_fields, R_ghost, t);
     //apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
     m_state->la->gather_b();
     //Array1D<apf::Field*> Z_coarse_fields = m_nested->adjoint(step).global;
@@ -220,6 +221,7 @@ Array1D<apf::Field*> Driver::estimate_error() {
     m_state->la->zero_all();
     Array1D<apf::Field*> Z_fine_fields = m_nested->adjoint_fine(step).global;
     eval_global_residual(m_state, m_nested, step, true, Z_fine_fields);
+    eval_tbcs_error_contributions(tbcs, m_nested, Z_fine_fields, R_ghost, t);
     //apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
     m_state->la->gather_b();
     //m_nested->populate_vector(Z_fine_fields, Z);
