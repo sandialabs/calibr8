@@ -46,7 +46,8 @@ void eval_global_residual(
     RCP<State> state,
     RCP<Disc> disc,
     int step,
-    bool evaluate_error=false);
+    bool evaluate_error=false,
+    Array1D<apf::Field*> const& adjoint_fields=Array1D<apf::Field*>());
 
 //! \brief Evaluate the Jacobian transpose matrix
 //! \param state The application state object

@@ -243,7 +243,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
 }
 
 void eval_global_residual(RCP<State> state, RCP<Disc> disc, int step,
-    bool evaluate_error) {
+    bool evaluate_error, Array1D<apf::Field*> const& adjoint_fields) {
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
@@ -270,8 +270,7 @@ void eval_global_residual(RCP<State> state, RCP<Disc> disc, int step,
 
   // perform initializations of the residual objects
   if (evaluate_error) {
-    auto& z = disc->adjoint_fine(step).global;
-    global->before_elems(disc, ERROR_WEIGHT, z);
+    global->before_elems(disc, ERROR_WEIGHT, adjoint_fields);
   } else {
     global->before_elems(disc);
   }
