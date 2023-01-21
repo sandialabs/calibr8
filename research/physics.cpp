@@ -608,8 +608,10 @@ apf::Field* Physics::recover_z_fine_from_z_coarse(apf::Field* zH) {
   print("performing spr recovery on zH");
   ASSERT(apf::getShape(zH) == m_disc->shape(COARSE));
   apf::Field* zH_ips = interpolate_to_ips(zH);
+  m_disc->change_shape(FINE);
   apf::Field* zh_spr = spr_recovery(zH_ips);
   apf::renameField(zh_spr, "zh_spr");
+  apf::destroyField(zH_ips);
   return zh_spr;
 }
 

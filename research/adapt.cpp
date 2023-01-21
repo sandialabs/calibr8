@@ -21,6 +21,13 @@ class Uniform : public Adapt {
       apf::Field* error);
 };
 
+class Top : public Adapt {
+  void adapt(
+      ParameterList const& params,
+      RCP<Physics> physics,
+      apf::Field* error);
+};
+
 struct Specification {
   apf::Mesh* mesh;
   apf::Field* error;
@@ -168,13 +175,15 @@ void Target::adapt(
   physics->disc()->change_shape(COARSE);
   apf::Mesh2* mesh = physics->disc()->apf_mesh();
   static int ctr = 1;
-  apf::Field* size_field = get_iso_target_size(error, std::pow(2, ctr)*500);
+  int const base_target = params.get<int>("target");
+  int const target = std::pow(2, ctr)*base_target;
+  apf::Field* size_field = get_iso_target_size(error, target);
   ctr++;
   auto in = ma::makeAdvanced(ma::configure(mesh, size_field));
-  in->maximumIterations = 3;
+  in->maximumIterations = 1;
   in->shouldCoarsen = false;
   in->shouldFixShape = false;
-  in->goodQuality = 0.5;
+  in->goodQuality = 0.4;
   in->shouldRunPreParma = true;
   in->shouldRunMidParma = true;
   in->shouldRunPostParma = true;
@@ -194,10 +203,96 @@ void Uniform::adapt(
   ma::adapt(in);
 }
 
+// this will only work in serial
+static apf::Field* get_top_elems(
+    apf::Mesh2* m,
+    apf::Field* error,
+    int percent) {
+  std::vector<std::pair<double, apf::MeshEntity*>> errors;
+  apf::MeshEntity* elem;
+  auto elem_iterator = m->begin(m->getDimension());
+  while ((elem = m->iterate(elem_iterator))) {
+    double const value = apf::getScalar(error, elem, 0);
+    errors.push_back(std::make_pair(value, elem));
+  }
+  m->end(elem_iterator);
+  std::sort(errors.begin(), errors.end());
+  double const nelems = m->count(m->getDimension());
+  double const factor = percent/100.;
+  int const nrefine_elems = int(factor*nelems);
+  apf::Field* top = apf::createStepField(m, "top", apf::SCALAR);
+  apf::zeroField(top);
+  for (int i = 1; i <= nrefine_elems; ++i) {
+    apf::setScalar(top, errors[nelems-i].second, 0, 1.);
+  }
+  return top;
+}
+
+static apf::Field* get_top_elem_size(apf::Field* top) {
+  apf::Mesh* m = apf::getMesh(top);
+  auto size = apf::createStepField(m, "esize", apf::SCALAR);
+  apf::MeshEntity* elem;
+  auto it = m->begin(m->getDimension());
+  while ((elem = m->iterate(it))) {
+    double const h = get_current_size(m, elem);
+    double const should_refine = apf::getScalar(top, elem, 0);
+    double h_new = h;
+    if (std::abs(should_refine) > 1.e-8) h_new *= 0.5;
+    apf::setScalar(size, elem, 0, h_new);
+  }
+  m->end(it);
+  return size;
+}
+
+// this will only work in serial
+static apf::Field* avg_top_to_vtx(apf::Field* elem_size) {
+  apf::Mesh* m = apf::getMesh(elem_size);
+  auto size = apf::createFieldOn(m, "size", apf::SCALAR);
+  apf::MeshEntity* vtx;
+  auto it = m->begin(0);
+  apf::Adjacent elems;
+  while ((vtx = m->iterate(it))) {
+    m->getAdjacent(vtx, m->getDimension(), elems);
+    double s = 0.;
+    for (size_t i = 0; i < elems.getSize(); ++i) {
+      s += apf::getScalar(elem_size, elems[i], 0);
+    }
+    s /= elems.getSize();
+    apf::setScalar(size, vtx, 0, s);
+  }
+  m->end(it);
+  return size;
+}
+
+void Top::adapt(
+    ParameterList const& params,
+    RCP<Physics> physics,
+    apf::Field* error) {
+  int const percent = params.get<int>("percent");
+  print("adapting mesh with top %d%% size field", percent);
+  physics->disc()->change_shape(COARSE);
+  apf::Mesh2* mesh = physics->disc()->apf_mesh();
+  auto top_elems = get_top_elems(mesh, error, percent);
+  auto elem_size = get_top_elem_size(top_elems);
+  auto vtx_size = avg_top_to_vtx(elem_size);
+  apf::destroyField(top_elems);
+  apf::destroyField(elem_size);
+  apf::destroyField(error);
+  auto in = ma::makeAdvanced(ma::configure(mesh, vtx_size));
+  in->maximumIterations = 1;
+  in->shouldCoarsen = false;
+  in->shouldFixShape = false;
+  physics->disc()->change_shape(COARSE);
+  ma::adapt(in);
+  apf::destroyField(vtx_size);
+}
+
 RCP<Adapt> create_adapt(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
   if (type == "target") {
     return rcp(new Target);
+  } else if (type == "top") {
+    return rcp(new Top);
   } else if (type == "uniform") {
     return rcp(new Uniform);
   } else {

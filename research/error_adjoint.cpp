@@ -28,6 +28,7 @@ Adjoint::Adjoint(ParameterList const& params) {
   else throw std::runtime_error("invalid localization");
   if (atype == "full") adjoint = FULL;
   else if (atype == "spr") adjoint = SPR;
+  else if (atype == "both") adjoint = BOTH;
   else throw std::runtime_error("invalid adjoint");
   check_inputs(linearization, adjoint, localization);
 }
