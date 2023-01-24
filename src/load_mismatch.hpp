@@ -88,6 +88,8 @@ class LoadMismatch : public QoI<T> {
     double m_load_mismatch = 0.;
     Array1D<double> m_load_data;
     Array2D<int> m_mapping; // m_mapping[es_idx][elem_idx]
+    Array1D<double> m_normal_2D {0., 0.};
+    bool m_has_normal_2D = false;
 
 };
 

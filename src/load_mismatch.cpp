@@ -25,6 +25,12 @@ LoadMismatch<T>::LoadMismatch(ParameterList const& params) {
       m_load_data.push_back(std::stod(line));
     }
   }
+  m_has_normal_2D = params.isParameter("2D surface normal");
+  if (m_has_normal_2D) {
+    m_normal_2D =
+        params.get<Teuchos::Array<double>>("2D surface normal").toVector();
+    ALWAYS_ASSERT(m_normal_2D.size() == 2);
+  }
 }
 
 template <typename T>
@@ -128,10 +134,22 @@ T LoadMismatch<T>::compute_load(
       Tensor<T> const F_invT = transpose(F_inv);
       T const J = det(F);
       stress = J * stress * F_invT;
+      int const z_stretch_idx = local->z_stretch_idx();
+      if (z_stretch_idx > -1) {
+        T const z_stretch = local->scalar_xi(z_stretch_idx);
+        stress *= z_stretch;
+      }
     }
 
-    apf::Vector3 N = ree::computeFaceOutwardNormal(mesh, elem_entity, face,
-        iota_face);
+    apf::Vector3 N(0., 0., 0.);
+
+    if (ndims == 3) {
+      apf::Vector3 N = ree::computeFaceOutwardNormal(mesh, elem_entity, face,
+          iota_face);
+    } else if (ndims == 2) {
+      N[0] = m_normal_2D[0];
+      N[1] = m_normal_2D[1];
+    }
 
     // compute the normal load at the integration point
     for (int i = 0; i < ndims; ++i) {
