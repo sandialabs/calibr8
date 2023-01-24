@@ -13,7 +13,7 @@ using minitensor::inverse;
 using minitensor::transpose;
 
 template <typename T>
-Mechanics<T>::Mechanics(ParameterList const&, int ndims) {
+Mechanics<T>::Mechanics(ParameterList const& params, int ndims) {
 
   int const num_residuals = 2;
 
@@ -35,6 +35,9 @@ Mechanics<T>::Mechanics(ParameterList const&, int ndims) {
   // quadrature order for each integration point set
   this->m_ip_sets[0] = 1;
   this->m_ip_sets[1] = 2;
+
+  auto p = params;
+  m_stabilization_multiplier = p.get<double>("stabilization multiplier", 1.);
 
 }
 
@@ -127,7 +130,7 @@ void Mechanics<T>::evaluate(
       h = apf::getScalar(f_h, ent, 0);
     }
 
-    T const tau = 0.5 * h * h / mu;
+    T const tau = m_stabilization_multiplier * 0.5 * h * h / mu;
     Tensor<T> stab_matrix = tau * I;
     if (local->is_finite_deformation()) {
       Tensor<T> const C_inv = inverse(transpose(F) * F);

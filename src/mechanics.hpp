@@ -49,6 +49,8 @@ class Mechanics : public GlobalResidual<T> {
         double w,
         double dv);
 
+    double m_stabilization_multiplier = 1.;
+
 };
 
 }

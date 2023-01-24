@@ -96,6 +96,8 @@ class Calibration : public QoI<T> {
     Array1D<double> m_load_data;
     Array1D<double> m_weights {1., 1., 1.};
     bool m_has_weights = false;
+    Array1D<double> m_normal_2D {0., 0.};
+    bool m_has_normal_2D = false;
 
 
 };

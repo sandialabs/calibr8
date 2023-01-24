@@ -263,10 +263,10 @@ void NestedDisc::set_error(apf::Field* nested_error) {
     double base_val = apf::getScalar(base_err, base_elem, 0);
     double const nested_contrib = apf::getScalar(nested_error, nested_elem, 0);
     // not consistent with goal
-    base_val += nested_contrib;
+    //base_val += nested_contrib;
 
     // consistent with goal
-    //base_val += std::abs(nested_contrib);
+    base_val += std::abs(nested_contrib);
     apf::setScalar(base_err, base_elem, 0, base_val);
   }
   m_mesh->end(it);
