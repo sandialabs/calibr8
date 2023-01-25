@@ -4,6 +4,7 @@ set(CALIBR8_SOURCES
   avg_disp.cpp
   avg_stress.cpp
   calibration.cpp
+  calibration_2D.cpp
   control.cpp
   cspr.cpp
   dbcs.cpp

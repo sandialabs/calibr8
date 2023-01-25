@@ -1,6 +1,7 @@
 #include "avg_disp.hpp"
 #include "avg_stress.hpp"
 #include "calibration.hpp"
+#include "calibration_2D.hpp"
 #include "disc.hpp"
 #include "disp_comp.hpp"
 #include "fad.hpp"
@@ -148,6 +149,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
     return rcp(new LoadMismatch<T>(params));
   } else if (type == "calibration") {
     return rcp(new Calibration<T>(params));
+  } else if (type == "calibration_2D") {
+    return rcp(new Calibration2D<T>(params));
   } else if (type == "normal traction") {
     return rcp(new NormalTraction<T>(params));
   } else if (type == "point displacement") {
