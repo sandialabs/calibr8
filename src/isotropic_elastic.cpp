@@ -158,7 +158,7 @@ template <typename T>
 Tensor<T> IsotropicElastic<T>::cauchy(RCP<GlobalResidual<T>> global) {
   if (m_mode == MIXED) {
     return cauchy_mixed(global);
-  } else if (m_mode == DISPLACEMENT) {
+  } else {
     return this->sym_tensor_xi(0);
   }
 }
@@ -166,15 +166,23 @@ Tensor<T> IsotropicElastic<T>::cauchy(RCP<GlobalResidual<T>> global) {
 template <typename T>
 Tensor<T> IsotropicElastic<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const cauchy = this->sym_tensor_xi(0);
-  Tensor<T> const I = minitensor::eye<T>(this->m_num_dims);
-  return cauchy - trace(cauchy) / 3.* I;
+  int const ndims = this->m_num_dims;
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  return cauchy - this->hydro_cauchy(global) * I;
 }
 
 
 template <typename T>
 T IsotropicElastic<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const cauchy = this->sym_tensor_xi(0);
-  return trace(cauchy) / 3.;
+  int const ndims = this->m_num_dims;
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  if (ndims == 3) {
+    return trace(cauchy) / 3.;
+  } else {
+    T const nu = this->m_params[1];
+    return (1. + nu) * trace(cauchy) / 3.;
+  }
 }
 
 template <typename T>

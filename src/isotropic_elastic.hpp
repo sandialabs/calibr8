@@ -1,7 +1,7 @@
 #pragma once
 
 //! \file isotropic_elastic.hpp
-//! \brief The interface for isotropic linear elastic local residuals
+//! \brief The interface for isotropic linear elastic local residuals (3D and plane strain).
 
 #include "local_residual.hpp"
 
