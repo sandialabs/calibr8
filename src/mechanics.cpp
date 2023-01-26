@@ -15,7 +15,15 @@ using minitensor::transpose;
 template <typename T>
 Mechanics<T>::Mechanics(ParameterList const& params, int ndims) {
 
-  int const num_residuals = 2;
+  auto p = params;
+  bool is_mixed = p.get<bool>("mixed formulation", true);
+  if (is_mixed) {
+    m_mode = MIXED;
+  } else {
+    m_mode = DISPLACEMENT;
+  }
+
+  int const num_residuals = (m_mode == MIXED) ? 2 : 1;
 
   this->m_num_residuals = num_residuals;
   this->m_num_eqs.resize(num_residuals);
@@ -26,19 +34,24 @@ Mechanics<T>::Mechanics(ParameterList const& params, int ndims) {
   this->m_var_types[0] = VECTOR;
   this->m_num_eqs[0] = get_num_eqs(VECTOR, ndims);
 
-  this->m_resid_names[1] = "p";
-  this->m_var_types[1] = SCALAR;
-  this->m_num_eqs[1] = get_num_eqs(SCALAR, ndims);
+  if (m_mode == MIXED) {
+    this->m_resid_names[1] = "p";
+    this->m_var_types[1] = SCALAR;
+    this->m_num_eqs[1] = get_num_eqs(SCALAR, ndims);
 
-  int const num_ip_sets = 2;
-  this->m_ip_sets.resize(num_ip_sets);
-  // quadrature order for each integration point set
-  this->m_ip_sets[0] = 1;
-  this->m_ip_sets[1] = 2;
+    int const num_ip_sets = 2;
+    this->m_ip_sets.resize(num_ip_sets);
+    // quadrature order for each integration point set
+    this->m_ip_sets[0] = 1;
+    this->m_ip_sets[1] = 2;
+    m_stabilization_multiplier = p.get<double>("stabilization multiplier", 1.);
 
-  auto p = params;
-  m_stabilization_multiplier = p.get<double>("stabilization multiplier", 1.);
-
+  } else {
+    int const num_ip_sets = 1;
+    this->m_ip_sets.resize(num_ip_sets);
+    // quadrature order for each integration point set
+    this->m_ip_sets[0] = 1;
+  }
 }
 
 template <typename T>
@@ -58,7 +71,48 @@ static double get_size(apf::Mesh* mesh, apf::MeshElement* me) {
 }
 
 template <typename T>
-void Mechanics<T>::evaluate(
+void Mechanics<T>::evaluate_displacement(
+    RCP<LocalResidual<T>> local,
+    apf::Vector3 const&,
+    double w,
+    double dv,
+    int ip_set) {
+
+  // gather information from this class
+  int const ndims = this->m_num_dims;
+  int const nnodes = this->m_num_nodes;
+  int const momentum_idx = 0;
+
+  // gather variables from this residual quantities
+  Tensor<T> const grad_u = this->grad_vector_x(momentum_idx);
+
+  // compute kinematic quantities
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const F = grad_u + I;
+  Tensor<T> const F_inv = inverse(F);
+  Tensor<T> const F_invT = transpose(F_inv);
+  T J = det(F);
+
+  // compute stress measures
+  RCP<GlobalResidual<T>> global = rcp(this, false);
+  Tensor<T> stress = local->cauchy(global);
+
+  if (local->is_finite_deformation()) stress = J * stress * F_invT;
+
+  // compute the balance of linear momentum residual
+  for (int n = 0; n < nnodes; ++n) {
+    for (int i = 0; i < ndims; ++i) {
+      for (int j = 0; j < ndims; ++j) {
+        double const dbasis_dx = this->grad_weight(momentum_idx, n, i, j);
+        this->R_nodal(momentum_idx, n, i) +=
+          stress(i, j) * dbasis_dx * w * dv;
+      }
+    }
+  }
+}
+
+template <typename T>
+void Mechanics<T>::evaluate_mixed(
     RCP<LocalResidual<T>> local,
     apf::Vector3 const&,
     double w,
@@ -93,24 +147,8 @@ void Mechanics<T>::evaluate(
     Tensor<T> const F_invT = transpose(F_inv);
     T J = det(F);
 
-    // compute stress measures
-    RCP<GlobalResidual<T>> global = rcp(this, false);
-    Tensor<T> stress = local->cauchy(global);
-
-    if (local->is_finite_deformation()) stress = J * stress * F_invT;
-
-    // compute the balance of linear momentum residual
-    for (int n = 0; n < nnodes; ++n) {
-      for (int i = 0; i < ndims; ++i) {
-        for (int j = 0; j < ndims; ++j) {
-          double const dbasis_dx = this->grad_weight(momentum_idx, n, i, j);
-          this->R_nodal(momentum_idx, n, i) +=
-            stress(i, j) * dbasis_dx * w * dv;
-        }
-      }
-    }
-
     // compute the constant part of the pressure residual
+    RCP<GlobalResidual<T>> global = rcp(this, false);
     T hydro_cauchy = local->hydro_cauchy(global);
 
     for (int n = 0; n < nnodes; ++n) {
@@ -160,6 +198,18 @@ void Mechanics<T>::evaluate(
   } else {
     fail("unimplemented ip set\n");
   }
+}
+
+template <typename T>
+void Mechanics<T>::evaluate(
+    RCP<LocalResidual<T>> local,
+    apf::Vector3 const& iota,
+    double w,
+    double dv,
+    int ip_set) {
+
+  if (ip_set == 0) evaluate_displacement(local, iota, w, dv, ip_set);
+  if (m_mode == MIXED) evaluate_mixed(local, iota, w, dv, ip_set);
 
 }
 

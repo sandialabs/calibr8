@@ -7,6 +7,8 @@
 
 namespace calibr8 {
 
+enum {DISPLACEMENT = 0, MIXED = 1};
+
 //! \brief The global residual for mechanics problems
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the GlobalResidual
@@ -38,18 +40,37 @@ class Mechanics : public GlobalResidual<T> {
         double dv,
         int ip_set);
 
-    //! \brief Evaluate the residual at an integration point
+    double m_stabilization_multiplier = 1.;
+
+  private:
+
+    int m_mode = -1;
+
+    //! \brief Evaluate the displacement-only residual at an integration point
     //! \param local The local residual object
     //! \param iota The integration point in the reference element space
     //! \param w The integration point weight
     //! \param dv The differential volume (Jacobian) of the element at the point
-    void evaluate_extra(
+    //! \param ip_set The integration point set index
+    void evaluate_displacement(
         RCP<LocalResidual<T>> local,
         apf::Vector3 const& iota,
         double w,
-        double dv);
+        double dv,
+        int ip_set);
 
-    double m_stabilization_multiplier = 1.;
+    //! \brief Evaluate the mixed displacement-pressure residual at an integration point
+    //! \param local The local residual object
+    //! \param iota The integration point in the reference element space
+    //! \param w The integration point weight
+    //! \param dv The differential volume (Jacobian) of the element at the point
+    //! \param ip_set The integration point set index
+    void evaluate_mixed(
+        RCP<LocalResidual<T>> local,
+        apf::Vector3 const& iota,
+        double w,
+        double dv,
+        int ip_set);
 
 };
 
