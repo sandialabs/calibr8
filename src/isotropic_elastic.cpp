@@ -6,6 +6,7 @@
 #include "isotropic_elastic.hpp"
 #include "material_params.hpp"
 
+
 namespace calibr8 {
 
 using minitensor::det;
@@ -17,6 +18,7 @@ using minitensor::transpose;
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
   p.set<std::string>("type", "elastic");
+  p.set<bool>("mixed formulation", true);
   p.sublist("materials");
   return p;
 }
@@ -33,6 +35,13 @@ IsotropicElastic<T>::IsotropicElastic(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
+
+  bool is_mixed = (this->m_params_list).template get<bool>("mixed formulation", true);
+  if (is_mixed) {
+    m_mode = MIXED;
+  } else {
+    m_mode = DISPLACEMENT;
+  }
 
   int const num_residuals = 1;
 
@@ -147,17 +156,18 @@ int IsotropicElastic<T>::evaluate(
 
 template <typename T>
 Tensor<T> IsotropicElastic<T>::cauchy(RCP<GlobalResidual<T>> global) {
-  int const pressure_idx = 1;
-  T const p = global->scalar_x(pressure_idx);
-  int const ndims = global->num_dims();
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  return this->dev_cauchy(global) - p * I;
+  if (m_mode == MIXED) {
+    return cauchy_mixed(global);
+  } else if (m_mode == DISPLACEMENT) {
+    return this->sym_tensor_xi(0);
+  }
 }
 
 template <typename T>
 Tensor<T> IsotropicElastic<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const cauchy = this->sym_tensor_xi(0);
-  return dev(cauchy);
+  Tensor<T> const I = minitensor::eye<T>(this->m_num_dims);
+  return cauchy - trace(cauchy) / 3.* I;
 }
 
 
@@ -173,6 +183,14 @@ T IsotropicElastic<T>::pressure_scale_factor() {
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
   return kappa;
+}
+
+template <typename T>
+Tensor<T> IsotropicElastic<T>::cauchy_mixed(RCP<GlobalResidual<T>> global) {
+  int const pressure_idx = 1;
+  T const p = global->scalar_x(pressure_idx);
+  Tensor<T> const I = minitensor::eye<T>(this->m_num_dims);
+  return this->dev_cauchy(global) - p * I;
 }
 
 template class IsotropicElastic<double>;

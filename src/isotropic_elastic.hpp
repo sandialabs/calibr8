@@ -7,6 +7,8 @@
 
 namespace calibr8 {
 
+enum {DISPLACEMENT = 0, MIXED = 1};
+
 template <typename T>
 class IsotropicElastic : public LocalResidual<T> {
   public:
@@ -24,6 +26,10 @@ class IsotropicElastic : public LocalResidual<T> {
     Tensor<T> cauchy(RCP<GlobalResidual<T>> global);
     T hydro_cauchy(RCP<GlobalResidual<T>> global);
     T pressure_scale_factor();
+
+  private:
+    Tensor<T> cauchy_mixed(RCP<GlobalResidual<T>> global);
+    int m_mode = -1;
 };
 
 }
