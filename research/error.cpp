@@ -102,12 +102,7 @@ apf::Field* interp_error_to_cells(apf::Field* eta) {
 }
 
 RCP<Error> create_error(ParameterList const& params) {
-  std::string const type = params.get<std::string>("type");
-  if (type == "adjoint") {
-    return rcp(new Adjoint(params));
-  } else {
-    throw std::runtime_error("invalid error");
-  }
+  return rcp(new Adjoint(params));
 }
 
 }

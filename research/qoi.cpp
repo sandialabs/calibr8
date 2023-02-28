@@ -3,7 +3,6 @@
 #include "residual.hpp"
 #include "sol_avg.hpp"
 #include "sol_avg_sub.hpp"
-#include "vm_stress.hpp"
 
 namespace calibr8 {
 
@@ -92,9 +91,7 @@ RCP<QoI<T>> create_QoI(ParameterList const& params) {
     return rcp(new SolAvgSub<T>(params));
   } else if (type == "point val" ) {
     return rcp(new PointVal<T>(params));
-  } else if (type == "von mises") {
-    return rcp(new VMStress<T>(params));
-  }else {
+  } else {
     throw std::runtime_error("invalid qoi");
   }
 }

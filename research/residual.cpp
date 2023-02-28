@@ -1,6 +1,5 @@
 #include "residual.hpp"
 
-#include "elastic.hpp"
 #include "nlpoisson.hpp"
 
 namespace calibr8 {
@@ -213,8 +212,6 @@ RCP<Residual<T>> create_residual(ParameterList const& params, int ndims) {
   std::string const type = params.get<std::string>("type");
   if (type == "nonlinear poisson") {
     return rcp(new NLPoisson<T>(params, ndims));
-  } else if (type == "elastic") {
-    return rcp(new Elastic<T>(params, ndims));
   } else {
     throw std::runtime_error("invalid residual");
   }

@@ -4,79 +4,100 @@
 
 namespace calibr8 {
 
-enum {SIMPLE, PU};
-enum {SPR, FULL, BOTH};
+Adjoint::Adjoint(ParameterList const& params) {
+  (void)params;
+}
 
-static void check_inputs(bool linearization, int adjoint, int localization) {
-  if (linearization) {
-    if (adjoint != FULL) {
-      throw std::runtime_error("linearization must be done with adjoint=full");
-    }
-    if (localization != SIMPLE) {
-      throw std::runtime_error("linearization must be done with localization=simple");
-    }
+void Adjoint::solve_primal(int space, RCP<Physics> physics) {
+  apf::Field* u = physics->solve_primal(space);
+  double const J = physics->compute_qoi(space, u);
+  if (space == COARSE) {
+    m_uH = u;
+    m_JH.push_back(J);
+  }
+  if (space == FINE) {
+    m_uh = u;
+    m_Jh.push_back(J);
   }
 }
 
-Adjoint::Adjoint(ParameterList const& params) {
-  std::string const atype = params.get<std::string>("adjoint");
-  std::string const ltype = params.get<std::string>("localization");
-  subtraction = params.get<bool>("subtraction");
-  linearization = params.get<bool>("linearization");
-  if (ltype == "simple") localization = SIMPLE;
-  else if (ltype == "PU") localization = PU;
-  else throw std::runtime_error("invalid localization");
-  if (atype == "full") adjoint = FULL;
-  else if (atype == "spr") adjoint = SPR;
-  else if (atype == "both") adjoint = BOTH;
-  else throw std::runtime_error("invalid adjoint");
-  check_inputs(linearization, adjoint, localization);
-}
-
-void Adjoint::solve_primal(RCP<Physics> physics, double& JH, double& Jh) {
-  m_uH = physics->solve_primal(COARSE);
-  m_uh = physics->solve_primal(FINE);
-  JH = physics->compute_qoi(COARSE, m_uH);
-  Jh = physics->compute_qoi(FINE, m_uh);
+void Adjoint::post_process_primal(RCP<Physics> physics) {
   m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
-  m_Rh_uH_h = physics->evaluate_residual(FINE, m_uH_h);
+  m_uh_H = physics->restrict_u_fine_onto_fine(m_uh);
+  m_uh_spr = physics->recover_u_fine_from_u_coarse(m_uH);
+  m_uh_minus_m_uH_h = physics->subtract_u_coarse_from_u_fine(m_uh, m_uH_h);
+  m_uh_spr_minus_m_uH_h = physics->subtract_u_coarse_from_u_spr(m_uh_spr, m_uH_h);
 }
 
 void Adjoint::solve_adjoint(RCP<Physics> physics) {
-  if (adjoint == SPR) {
-    m_zH = physics->solve_adjoint(COARSE, m_uH);
-    m_zh_spr = physics->recover_z_fine_from_z_coarse(m_zH);
-  }
-  if (adjoint == FULL) {
-    m_zh = physics->solve_adjoint(FINE, m_uH_h);
-  }
-  if (adjoint == BOTH) {
-    m_zH = physics->solve_adjoint(COARSE, m_uH);
-    m_zh = physics->solve_adjoint(FINE, m_uH_h);
-  }
+  m_zH = physics->solve_adjoint(COARSE, m_uH);
+  m_zh = physics->solve_adjoint(FINE, m_uH_h);
 }
 
-void Adjoint::compute_adjoint_weight(RCP<Physics> physics) {
-  if (!subtraction) {
-    if (adjoint == SPR) m_z_weight = m_zh_spr;
-    if (adjoint == FULL) m_z_weight = m_zh;
-    if (adjoint == BOTH) m_z_weight = m_zh;
-  } else {
-    if (adjoint == SPR) {
-      m_zh_H_spr = physics->restrict_z_fine_onto_fine(m_zh_spr);
-      m_z_weight = physics->subtract_z_coarse_from_z_fine(m_zh_spr, m_zh_H_spr);
-    }
-    if (adjoint == FULL) {
-      m_zh_H = physics->restrict_z_fine_onto_fine(m_zh);
-      m_z_weight = physics->subtract_z_coarse_from_z_fine(m_zh, m_zh_H);
-    }
-    if (adjoint == BOTH) {
-      m_zH_h = physics->prolong_z_coarse_onto_fine(m_zH);
-      m_z_weight = physics->subtract_z_coarse_from_z_fine(m_zh, m_zH_h);
-    }
-  }
+void Adjoint::post_process_adjoint(RCP<Physics> physics) {
+  m_zH_h = physics->prolong_z_coarse_onto_fine(m_zH);
+  m_zh_H = physics->restrict_z_fine_onto_fine(m_zh);
+  m_zh_spr = physics->recover_z_fine_from_z_coarse(m_zH);
+  m_zh_minus_m_zh_H = physics->subtract_z_coarse_from_z_fine(m_zh, m_zh_H);
+  m_zh_spr_minus_m_zH_h = physics->subtract_z_coarse_from_z_spr(m_zh_spr, m_zH_h);
 }
 
+void Adjoint::compute_first_order_errors(RCP<Physics> physics) {
+  m_Rh_uH_h = physics->evaluate_fine_residual_at_coarse_u(m_uH_h);
+  double const eta1 = physics->compute_eta(m_zh, m_Rh_uH_h, "eta1", "zh.Rh(uH_h)");
+  double const eta2 = physics->compute_eta(m_zh_minus_m_zh_H, m_Rh_uH_h, "eta2", "(zh-zH).Rh(uH_h)");
+  double const eta1_spr = physics->compute_eta(m_zh_spr, m_Rh_uH_h, "eta1_spr", "zh_spr.Rh(uH_h)");
+  double const eta2_spr = physics->compute_eta(m_zh_spr_minus_m_zH_h, m_Rh_uH_h, "eta2_spr", "(zh_spr-zH).Rh(uH_h)");
+  m_eta1.push_back(eta1);
+  m_eta2.push_back(eta2);
+  m_eta1_spr.push_back(eta1_spr);
+  m_eta2_spr.push_back(eta2_spr);
+}
+
+apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
+  m_nelems.push_back(get_nelems(physics));
+  m_H_dofs.push_back(get_ndofs(COARSE, physics));
+  m_h_dofs.push_back(get_ndofs(FINE, physics));
+  solve_primal(COARSE, physics);
+  solve_primal(FINE, physics);
+  post_process_primal(physics);
+  solve_adjoint(physics);
+  post_process_adjoint(physics);
+  compute_first_order_errors(physics);
+
+
+
+
+  apf::Mesh2* m = physics->disc()->apf_mesh();
+  apf::Field* e = apf::createStepField(m, "e", apf::SCALAR);
+  apf::zeroField(e);
+  return e;
+}
+
+void Adjoint::write_history(std::string const& file, double J_ex) {
+  (void)file;
+  (void)J_ex;
+}
+
+void Adjoint::destroy_intermediate_fields() {
+  apf::destroyField(m_uH); m_uH = nullptr;
+  apf::destroyField(m_uh); m_uh = nullptr;
+  apf::destroyField(m_uh_H); m_uh_H = nullptr;
+  apf::destroyField(m_uH_h); m_uH_h = nullptr;
+  apf::destroyField(m_uh_spr); m_uh_spr = nullptr;
+  apf::destroyField(m_uh_minus_m_uH_h); m_uh_minus_m_uH_h = nullptr;
+  apf::destroyField(m_uh_spr_minus_m_uH_h); m_uh_spr_minus_m_uH_h = nullptr;
+  apf::destroyField(m_zH); m_zH = nullptr;
+  apf::destroyField(m_zh); m_zh = nullptr;
+  apf::destroyField(m_zh_H); m_zh_H = nullptr;
+  apf::destroyField(m_zH_h); m_zH_h = nullptr;
+  apf::destroyField(m_zh_spr); m_zh_spr = nullptr;
+  apf::destroyField(m_zh_minus_m_zh_H); m_zh_minus_m_zh_H = nullptr;
+  apf::destroyField(m_zh_spr_minus_m_zH_h); m_zh_spr_minus_m_zH_h = nullptr;
+  apf::destroyField(m_Rh_uH_h); m_Rh_uH_h = nullptr;
+}
+
+#if 0
 void Adjoint::compute_linearization_error(RCP<Physics> physics, double& eta_L) {
   if (!linearization) return;
   m_uh_minus_uH_h = physics->subtract_u_coarse_from_u_fine(m_uh, m_uH_h);
@@ -182,38 +203,6 @@ void Adjoint::write_history(std::string const& file, double J_ex) {
   }
   write_stream(file + "/error.dat", stream);
 }
-
-void Adjoint::destroy_intermediate_fields() {
-  if (m_uH) apf::destroyField(m_uH);
-  if (m_uh) apf::destroyField(m_uh);
-  if (m_uH_h) apf::destroyField(m_uH_h);
-  if (m_uh_minus_uH_h) apf::destroyField(m_uh_minus_uH_h);
-  if (m_zH) apf::destroyField(m_zH);
-  if (m_zh) apf::destroyField(m_zh);
-  if (m_zh_H) apf::destroyField(m_zh_H);
-  if (m_zH_h) apf::destroyField(m_zH_h);
-  if (m_zh_spr) apf::destroyField(m_zh_spr);
-  if (m_zh_H_spr) apf::destroyField(m_zh_H_spr);
-  if (m_z_weight) apf::destroyField(m_z_weight);
-  if (m_Rh_uH_h) apf::destroyField(m_Rh_uH_h);
-  if (m_Rh_uH_h_plus_ELh) apf::destroyField(m_Rh_uH_h_plus_ELh);
-  if (m_ELh) apf::destroyField(m_ELh);
-  if (m_eta) apf::destroyField(m_eta);
-  m_uH = nullptr;
-  m_uh = nullptr;
-  m_uH_h = nullptr;
-  m_uh_minus_uH_h = nullptr;
-  m_zH = nullptr;
-  m_zh = nullptr;
-  m_zh_H = nullptr;
-  m_zH_h = nullptr;
-  m_zh_spr = nullptr;
-  m_zh_H_spr = nullptr;
-  m_z_weight = nullptr;
-  m_Rh_uH_h = nullptr;
-  m_Rh_uH_h_plus_ELh = nullptr;
-  m_ELh = nullptr;
-  m_eta = nullptr;
-}
+#endif
 
 }

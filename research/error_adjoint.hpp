@@ -11,49 +11,41 @@ class Adjoint : public Error {
     void destroy_intermediate_fields() override;
     void write_history(std::string const& file, double J_ex) override;
   private:
-    void solve_primal(RCP<Physics> physics, double& JH, double& Jh);
-    void solve_adjoint(RCP<Physics> physics);
-    void compute_adjoint_weight(RCP<Physics> physics);
-    void evaluate_prolonged_residual(RCP<Physics> physics);
-    void compute_linearization_error(RCP<Physics> physics, double& eta_L);
-    void localize_error(RCP<Physics> physics);
-    void compute_error(RCP<Physics> physics, double& eta, double& eta_bound);
-    void collect_data(
-        RCP<Physics> physics,
-        double JH,
-        double Jh,
-        double eta,
-        double eta_bound,
-        double eta_L);
+    apf::Field* m_uH = nullptr;                   // the primal solution solved on the coarse space
+    apf::Field* m_uh = nullptr;                   // the primal solution solved on the fine space
   private:
-    apf::Field* m_uH = nullptr;
-    apf::Field* m_uh = nullptr;
-    apf::Field* m_uH_h = nullptr;
-    apf::Field* m_uh_minus_uH_h = nullptr;
-    apf::Field* m_zH = nullptr;
-    apf::Field* m_zh = nullptr;
-    apf::Field* m_zh_H = nullptr;
-    apf::Field* m_zH_h = nullptr;
-    apf::Field* m_zh_spr = nullptr;
-    apf::Field* m_zh_H_spr = nullptr;
-    apf::Field* m_z_weight = nullptr;
-    apf::Field* m_Rh_uH_h = nullptr;
-    apf::Field* m_Rh_uH_h_plus_ELh = nullptr;
-    apf::Field* m_ELh = nullptr;
-    apf::Field* m_eta = nullptr;
+    apf::Field* m_zH = nullptr;                   // the adjoint solution solved on the coarse space
+    apf::Field* m_zh = nullptr;                   // the adjoint solution solved on the fine space
   private:
-    int adjoint = -1;
-    int localization = -1;
-    bool subtraction = false;
-    bool linearization = false;
+    apf::Field* m_uH_h = nullptr;                 // the prolongation of uH onto h
+    apf::Field* m_uh_H = nullptr;                 // the restriction of uh onto H, represented on h
+    apf::Field* m_uh_spr = nullptr;               // the recovery of uH onto h via SPR
+    apf::Field* m_uh_minus_m_uH_h = nullptr;      // the exact primal discretization error
+    apf::Field* m_uh_spr_minus_m_uH_h = nullptr;  // two approximated primal discretization error
+  private:
+    apf::Field* m_zH_h = nullptr;                 // the prolongation of zH onto h
+    apf::Field* m_zh_H = nullptr;                 // the restriction of zh onto H, represented on h
+    apf::Field* m_zh_spr = nullptr;               // the recovery of zH onto h via SPR
+    apf::Field* m_zh_minus_m_zh_H = nullptr;      // the exact adjoint discretization error
+    apf::Field* m_zh_spr_minus_m_zH_h = nullptr;  // the approximated adjoint discretization error
+  private:
+    apf::Field* m_Rh_uH_h = nullptr;              // the fine residual evaluated at the prolonged solution
+  private:
     std::vector<int> m_nelems;
     std::vector<int> m_H_dofs;
     std::vector<int> m_h_dofs;
     std::vector<double> m_JH;
     std::vector<double> m_Jh;
-    std::vector<double> m_estimate;
-    std::vector<double> m_estimate_bound;
-    std::vector<double> m_estimate_L;
+    std::vector<double> m_eta1;
+    std::vector<double> m_eta2;
+    std::vector<double> m_eta1_spr;
+    std::vector<double> m_eta2_spr;
+  private:
+    void solve_primal(int space, RCP<Physics> physics);
+    void post_process_primal(RCP<Physics> physics);
+    void solve_adjoint(RCP<Physics> physics);
+    void post_process_adjoint(RCP<Physics> physics);
+    void compute_first_order_errors(RCP<Physics> physics);
 };
 
 }

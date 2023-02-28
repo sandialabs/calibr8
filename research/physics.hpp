@@ -12,16 +12,39 @@ class Physics {
   public:
     Physics(RCP<ParameterList> params);
     RCP<Disc> disc() { return m_disc; }
+  public:
     void build_disc();
     void destroy_disc();
     void destroy_residual_data();
+  public:
     apf::Field* solve_primal(int space);
     double compute_qoi(int space, apf::Field* u);
     apf::Field* solve_adjoint(int space, apf::Field* u);
-    apf::Field* prolong_u_coarse_onto_fine(apf::Field* u);
-    apf::Field* prolong_z_coarse_onto_fine(apf::Field* z);
+  public:
+    apf::Field* prolong_u_coarse_onto_fine(apf::Field* uH);
+    apf::Field* restrict_u_fine_onto_fine(apf::Field* uh);
+    apf::Field* recover_u_fine_from_u_coarse(apf::Field* u);
     apf::Field* subtract_u_coarse_from_u_fine(apf::Field* uh, apf::Field* uH);
-    apf::Field* restrict_z_fine_onto_fine(apf::Field* z);
+    apf::Field* subtract_u_coarse_from_u_spr(apf::Field* uh_spr, apf::Field* uH);
+  public:
+    apf::Field* prolong_z_coarse_onto_fine(apf::Field* zH);
+    apf::Field* restrict_z_fine_onto_fine(apf::Field* zh);
+    apf::Field* recover_z_fine_from_z_coarse(apf::Field* z);
+    apf::Field* subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH);
+    apf::Field* subtract_z_coarse_from_z_spr(apf::Field* zh_spr, apf::Field* zH);
+  public:
+    apf::Field* evaluate_fine_residual_at_coarse_u(apf::Field* uH_h);
+  public:
+    double compute_eta(
+        apf::Field* m_zh,
+        apf::Field* m_Rh_uH_h,
+        std::string const& str1,
+        std::string const& str2);
+
+
+
+#if 0
+    apf::Field* subtract_u_coarse_from_u_fine(apf::Field* uh, apf::Field* uH);
     apf::Field* subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH);
     apf::Field* add_R_fine_to_EL_fine(apf::Field* Rh, apf::Field* ELh);
     apf::Field* recover_z_fine_from_z_coarse(apf::Field* zH);
@@ -40,6 +63,7 @@ class Physics {
 
     // debug
     apf::Field* compute_eta2(apf::Field* u, apf::Field* z);
+#endif
 
   private:
     RCP<ParameterList> m_params;

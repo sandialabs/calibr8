@@ -562,57 +562,125 @@ apf::Field* Physics::solve_adjoint(int space, apf::Field* u) {
       u);
 }
 
-apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* u) {
+apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* uH) {
   print("prolonging uH onto h");
-  ASSERT(apf::getShape(u) == m_disc->shape(COARSE));
-  return calibr8::project(m_disc, u, "uH_h");
+  ASSERT(apf::getShape(uH) == m_disc->shape(COARSE));
+  return calibr8::project(m_disc, uH, "uH_h");
 }
 
-apf::Field* Physics::prolong_z_coarse_onto_fine(apf::Field* z) {
+apf::Field* Physics::prolong_z_coarse_onto_fine(apf::Field* zH) {
   print("prolonging zH onto h");
-  ASSERT(apf::getShape(z) == m_disc->shape(COARSE));
-  return calibr8::project(m_disc, z, "zH_h");
+  ASSERT(apf::getShape(zH) == m_disc->shape(COARSE));
+  return calibr8::project(m_disc, zH, "zH_h");
 }
 
-apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* z) {
-  print("restricting zh onto H on h");
-  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  apf::Field* tmp = calibr8::project(m_disc, z, "tmp");
+apf::Field* Physics::restrict_u_fine_onto_fine(apf::Field* uh) {
+  print("restricting uh onto H, represented on h");
+  ASSERT(apf::getShape(uh) == m_disc->shape(FINE));
+  apf::Field* tmp = calibr8::project(m_disc, uh, "tmp");
+  apf::Field* uh_H = calibr8::project(m_disc, tmp, "uh_H");
+  apf::destroyField(tmp);
+  return uh_H;
+}
+
+apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* zh) {
+  print("restricting zh onto H, represented on h");
+  ASSERT(apf::getShape(zh) == m_disc->shape(FINE));
+  apf::Field* tmp = calibr8::project(m_disc, zh, "tmp");
   apf::Field* zh_H = calibr8::project(m_disc, tmp, "zh_H");
   apf::destroyField(tmp);
   return zh_H;
 }
 
-apf::Field* Physics::subtract_u_coarse_from_u_fine(apf::Field* uh, apf::Field* uH) {
-  print("subtracting uH from uh");
-  ASSERT(apf::getShape(uh) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(uH) == m_disc->shape(FINE));
-  return op(subtract, m_disc, uh, uH, "uh_minus_uH");
-}
-
-apf::Field* Physics::subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH) {
-  print("subtracting zH from zh");
-  ASSERT(apf::getShape(zh) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(zH) == m_disc->shape(FINE));
-  return op(subtract, m_disc, zh, zH, "zh_minus_zH");
-}
-
-apf::Field* Physics::add_R_fine_to_EL_fine(apf::Field* Rh, apf::Field* ELh) {
-  print("adding ELh to Rh");
-  ASSERT(apf::getShape(Rh) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(ELh) == m_disc->shape(FINE));
-  return op(add, m_disc, Rh, ELh, "Rh_plus_ELh");
+apf::Field* Physics::recover_u_fine_from_u_coarse(apf::Field* uH) {
+  print("performing spr recovery on uH");
+  ASSERT(apf::getShape(uH) == m_disc->shape(COARSE));
+  std::string const name = std::string(apf::getName(uH)) + "_ip";
+  apf::Field* uH_ips = interpolate_to_ips(uH, name);
+  m_disc->change_shape(FINE);
+  apf::Field* uh_spr = spr_recovery(uH_ips);
+  apf::renameField(uh_spr, "uh_spr");
+  apf::destroyField(uH_ips);
+  return uh_spr;
 }
 
 apf::Field* Physics::recover_z_fine_from_z_coarse(apf::Field* zH) {
   print("performing spr recovery on zH");
   ASSERT(apf::getShape(zH) == m_disc->shape(COARSE));
-  apf::Field* zH_ips = interpolate_to_ips(zH);
+  std::string const name = std::string(apf::getName(zH)) + "_ip";
+  apf::Field* zH_ips = interpolate_to_ips(zH, name);
   m_disc->change_shape(FINE);
   apf::Field* zh_spr = spr_recovery(zH_ips);
   apf::renameField(zh_spr, "zh_spr");
   apf::destroyField(zH_ips);
   return zh_spr;
+}
+
+apf::Field* Physics::subtract_u_coarse_from_u_fine(apf::Field* uh, apf::Field* uH) {
+  print("subtracting uH_h from uh");
+  ASSERT(apf::getShape(uh) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(uH) == m_disc->shape(FINE));
+  return op(subtract, m_disc, uh, uH, "uh_minus_uH_h");
+}
+
+apf::Field* Physics::subtract_u_coarse_from_u_spr(apf::Field* uh_spr, apf::Field* uH) {
+  print("subtracting uH_h from uh_spr");
+  ASSERT(apf::getShape(uh_spr) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(uH) == m_disc->shape(FINE));
+  return op(subtract, m_disc, uh_spr, uH, "uh_spr_minus_uH_h");
+}
+
+apf::Field* Physics::subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH) {
+  print("subtracting zH_h from zh");
+  ASSERT(apf::getShape(zh) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(zH) == m_disc->shape(FINE));
+  return op(subtract, m_disc, zh, zH, "zh_minus_zH_h");
+}
+
+apf::Field* Physics::subtract_z_coarse_from_z_spr(apf::Field* zh_spr, apf::Field* zH) {
+  print("subtracting zH_h from zh_spr");
+  ASSERT(apf::getShape(zh_spr) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(zH) == m_disc->shape(FINE));
+  return op(subtract, m_disc, zh_spr, zH, "zh_spr_minus_zH_h");
+}
+
+apf::Field* Physics::evaluate_fine_residual_at_coarse_u(apf::Field* uH_h) {
+  print("evaluating the residual Rh_uH_h");
+  apf::Field* r = calibr8::evaluate_residual(
+      FINE,
+      m_params,
+      m_disc,
+      m_residual,
+      uH_h);
+  apf::renameField(r, "Rh_uH_h");
+  return r;
+}
+
+double Physics::compute_eta(
+    apf::Field* z,
+    apf::Field* R,
+    std::string const& str1,
+    std::string const& str2) {
+  print("evaluating %s = %s", str1.c_str(), str2.c_str());
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(R) == m_disc->shape(FINE));
+  Vector R_vec(FINE, m_disc);
+  Vector z_vec(FINE, m_disc);
+  R_vec.zero();
+  z_vec.zero();
+  fill_vector(FINE, m_disc, R, R_vec);
+  fill_vector(FINE, m_disc, z, z_vec);
+  double const eta = -(z_vec.val[OWNED])->dot(*(R_vec.val[OWNED]));
+  print(" > %s = %.15e", str1.c_str(), eta);
+  return eta;
+}
+
+#if 0
+apf::Field* Physics::add_R_fine_to_EL_fine(apf::Field* Rh, apf::Field* ELh) {
+  print("adding ELh to Rh");
+  ASSERT(apf::getShape(Rh) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(ELh) == m_disc->shape(FINE));
+  return op(add, m_disc, Rh, ELh, "Rh_plus_ELh");
 }
 
 apf::Field* Physics::evaluate_residual(int space, apf::Field* u) {
@@ -656,11 +724,7 @@ apf::Field* Physics::localize_linearization_error(apf::Field* eta1, apf::Field* 
   return op(add, m_disc, eta1, eta2, "eta");
 }
 
-apf::Field* Physics::interpolate_to_ips(apf::Field* z) {
-  print("interpolating field to ips");
-  std::string const name = std::string(apf::getName(z)) + "_ip";
-  return calibr8::interpolate_to_ips(z, name);
-}
+
 
 double Physics::estimate_error(apf::Field* eta) {
   print("estimating error");
@@ -712,5 +776,6 @@ double Physics::compute_eta_L(apf::Field* z, apf::Field* E_L) {
   print("computing linearization error estimate");
   return calibr8::compute_eta_L(m_disc, z, E_L);
 }
+#endif
 
 }
