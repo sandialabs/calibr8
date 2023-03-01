@@ -30,6 +30,8 @@ class Adjoint : public Error {
     apf::Field* m_zh_spr_minus_m_zH_h = nullptr;  // the approximated adjoint discretization error
   private:
     apf::Field* m_Rh_uH_h = nullptr;              // the fine residual evaluated at the prolonged solution
+    apf::Field* m_ERL_h = nullptr;                // the residual linearization error between the spaces
+    apf::Field* m_ERL_h_spr = nullptr;            // the spr approximation to the residual linearization error
   private:
     std::vector<int> m_nelems;
     std::vector<int> m_H_dofs;
@@ -46,6 +48,7 @@ class Adjoint : public Error {
     void solve_adjoint(RCP<Physics> physics);
     void post_process_adjoint(RCP<Physics> physics);
     void compute_first_order_errors(RCP<Physics> physics);
+    void compute_residual_linearization_errors(RCP<Physics> physics);
 };
 
 }

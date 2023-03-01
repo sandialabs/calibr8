@@ -417,43 +417,14 @@ static apf::Field* evaluate_residual(
   return f;
 }
 
-static apf::Field* evaluate_PU_residual(
-    int space,
-    RCP<ParameterList> params,
-    RCP<Disc> disc,
-    RCP<Residual<double>> residual,
-    apf::Field* u_space,
-    apf::Field* z_space) {
-  apf::Mesh2* mesh = disc->apf_mesh();
-  disc->change_shape(space);
-  ParameterList const dbcs = params->sublist("dbcs");
-  Vector U(space, disc);
-  Vector R(space, disc);
-  System ghost_sys; ghost_sys.b = R.val[GHOST];
-  System owned_sys; owned_sys.b = R.val[OWNED];
-  fill_vector(FINE, disc, u_space, U);
-  R.zero();
-  RCP<Weight> W = rcp(new AdjointWeight(disc->shape(space), z_space));
-  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
-  R.gather(Tpetra::ADD);
-  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
-  std::string const name = "eta";
-  int const neqs = residual->num_eqs();
-  apf::FieldShape* shape = disc->shape(space);
-  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
-  apf::zeroField(f);
-  fill_field(space, disc, R.val[OWNED], f);
-  return f;
-}
-
-static apf::Field* compute_linearization_error(
+static apf::Field* compute_residual_linearization_error(
     RCP<ParameterList> params,
     RCP<Disc> disc,
     RCP<Residual<double>> resid,
     RCP<Residual<FADT>> jacobian,
     apf::Field* uH_h,
-    apf::Field* uh_minus_uH_h) {
-  double norm_R, norm_E;
+    apf::Field* uh_minus_uH_h,
+    std::string const& str) {
   apf::Mesh2* mesh = disc->apf_mesh();
   disc->change_shape(FINE);
   Vector U(FINE, disc);
@@ -477,29 +448,17 @@ static apf::Field* compute_linearization_error(
   dRdU.end_fill();
   dRdU.val[OWNED]->apply(*(U_diff.val[OWNED]), *(E.val[OWNED]));
   E.val[OWNED]->update(-1.0, *(R.val[OWNED]), -1.0);
-  norm_R = R.val[OWNED]->norm2();
-  norm_E = E.val[OWNED]->norm2();
+  double const norm_R = R.val[OWNED]->norm2();
+  double const norm_E = E.val[OWNED]->norm2();
   print(" > ||R|| = %.15e", norm_R);
   print(" > ||E_L|| = %.15e", norm_E);
   int const neqs = jacobian->num_eqs();
   apf::FieldShape* shape = disc->shape(FINE);
-  apf::Field* f = apf::createPackedField(mesh, "E_L", neqs, shape);
+  std::string const name = "ER_L" + str;
+  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
   apf::zeroField(f);
   fill_field(FINE, disc, E.val[OWNED], f);
   return f;
-}
-
-static double compute_eta_L(
-    RCP<Disc> disc,
-    apf::Field* z,
-    apf::Field* E_L) {
-  Vector Z(FINE, disc);
-  Vector E(FINE, disc);
-  fill_vector(FINE, disc, z, Z);
-  fill_vector(FINE, disc, E_L, E);
-  double eta_L = -(Z.val[OWNED])->dot(*E.val[OWNED]);
-  print(" > eta_L = %.15e", eta_L);
-  return eta_L;
 }
 
 Physics::Physics(RCP<ParameterList> params) {
@@ -656,23 +615,40 @@ apf::Field* Physics::evaluate_fine_residual_at_coarse_u(apf::Field* uH_h) {
   return r;
 }
 
-double Physics::compute_eta(
+double Physics::dot(
     apf::Field* z,
-    apf::Field* R,
+    apf::Field* v,
     std::string const& str1,
     std::string const& str2) {
   print("evaluating %s = %s", str1.c_str(), str2.c_str());
   ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(R) == m_disc->shape(FINE));
-  Vector R_vec(FINE, m_disc);
+  ASSERT(apf::getShape(v) == m_disc->shape(FINE));
   Vector z_vec(FINE, m_disc);
-  R_vec.zero();
+  Vector v_vec(FINE, m_disc);
   z_vec.zero();
-  fill_vector(FINE, m_disc, R, R_vec);
+  v_vec.zero();
   fill_vector(FINE, m_disc, z, z_vec);
-  double const eta = -(z_vec.val[OWNED])->dot(*(R_vec.val[OWNED]));
+  fill_vector(FINE, m_disc, v, v_vec);
+  double const eta = -(z_vec.val[OWNED])->dot(*(v_vec.val[OWNED]));
   print(" > %s = %.15e", str1.c_str(), eta);
   return eta;
+}
+
+apf::Field* Physics::compute_residual_linearization_error(
+    apf::Field* uH_h,
+    apf::Field* uh_minus_uH_h,
+    std::string const& str) {
+  print("computing residual linearization error: %s", str.c_str());
+  ASSERT(apf::getShape(uH_h) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(uh_minus_uH_h) == m_disc->shape(FINE));
+  return calibr8::compute_residual_linearization_error(
+    m_params,
+    m_disc,
+    m_residual,
+    m_jacobian,
+    uH_h,
+    uh_minus_uH_h,
+    str);
 }
 
 #if 0
@@ -755,27 +731,38 @@ double Physics::estimate_error_bound(apf::Field* eta) {
   return estimate;
 }
 
-apf::Field* Physics::compute_linearization_error(
-    apf::Field* uH_h,
-    apf::Field* uh_minus_uH_h) {
-  print("computing linearization error");
-  ASSERT(apf::getShape(uH_h) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(uh_minus_uH_h) == m_disc->shape(FINE));
-  return calibr8::compute_linearization_error(
-    m_params,
-    m_disc,
-    m_residual,
-    m_jacobian,
-    uH_h,
-    uh_minus_uH_h);
+static apf::Field* evaluate_PU_residual(
+    int space,
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<double>> residual,
+    apf::Field* u_space,
+    apf::Field* z_space) {
+  apf::Mesh2* mesh = disc->apf_mesh();
+  disc->change_shape(space);
+  ParameterList const dbcs = params->sublist("dbcs");
+  Vector U(space, disc);
+  Vector R(space, disc);
+  System ghost_sys; ghost_sys.b = R.val[GHOST];
+  System owned_sys; owned_sys.b = R.val[OWNED];
+  fill_vector(FINE, disc, u_space, U);
+  R.zero();
+  RCP<Weight> W = rcp(new AdjointWeight(disc->shape(space), z_space));
+  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
+  R.gather(Tpetra::ADD);
+  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
+  std::string const name = "eta";
+  int const neqs = residual->num_eqs();
+  apf::FieldShape* shape = disc->shape(space);
+  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
+  apf::zeroField(f);
+  fill_field(space, disc, R.val[OWNED], f);
+  return f;
 }
 
-double Physics::compute_eta_L(apf::Field* z, apf::Field* E_L) {
-  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(E_L) == m_disc->shape(FINE));
-  print("computing linearization error estimate");
-  return calibr8::compute_eta_L(m_disc, z, E_L);
-}
+
+
+
 #endif
 
 }

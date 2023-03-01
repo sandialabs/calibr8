@@ -34,37 +34,11 @@ class Physics {
     apf::Field* subtract_z_coarse_from_z_spr(apf::Field* zh_spr, apf::Field* zH);
   public:
     apf::Field* evaluate_fine_residual_at_coarse_u(apf::Field* uH_h);
+    double dot(apf::Field* z, apf::Field* v,
+        std::string const& str1, std::string const& str2);
   public:
-    double compute_eta(
-        apf::Field* m_zh,
-        apf::Field* m_Rh_uH_h,
-        std::string const& str1,
-        std::string const& str2);
-
-
-
-#if 0
-    apf::Field* subtract_u_coarse_from_u_fine(apf::Field* uh, apf::Field* uH);
-    apf::Field* subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH);
-    apf::Field* add_R_fine_to_EL_fine(apf::Field* Rh, apf::Field* ELh);
-    apf::Field* recover_z_fine_from_z_coarse(apf::Field* zH);
-    apf::Field* evaluate_residual(int space, apf::Field* u);
-    apf::Field* evaluate_PU_residual(int space, apf::Field* u, apf::Field* z);
-    apf::Field* localize_error(apf::Field* R, apf::Field* z, int post = 0);
-    apf::Field* localize_linearization_error(apf::Field* eta1, apf::Field* eta2);
-    apf::Field* interpolate_to_ips(apf::Field* z);
-    double estimate_error(apf::Field* eta);
-    double estimate_error_bound(apf::Field* eta);
-    double estimate_error2(apf::Field* R, apf::Field* Z);
-    apf::Field* compute_linearization_error(
-        apf::Field* uH_h,
-        apf::Field* uh_minus_uH_h);
-    double compute_eta_L(apf::Field* z, apf::Field* E_L);
-
-    // debug
-    apf::Field* compute_eta2(apf::Field* u, apf::Field* z);
-#endif
-
+    apf::Field* compute_residual_linearization_error(
+        apf::Field* uH_h, apf::Field* uh_minus_uH_h, std::string const& str);
   private:
     RCP<ParameterList> m_params;
     RCP<Disc> m_disc;

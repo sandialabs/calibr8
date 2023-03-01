@@ -44,14 +44,27 @@ void Adjoint::post_process_adjoint(RCP<Physics> physics) {
 
 void Adjoint::compute_first_order_errors(RCP<Physics> physics) {
   m_Rh_uH_h = physics->evaluate_fine_residual_at_coarse_u(m_uH_h);
-  double const eta1 = physics->compute_eta(m_zh, m_Rh_uH_h, "eta1", "zh.Rh(uH_h)");
-  double const eta2 = physics->compute_eta(m_zh_minus_m_zh_H, m_Rh_uH_h, "eta2", "(zh-zH).Rh(uH_h)");
-  double const eta1_spr = physics->compute_eta(m_zh_spr, m_Rh_uH_h, "eta1_spr", "zh_spr.Rh(uH_h)");
-  double const eta2_spr = physics->compute_eta(m_zh_spr_minus_m_zH_h, m_Rh_uH_h, "eta2_spr", "(zh_spr-zH).Rh(uH_h)");
+  double const eta1 = physics->dot(
+      m_zh, m_Rh_uH_h, "eta1", "zh.Rh(uH_h)");
+  double const eta2 = physics->dot(
+      m_zh_minus_m_zh_H, m_Rh_uH_h, "eta2", "(zh-zH).Rh(uH_h)");
+  double const eta1_spr = physics->dot(
+      m_zh_spr, m_Rh_uH_h, "eta1_spr", "zh_spr.Rh(uH_h)");
+  double const eta2_spr = physics->dot(
+      m_zh_spr_minus_m_zH_h, m_Rh_uH_h, "eta2_spr", "(zh_spr-zH).Rh(uH_h)");
   m_eta1.push_back(eta1);
   m_eta2.push_back(eta2);
   m_eta1_spr.push_back(eta1_spr);
   m_eta2_spr.push_back(eta2_spr);
+}
+
+void Adjoint::compute_residual_linearization_errors(RCP<Physics> physics) {
+  m_ERL_h = physics->compute_residual_linearization_error(
+      m_uH_h, m_uh_minus_m_uH_h, "");
+  double const etaL = physics->dot(m_zh, m_ERL_h, "etaL", "zh.E^R_L");
+  m_ERL_h_spr = physics->compute_residual_linearization_error(
+      m_uH_h, m_uh_spr_minus_m_uH_h, "spr");
+  double const etaL_spr = physics->dot(m_zh, m_ERL_h_spr, "etaL_spr", "zh.E^R_L");
 }
 
 apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
@@ -64,6 +77,7 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   solve_adjoint(physics);
   post_process_adjoint(physics);
   compute_first_order_errors(physics);
+  compute_residual_linearization_errors(physics);
 
 
 
@@ -95,6 +109,8 @@ void Adjoint::destroy_intermediate_fields() {
   apf::destroyField(m_zh_minus_m_zh_H); m_zh_minus_m_zh_H = nullptr;
   apf::destroyField(m_zh_spr_minus_m_zH_h); m_zh_spr_minus_m_zH_h = nullptr;
   apf::destroyField(m_Rh_uH_h); m_Rh_uH_h = nullptr;
+  apf::destroyField(m_ERL_h); m_ERL_h = nullptr;
+  apf::destroyField(m_ERL_h_spr); m_ERL_h_spr = nullptr;
 }
 
 #if 0
