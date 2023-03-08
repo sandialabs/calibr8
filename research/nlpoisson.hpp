@@ -7,9 +7,9 @@
 
 namespace calibr8 {
 
-enum {EXPR, SIN_EXP};
+enum {EXPR, MANUFACTURED};
 
-double eval_sin_exp_body_force(apf::Vector3 const& x, double alpha);
+double eval_manufactured_force(apf::Vector3 const& x, double alpha);
 
 template <typename T>
 class NLPoisson : public Residual<T> {
@@ -20,7 +20,7 @@ class NLPoisson : public Residual<T> {
       this->m_neqs = 1;
       m_alpha = params.get<double>("alpha");
       m_body_force = params.get<std::string>("body force");
-      if (m_body_force == "sin_exp") m_body_force_type = SIN_EXP;
+      if (m_body_force == "manufactured") m_body_force_type = MANUFACTURED;
       else m_body_force_type = EXPR;
     }
 
@@ -35,8 +35,8 @@ class NLPoisson : public Residual<T> {
       double b = 0.;
       if (m_body_force_type == EXPR) {
         b = eval(m_body_force, x[0], x[1], x[2], 0.);
-      } else if (m_body_force_type == SIN_EXP) {
-        b = eval_sin_exp_body_force(x, m_alpha);
+      } else if (m_body_force_type == MANUFACTURED) {
+        b = eval_manufactured_force(x, m_alpha);
       }
       return b;
     }

@@ -20,18 +20,22 @@ class Physics {
     apf::Field* solve_primal(int space);
     double compute_qoi(int space, apf::Field* u);
     apf::Field* solve_adjoint(int space, apf::Field* u);
+    apf::Field* solve_linearized_error(apf::Field* u);
   public:
     apf::Field* prolong_u_coarse_onto_fine(apf::Field* uH);
     apf::Field* restrict_u_fine_onto_fine(apf::Field* uh);
-    apf::Field* recover_u_fine_from_u_coarse(apf::Field* u);
     apf::Field* subtract_u_coarse_from_u_fine(apf::Field* uh, apf::Field* uH);
     apf::Field* subtract_u_coarse_from_u_spr(apf::Field* uh_spr, apf::Field* uH);
   public:
     apf::Field* prolong_z_coarse_onto_fine(apf::Field* zH);
     apf::Field* restrict_z_fine_onto_fine(apf::Field* zh);
-    apf::Field* recover_z_fine_from_z_coarse(apf::Field* z);
     apf::Field* subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH);
     apf::Field* subtract_z_coarse_from_z_spr(apf::Field* zh_spr, apf::Field* zH);
+  public:
+    apf::Field* recover_u_fine_from_u_coarse(apf::Field* u);
+    apf::Field* recover_z_fine_from_z_coarse(apf::Field* z);
+
+#if 0
   public:
     apf::Field* evaluate_fine_residual_at_coarse_u(apf::Field* uH_h);
     double dot(apf::Field* z, apf::Field* v,
@@ -39,6 +43,8 @@ class Physics {
   public:
     apf::Field* compute_residual_linearization_error(
         apf::Field* uH_h, apf::Field* uh_minus_uH_h, std::string const& str);
+#endif
+
   private:
     RCP<ParameterList> m_params;
     RCP<Disc> m_disc;

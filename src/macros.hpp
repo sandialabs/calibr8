@@ -6,20 +6,20 @@
   do {                                                \
     if (! (cond)) {                                   \
       char omsg[2048];                                \
-      sprintf(omsg, "%s failed at %s + %d \n",        \
+      snprintf(omsg, 2048, "%s failed at %s + %d \n", \
         #cond, __FILE__, __LINE__);                   \
-      calibr8::assert_fail(omsg);            \
+      calibr8::assert_fail(omsg);                     \
     }                                                 \
   } while (0)
 
-#define ALWAYS_ASSERT_VERBOSE(cond, msg)              \
-  do {                                                \
-    if (! (cond)) {                                   \
-      char omsg[2048];                                \
-      sprintf(omsg, "%s failed at %s + %d \n %s \n",  \
-        #cond, __FILE__, __LINE__, msg);              \
-      calibr8::assert_fail(omsg);            \
-    }                                                 \
+#define ALWAYS_ASSERT_VERBOSE(cond, msg)                      \
+  do {                                                        \
+    if (! (cond)) {                                           \
+      char omsg[2048];                                        \
+      snprintf(omsg, 2048, "%s failed at %s + %d \n %s \n",   \
+        #cond, __FILE__, __LINE__, msg);                      \
+      calibr8::assert_fail(omsg);                             \
+    }                                                         \
   } while(0)
 
 #ifdef NDEBUG
