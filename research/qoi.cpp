@@ -88,9 +88,23 @@ void QoI<FADT>::scatter(RCP<Disc> disc, System* sys) {
 
 template <>
 void QoI<FAD2T>::scatter(RCP<Disc> disc, System* sys) {
-  (void)disc;
-  (void)sys;
-  throw std::runtime_error("whoops, not yet implemented");
+  using Teuchos::arrayView;
+  RCP<MatrixT> H = sys->A;
+  apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
+  for (int row_node = 0; row_node < m_nnodes; ++row_node) {
+    for (int row_eq = 0; row_eq < m_neqs; ++row_eq) {
+      LO const row = disc->get_lid(m_space, ent, row_node, row_eq);
+      int const row_idx = get_index(row_node, row_eq, m_neqs);
+      for (int col_node = 0; col_node < m_nnodes; ++col_node) {
+        for (int col_eq = 0; col_eq < m_neqs; ++col_eq) {
+          LO const col = disc->get_lid(m_space, ent, col_node, col_eq);
+          int const col_idx = get_index(col_node, col_eq, m_neqs);
+          double const d2val = m_elem_value.fastAccessDx(row_idx).fastAccessDx(col_idx);
+          H->sumIntoLocalValues(row, arrayView(&col, 1), arrayView(&d2val, 1));
+        }
+      }
+    }
+  }
 }
 
 template <typename T>
