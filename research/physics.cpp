@@ -397,17 +397,17 @@ static apf::Field* solve_linearized_error(
   apf::Mesh2* mesh = disc->apf_mesh();
   disc->change_shape(FINE);
   Vector U(FINE, disc);
-  Vector E(FINE, disc);
+  Vector EL(FINE, disc);
   Vector R(FINE, disc);
   Matrix dRdU(FINE, disc);
-  System ghost_sys(GHOST, dRdU, E, R);
-  System owned_sys(OWNED, dRdU, E, R);
+  System ghost_sys(GHOST, dRdU, EL, R);
+  System owned_sys(OWNED, dRdU, EL, R);
   ParameterList const dbcs = params->sublist("dbcs");
   ParameterList& lin_alg = params->sublist("adjoint linear algebra");
   fill_vector(FINE, disc, u, U);
   dRdU.begin_fill();
   R.zero();
-  E.zero();
+  EL.zero();
   RCP<Weight> W = rcp(new Weight(disc->shape(FINE)));
   assemble_residual(FINE, JACOBIAN, disc, jacobian, U.val[GHOST], W, ghost_sys);
   R.gather(Tpetra::ADD);
@@ -418,9 +418,9 @@ static apf::Field* solve_linearized_error(
   solve(lin_alg, FINE, disc, owned_sys);
   int const neqs = jacobian->num_eqs();
   apf::FieldShape* shape = disc->shape(FINE);
-  apf::Field* f = apf::createPackedField(mesh, "linearized_error", neqs, shape);
+  apf::Field* f = apf::createPackedField(mesh, "elh", neqs, shape);
   apf::zeroField(f);
-  fill_field(FINE, disc, E.val[OWNED], f);
+  fill_field(FINE, disc, EL.val[OWNED], f);
   return f;
 }
 
@@ -431,31 +431,86 @@ static apf::Field* solve_2nd_adjoint(
     RCP<Residual<FAD2T>> hessian,
     RCP<QoI<FAD2T>> qoi_hessian,
     apf::Field* u,
-    apf::Field* e) {
-  (void)params;
-  (void)jacobian;
-  (void)u;
-  (void)e;
-
+    apf::Field* el) {
   disc->change_shape(FINE);
-  Matrix H(FINE, disc);
+  Matrix dRdUT(FINE, disc);
   Vector U(FINE, disc);
+  Vector Y(FINE, disc);
+  Vector EL(FINE, disc);
+  Vector RHS(FINE, disc);
   fill_vector(FINE, disc, u, U);
+  fill_vector(FINE, disc, el, EL);
+  System ghost_sys(GHOST, dRdUT, Y, RHS);
+  System owned_sys(OWNED, dRdUT, Y, RHS);
+  ParameterList const dbcs = params->sublist("dbcs");
+  ParameterList& lin_alg = params->sublist("adjoint linear algebra");
   {
+    RHS.zero();
+    Matrix H(FINE, disc);
     Vector dummy(FINE, disc);
     System ghost(GHOST, H, dummy, dummy);
     H.begin_fill();
     assemble_qoi(FINE, disc, hessian, qoi_hessian, U.val[GHOST], &ghost);
     H.gather(Tpetra::ADD);
     H.end_fill();
+
+    // debug
+    {
+      MMWriterT::writeSparseFile("H.mm", *(H.val[OWNED]));
+      MMWriterT::writeDenseFile("EL.mm", *(EL.val[OWNED]));
+    }
+
+    H.val[OWNED]->apply(*(EL.val[OWNED]), *(RHS.val[OWNED]));
+
+    // debug
+    {
+      MMWriterT::writeDenseFile("RHS.mm", *(RHS.val[OWNED]));
+    }
+
+
   }
-
-
+  dRdUT.begin_fill();
+  Y.zero();
+  RCP<Weight> W = rcp(new Weight(disc->shape(FINE)));
+  assemble_residual(FINE, ADJOINT, disc, jacobian, U.val[GHOST], W, ghost_sys);
+  dRdUT.gather(Tpetra::ADD);
+  apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, true);
+  dRdUT.end_fill();
+  solve(lin_alg, FINE, disc, owned_sys);
   int const neqs = jacobian->num_eqs();
   apf::Mesh2* mesh = disc->apf_mesh();
   apf::FieldShape* shape = disc->shape(FINE);
   apf::Field* f = apf::createPackedField(mesh, "yh", neqs, shape);
   apf::zeroField(f);
+  fill_field(FINE, disc, Y.val[OWNED], f);
+  return f;
+}
+
+static apf::Field* evaluate_residual(
+    int space,
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<double>> residual,
+    apf::Field* u_space) {
+  apf::Mesh2* mesh = disc->apf_mesh();
+  disc->change_shape(space);
+  ParameterList const dbcs = params->sublist("dbcs");
+  Vector U(space, disc);
+  Vector R(space, disc);
+  System ghost_sys; ghost_sys.b = R.val[GHOST];
+  System owned_sys; owned_sys.b = R.val[OWNED];
+  fill_vector(space, disc, u_space, U);
+  R.zero();
+  RCP<Weight> W = rcp(new Weight(disc->shape(space)));
+  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
+  R.gather(Tpetra::ADD);
+  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
+  std::string const name = "R" + disc->space_name(space);
+  int const neqs = residual->num_eqs();
+  apf::FieldShape* shape = disc->shape(space);
+  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
+  apf::zeroField(f);
+  fill_field(space, disc, R.val[OWNED], f);
   return f;
 }
 
@@ -488,7 +543,7 @@ void Physics::destroy_residual_data() {
 }
 
 apf::Field* Physics::solve_primal(int space) {
-  print("primal %s", m_disc->space_name(space).c_str());
+  print("solving primal %s", m_disc->space_name(space).c_str());
   return calibr8::solve_primal(
       space,
       m_params,
@@ -516,7 +571,7 @@ apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* uH) {
 }
 
 apf::Field* Physics::solve_adjoint(int space, apf::Field* u) {
-  print("adjoint %s", m_disc->space_name(space).c_str());
+  print("solving adjoint %s", m_disc->space_name(space).c_str());
   ASSERT(apf::getShape(u) == m_disc->shape(space));
   return calibr8::solve_adjoint(
       space,
@@ -528,7 +583,7 @@ apf::Field* Physics::solve_adjoint(int space, apf::Field* u) {
 }
 
 apf::Field* Physics::solve_linearized_error(apf::Field* u) {
-  print("linearized errror");
+  print("solving linearized errror");
   ASSERT(apf::getShape(u) == m_disc->shape(FINE));
   return calibr8::solve_linearized_error(
       m_params,
@@ -538,7 +593,7 @@ apf::Field* Physics::solve_linearized_error(apf::Field* u) {
 }
 
 apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* e) {
-  print("2nd order adjoint");
+  print("solving 2nd order adjoint");
   ASSERT(apf::getShape(u) == m_disc->shape(FINE));
   ASSERT(apf::getShape(e) == m_disc->shape(FINE));
   return calibr8::solve_2nd_adjoint(
@@ -549,6 +604,28 @@ apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* e) {
       m_qoi_hessian,
       u,
       e);
+}
+
+apf::Field* Physics::evaluate_residual(apf::Field* u) {
+  print("evaluating residual at prolonged solution");
+  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
+  return calibr8::evaluate_residual(
+      FINE,
+      m_params,
+      m_disc,
+      m_residual,
+      u);
+}
+
+double Physics::dot(apf::Field* a, apf::Field* b, std::string const& s) {
+  print("%s", s.c_str());
+  ASSERT(apf::getShape(a) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(b) == m_disc->shape(FINE));
+  Vector A(FINE, m_disc);
+  Vector B(FINE, m_disc);
+  fill_vector(FINE, m_disc, a, A);
+  fill_vector(FINE, m_disc, b, B);
+  return (A.val[OWNED])->dot(*(B.val[OWNED]));
 }
 
 }
