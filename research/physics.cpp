@@ -1,4 +1,5 @@
 #include <PCU.h>
+#include <apfDynamicMatrix.h>
 #include "bcs.hpp"
 #include "control.hpp"
 #include "cspr.hpp"
@@ -672,6 +673,53 @@ void Physics::debug(apf::Field* uH_h, apf::Field* eh) {
   std::cout << "eta2: " << eta2 << "\n";
 
 
+  { // here's some stuff
+    using Teuchos::arrayView;
+    Matrix HH(FINE, m_disc);
+    HH.begin_fill();
+    apf::FieldShape* shape = m_disc->shape(FINE);
+    apf::Mesh2* mesh = m_disc->apf_mesh();
+    int order = 6;
+    for (int es = 0; es < m_disc->num_elem_sets(); ++es) {
+      std::string es_name = m_disc->elem_set_name(es);
+      ElemSet const& elems = m_disc->elems(es_name);
+      for (size_t elem = 0; elem < elems.size(); ++elem) {
+        apf::MeshElement* me = apf::createMeshElement(mesh, elems[elem]);
+        int const npts = apf::countIntPoints(me, order);
+        apf::DynamicMatrix He;
+        apf::NewArray<double> N;
+        He.setSize(6, 6);
+        for (int i = 0; i < 6; ++i) {
+          for (int j = 0; j < 6; ++j) {
+            He(i,j) = 0.;
+          }
+        }
+        for (int pt = 0; pt < npts; ++pt) {
+          apf::Vector3 xi;
+          apf::getIntPoint(me, order, pt, xi);
+          double const w = apf::getIntWeight(me, order, pt);
+          double const dv = apf::getDV(me, xi);
+          apf::getBF(shape, me, xi, N);
+          for (int i = 0; i < 6; ++i) {
+            for (int j = 0; j < 6; ++j) {
+              He(i,j) += 2. * N[i] * N[j] * w * dv;
+            }
+          }
+        }
+        for (int i = 0; i < 6; ++i) {
+          LO const row = m_disc->get_lid(FINE, elems[elem], i, 0);
+          for (int j = 0; j < 6; ++j) {
+            LO const col = m_disc->get_lid(FINE, elems[elem], j, 0);
+            double const val = He(i,j);
+            HH.val[OWNED]->sumIntoLocalValues(row, arrayView(&col, 1), arrayView(&val, 1));
+          }
+        }
+        apf::destroyMeshElement(me);
+      }
+    }
+    HH.end_fill();
+    MMWriterT::writeSparseFile("debug_HH.mm", *(HH.val[OWNED]));
+  }
 
 
 }
