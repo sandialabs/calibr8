@@ -19,6 +19,7 @@ class Physics {
   public:
     apf::Field* solve_primal(int space);
     apf::Field* prolong_u_coarse_onto_fine(apf::Field* uH);
+    apf::Field* compute_exact_error(apf::Field* uh, apf::Field* uH);
     apf::Field* solve_adjoint(int space, apf::Field* u);
     apf::Field* solve_linearized_error(apf::Field* u);
     apf::Field* solve_2nd_adjoint(apf::Field* u, apf::Field* e);
@@ -35,6 +36,8 @@ class Physics {
     RCP<QoI<double>> m_qoi;
     RCP<QoI<FADT>> m_qoi_deriv;
     RCP<QoI<FAD2T>> m_qoi_hessian;
+  public:
+    void debug(apf::Field* uH_h, apf::Field* eh);
 };
 
 }

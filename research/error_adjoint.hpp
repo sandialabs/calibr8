@@ -13,9 +13,10 @@ class Adjoint : public Error {
   private:
     apf::Field* m_uH = nullptr;     // the primal solution solved on the coarse space
     apf::Field* m_uh = nullptr;     // the primal solution solved on the fine space
-    apf::Field* m_uH_h = nullptr;   // the prolongation of uH onto h
-    apf::Field* m_zh = nullptr;     // the adjoint solution solved on the fine space
+    apf::Field* m_uH_h = nullptr;   // the prolongation of uH onto the fine space
+    apf::Field* m_eh = nullptr;     // the exact error in the primal solution
     apf::Field* m_elh = nullptr;    // the linearized discretization error solution
+    apf::Field* m_zh = nullptr;     // the adjoint solution solved on the fine space
     apf::Field* m_yh = nullptr;     // the 2nd order adjoint solved on the fine space
     apf::Field* m_Rh_uH = nullptr;  // the fine space residual evaluated at the prolonged solution
   private:

@@ -24,11 +24,13 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   double const Jh = physics->compute_qoi(FINE, m_uh);
 
   // prolong the coarse primal solution onto the fine space
+  // and compute the exact error on the fine space
   m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
+  m_eh = physics->compute_exact_error(m_uh, m_uH_h);
 
   // solve auxiliary problems on the fine space
-  m_zh = physics->solve_adjoint(FINE, m_uH_h);
   m_elh = physics->solve_linearized_error(m_uH_h);
+  m_zh = physics->solve_adjoint(FINE, m_uH_h);
   m_yh = physics->solve_2nd_adjoint(m_uH_h, m_elh);
 
   // compute the residual error contributions
@@ -37,6 +39,7 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   double const eta2 = -(physics->dot(m_yh, m_Rh_uH, "evaluating eta2"));
 
   // debug
+  physics->debug(m_uH_h, m_eh);
   {
     std::cout << std::setprecision(17) << std::scientific;
     std::cout << "eta1: " << eta1 << "\n";
@@ -58,8 +61,9 @@ void Adjoint::destroy_intermediate_fields() {
   apf::destroyField(m_uH); m_uH = nullptr;
   apf::destroyField(m_uh); m_uh = nullptr;
   apf::destroyField(m_uH_h); m_uH_h = nullptr;
-  apf::destroyField(m_zh); m_zh = nullptr;
+  apf::destroyField(m_eh); m_eh = nullptr;
   apf::destroyField(m_elh); m_elh = nullptr;
+  apf::destroyField(m_zh); m_zh = nullptr;
   apf::destroyField(m_yh); m_yh = nullptr;
   apf::destroyField(m_Rh_uH); m_Rh_uH = nullptr;
 }

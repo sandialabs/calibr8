@@ -467,7 +467,6 @@ static apf::Field* solve_2nd_adjoint(
       MMWriterT::writeDenseFile("RHS.mm", *(RHS.val[OWNED]));
     }
 
-
   }
   dRdUT.begin_fill();
   Y.zero();
@@ -552,22 +551,18 @@ apf::Field* Physics::solve_primal(int space) {
       m_jacobian);
 }
 
-double Physics::compute_qoi(int space, apf::Field* u) {
-  ASSERT(apf::getShape(u) == m_disc->shape(space));
-  print("qoi %s", m_disc->space_name(space).c_str());
-  return calibr8::compute_qoi(
-    space,
-    m_params,
-    m_disc,
-    m_residual,
-    m_qoi,
-    u);
-}
-
 apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* uH) {
   print("prolonging uH onto h");
   ASSERT(apf::getShape(uH) == m_disc->shape(COARSE));
   return calibr8::project(m_disc, uH, "uH_h");
+}
+
+apf::Field* Physics::compute_exact_error(apf::Field* uh, apf::Field* uH) {
+  print("computing exact error uh - uH_h");
+  ASSERT(apf::getShape(uh) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(uH) == m_disc->shape(FINE));
+  apf::Field* f = op(subtract, m_disc, uh, uH, "eh");
+  return f;
 }
 
 apf::Field* Physics::solve_adjoint(int space, apf::Field* u) {
@@ -617,6 +612,18 @@ apf::Field* Physics::evaluate_residual(apf::Field* u) {
       u);
 }
 
+double Physics::compute_qoi(int space, apf::Field* u) {
+  ASSERT(apf::getShape(u) == m_disc->shape(space));
+  print("qoi %s", m_disc->space_name(space).c_str());
+  return calibr8::compute_qoi(
+    space,
+    m_params,
+    m_disc,
+    m_residual,
+    m_qoi,
+    u);
+}
+
 double Physics::dot(apf::Field* a, apf::Field* b, std::string const& s) {
   print("%s", s.c_str());
   ASSERT(apf::getShape(a) == m_disc->shape(FINE));
@@ -626,6 +633,47 @@ double Physics::dot(apf::Field* a, apf::Field* b, std::string const& s) {
   fill_vector(FINE, m_disc, a, A);
   fill_vector(FINE, m_disc, b, B);
   return (A.val[OWNED])->dot(*(B.val[OWNED]));
+}
+
+void Physics::debug(apf::Field* uH_h, apf::Field* eh) {
+  print("I AM DEBUGGING!");
+  Vector U(FINE, m_disc);
+  Vector E(FINE, m_disc);
+  Matrix H(FINE, m_disc);
+  Vector dJdUT(FINE, m_disc);
+  Matrix mat_dummy(FINE, m_disc);
+  Vector vec_dummy(FINE, m_disc);
+  System gradient_sys(GHOST, mat_dummy, vec_dummy, dJdUT);
+  System hessian_sys(GHOST, H, vec_dummy, vec_dummy);
+  System owned_hessian_sys(GHOST, H, vec_dummy, vec_dummy);
+  fill_vector(FINE, m_disc, uH_h, U);
+  fill_vector(FINE, m_disc, eh, E);
+  assemble_qoi(FINE, m_disc, m_jacobian, m_qoi_deriv, U.val[GHOST], &gradient_sys);
+  dJdUT.gather(Tpetra::ADD);
+  H.begin_fill();
+  assemble_qoi(FINE, m_disc, m_hessian, m_qoi_hessian, U.val[GHOST], &hessian_sys);
+  H.gather(Tpetra::ADD);
+  ParameterList const dbcs = m_params->sublist("dbcs");
+  apply_jacob_dbcs(dbcs, FINE, m_disc, U.val[OWNED], owned_hessian_sys, true);
+  H.end_fill();
+
+  MMWriterT::writeDenseFile("debug_dJdUT.mm", *(dJdUT.val[OWNED]));
+
+
+  Vector P(FINE, m_disc);
+  (H.val[OWNED])->apply(*(E.val[OWNED]), *(P.val[OWNED]));
+
+  double const eta1 = (dJdUT.val[OWNED])->dot(*(E.val[OWNED]));
+  double const eta2 = (P.val[OWNED])->dot(*(E.val[OWNED]));
+
+  std::cout << "THIS IS THE DEBUG VALUE: \n";
+  std::cout << std::setprecision(17) << std::scientific;
+  std::cout << "eta1: " << eta1 << "\n";
+  std::cout << "eta2: " << eta2 << "\n";
+
+
+
+
 }
 
 }
