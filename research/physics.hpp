@@ -36,8 +36,6 @@ class Physics {
     RCP<QoI<double>> m_qoi;
     RCP<QoI<FADT>> m_qoi_deriv;
     RCP<QoI<FAD2T>> m_qoi_hessian;
-  public:
-    void debug(apf::Field* uH_h, apf::Field* eh);
 };
 
 }

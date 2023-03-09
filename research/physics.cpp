@@ -454,20 +454,7 @@ static apf::Field* solve_2nd_adjoint(
     assemble_qoi(FINE, disc, hessian, qoi_hessian, U.val[GHOST], &ghost);
     H.gather(Tpetra::ADD);
     H.end_fill();
-
-    // debug
-    {
-      MMWriterT::writeSparseFile("H.mm", *(H.val[OWNED]));
-      MMWriterT::writeDenseFile("EL.mm", *(EL.val[OWNED]));
-    }
-
     H.val[OWNED]->apply(*(EL.val[OWNED]), *(RHS.val[OWNED]));
-
-    // debug
-    {
-      MMWriterT::writeDenseFile("RHS.mm", *(RHS.val[OWNED]));
-    }
-
   }
   dRdUT.begin_fill();
   Y.zero();
@@ -477,6 +464,7 @@ static apf::Field* solve_2nd_adjoint(
   apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, true);
   dRdUT.end_fill();
   solve(lin_alg, FINE, disc, owned_sys);
+  (Y.val[OWNED])->scale(0.5);
   int const neqs = jacobian->num_eqs();
   apf::Mesh2* mesh = disc->apf_mesh();
   apf::FieldShape* shape = disc->shape(FINE);
@@ -634,94 +622,6 @@ double Physics::dot(apf::Field* a, apf::Field* b, std::string const& s) {
   fill_vector(FINE, m_disc, a, A);
   fill_vector(FINE, m_disc, b, B);
   return (A.val[OWNED])->dot(*(B.val[OWNED]));
-}
-
-void Physics::debug(apf::Field* uH_h, apf::Field* eh) {
-  print("I AM DEBUGGING!");
-  Vector U(FINE, m_disc);
-  Vector E(FINE, m_disc);
-  Matrix H(FINE, m_disc);
-  Vector dJdUT(FINE, m_disc);
-  Matrix mat_dummy(FINE, m_disc);
-  Vector vec_dummy(FINE, m_disc);
-  System gradient_sys(GHOST, mat_dummy, vec_dummy, dJdUT);
-  System hessian_sys(GHOST, H, vec_dummy, vec_dummy);
-  System owned_hessian_sys(GHOST, H, vec_dummy, vec_dummy);
-  fill_vector(FINE, m_disc, uH_h, U);
-  fill_vector(FINE, m_disc, eh, E);
-  assemble_qoi(FINE, m_disc, m_jacobian, m_qoi_deriv, U.val[GHOST], &gradient_sys);
-  dJdUT.gather(Tpetra::ADD);
-  H.begin_fill();
-  assemble_qoi(FINE, m_disc, m_hessian, m_qoi_hessian, U.val[GHOST], &hessian_sys);
-  H.gather(Tpetra::ADD);
-  ParameterList const dbcs = m_params->sublist("dbcs");
-  apply_jacob_dbcs(dbcs, FINE, m_disc, U.val[OWNED], owned_hessian_sys, true);
-  H.end_fill();
-
-  MMWriterT::writeDenseFile("debug_dJdUT.mm", *(dJdUT.val[OWNED]));
-
-
-  Vector P(FINE, m_disc);
-  (H.val[OWNED])->apply(*(E.val[OWNED]), *(P.val[OWNED]));
-
-  double const eta1 = (dJdUT.val[OWNED])->dot(*(E.val[OWNED]));
-  double const eta2 = (P.val[OWNED])->dot(*(E.val[OWNED]));
-
-  std::cout << "THIS IS THE DEBUG VALUE: \n";
-  std::cout << std::setprecision(17) << std::scientific;
-  std::cout << "eta1: " << eta1 << "\n";
-  std::cout << "eta2: " << eta2 << "\n";
-
-
-  { // here's some stuff
-    using Teuchos::arrayView;
-    Matrix HH(FINE, m_disc);
-    HH.begin_fill();
-    apf::FieldShape* shape = m_disc->shape(FINE);
-    apf::Mesh2* mesh = m_disc->apf_mesh();
-    int order = 6;
-    for (int es = 0; es < m_disc->num_elem_sets(); ++es) {
-      std::string es_name = m_disc->elem_set_name(es);
-      ElemSet const& elems = m_disc->elems(es_name);
-      for (size_t elem = 0; elem < elems.size(); ++elem) {
-        apf::MeshElement* me = apf::createMeshElement(mesh, elems[elem]);
-        int const npts = apf::countIntPoints(me, order);
-        apf::DynamicMatrix He;
-        apf::NewArray<double> N;
-        He.setSize(6, 6);
-        for (int i = 0; i < 6; ++i) {
-          for (int j = 0; j < 6; ++j) {
-            He(i,j) = 0.;
-          }
-        }
-        for (int pt = 0; pt < npts; ++pt) {
-          apf::Vector3 xi;
-          apf::getIntPoint(me, order, pt, xi);
-          double const w = apf::getIntWeight(me, order, pt);
-          double const dv = apf::getDV(me, xi);
-          apf::getBF(shape, me, xi, N);
-          for (int i = 0; i < 6; ++i) {
-            for (int j = 0; j < 6; ++j) {
-              He(i,j) += 2. * N[i] * N[j] * w * dv;
-            }
-          }
-        }
-        for (int i = 0; i < 6; ++i) {
-          LO const row = m_disc->get_lid(FINE, elems[elem], i, 0);
-          for (int j = 0; j < 6; ++j) {
-            LO const col = m_disc->get_lid(FINE, elems[elem], j, 0);
-            double const val = He(i,j);
-            HH.val[OWNED]->sumIntoLocalValues(row, arrayView(&col, 1), arrayView(&val, 1));
-          }
-        }
-        apf::destroyMeshElement(me);
-      }
-    }
-    HH.end_fill();
-    MMWriterT::writeSparseFile("debug_HH.mm", *(HH.val[OWNED]));
-  }
-
-
 }
 
 }

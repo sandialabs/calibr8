@@ -39,7 +39,6 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   double const eta2 = -(physics->dot(m_yh, m_Rh_uH, "evaluating eta2"));
 
   // debug
-  physics->debug(m_uH_h, m_eh);
   {
     std::cout << std::setprecision(17) << std::scientific;
     std::cout << "eta1: " << eta1 << "\n";
