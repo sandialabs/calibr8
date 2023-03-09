@@ -1,8 +1,8 @@
-#include "point_val.hpp"
 #include "qoi.hpp"
+#include "qoi1.hpp"
+#include "qoi2.hpp"
+#include "qoi3.hpp"
 #include "residual.hpp"
-#include "sol_avg.hpp"
-#include "sol_avg_sub.hpp"
 
 namespace calibr8 {
 
@@ -85,12 +85,12 @@ double QoI<T>::value() {
 template <typename T>
 RCP<QoI<T>> create_QoI(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
-  if (type == "solution average") {
-    return rcp(new SolAvg<T>(params));
-  } else if (type == "solution average subdomain") {
-    return rcp(new SolAvgSub<T>(params));
-  } else if (type == "point val" ) {
-    return rcp(new PointVal<T>(params));
+  if (type == "qoi1") {
+    return rcp(new QoI1<T>(params));
+  } else if (type == "qoi2") {
+    return rcp(new QoI2<T>(params));
+  } else if (type == "qoi3") {
+    return rcp(new QoI3<T>(params));
   } else {
     throw std::runtime_error("invalid qoi");
   }
