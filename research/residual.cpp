@@ -54,6 +54,7 @@ int get_index(int node, int eq, int neqs) {
 
 template <> double val<double>(double const& in) { return in; }
 template <> double val<FADT>(FADT const& in) { return in.val(); }
+template <> double val<FAD2T>(FAD2T const& in) { return in.val().val(); }
 
 template <typename T>
 void Residual<T>::in_elem(apf::MeshElement* me, RCP<Disc> disc) {
@@ -88,6 +89,24 @@ void Residual<FADT>::gather(RCP<Disc> disc, RCP<VectorT> u) {
       LO const row = disc->get_lid(m_space, ent, node, eq);
       m_vals[node][eq].diff(idx, m_ndofs);
       m_vals[node][eq].val() = u_data[row];
+      m_resid[node][eq] = 0.;
+    }
+  }
+}
+
+template <>
+void Residual<FAD2T>::gather(RCP<Disc> disc, RCP<VectorT> u) {
+  apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
+  auto u_data = u->get1dView();
+  for (int node = 0; node < m_nnodes; ++node) {
+    for (int eq = 0; eq < m_neqs; ++eq) {
+      int const idx = get_index(node, eq, m_neqs);
+      LO const row = disc->get_lid(m_space, ent, node, eq);
+      FADT first;
+      first.val() = u_data[row];
+      first.diff(idx, m_ndofs);
+      m_vals[node][eq].val() = first;
+      m_vals[node][eq].diff(idx, m_ndofs);
       m_resid[node][eq] = 0.;
     }
   }
@@ -207,6 +226,10 @@ void Residual<FADT>::scatter(RCP<Disc> disc, System const& sys) {
   }
 }
 
+template <>
+void Residual<FAD2T>::scatter(RCP<Disc>, System const&) {
+}
+
 template <typename T>
 RCP<Residual<T>> create_residual(ParameterList const& params, int ndims) {
   std::string const type = params.get<std::string>("type");
@@ -219,8 +242,10 @@ RCP<Residual<T>> create_residual(ParameterList const& params, int ndims) {
 
 template class Residual<double>;
 template class Residual<FADT>;
+template class Residual<FAD2T>;
 
 template RCP<Residual<double>> create_residual(ParameterList const& params, int ndims);
 template RCP<Residual<FADT>> create_residual(ParameterList const& params, int ndims);
+template RCP<Residual<FAD2T>> create_residual(ParameterList const& params, int ndims);
 
 }

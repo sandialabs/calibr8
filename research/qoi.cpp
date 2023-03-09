@@ -40,6 +40,15 @@ template <> void strip_derivs(FADT& val) {
   }
 }
 
+template <> void strip_derivs(FAD2T& val) {
+  for (int i = 0; i < nmax_derivs; ++i) {
+    val.fastAccessDx(i).val() = 0.;
+    for (int j = 0; j < nmax_derivs; ++j) {
+      val.fastAccessDx(i).fastAccessDx(j) = 0.;
+    }
+  }
+}
+
 template <typename T>
 void QoI<T>::in_elem(
     apf::MeshElement* me,
@@ -77,6 +86,13 @@ void QoI<FADT>::scatter(RCP<Disc> disc, System* sys) {
   }
 }
 
+template <>
+void QoI<FAD2T>::scatter(RCP<Disc> disc, System* sys) {
+  (void)disc;
+  (void)sys;
+  throw std::runtime_error("whoops, not yet implemented");
+}
+
 template <typename T>
 double QoI<T>::value() {
   return val(m_value);
@@ -98,8 +114,10 @@ RCP<QoI<T>> create_QoI(ParameterList const& params) {
 
 template class QoI<double>;
 template class QoI<FADT>;
+template class QoI<FAD2T>;
 
 template RCP<QoI<double>> create_QoI(ParameterList const&);
 template RCP<QoI<FADT>> create_QoI(ParameterList const&);
+template RCP<QoI<FAD2T>> create_QoI(ParameterList const&);
 
 }

@@ -416,84 +416,46 @@ static apf::Field* solve_linearized_error(
   dRdU.end_fill();
   R.val[OWNED]->scale(-1.0);
   solve(lin_alg, FINE, disc, owned_sys);
-  std::string const name = "linearized_error";
   int const neqs = jacobian->num_eqs();
   apf::FieldShape* shape = disc->shape(FINE);
-  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
+  apf::Field* f = apf::createPackedField(mesh, "linearized_error", neqs, shape);
   apf::zeroField(f);
   fill_field(FINE, disc, E.val[OWNED], f);
   return f;
 }
 
-static apf::Field* evaluate_residual(
-    int space,
+static apf::Field* solve_2nd_adjoint(
     RCP<ParameterList> params,
     RCP<Disc> disc,
-    RCP<Residual<double>> residual,
-    apf::Field* u_space) {
-  apf::Mesh2* mesh = disc->apf_mesh();
-  disc->change_shape(space);
-  ParameterList const dbcs = params->sublist("dbcs");
-  Vector U(space, disc);
-  Vector R(space, disc);
-  System ghost_sys; ghost_sys.b = R.val[GHOST];
-  System owned_sys; owned_sys.b = R.val[OWNED];
-  fill_vector(space, disc, u_space, U);
-  R.zero();
-  RCP<Weight> W = rcp(new Weight(disc->shape(space)));
-  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
-  R.gather(Tpetra::ADD);
-  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
-  std::string const name = "R" + disc->space_name(space);
-  int const neqs = residual->num_eqs();
-  apf::FieldShape* shape = disc->shape(space);
-  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
-  apf::zeroField(f);
-  fill_field(space, disc, R.val[OWNED], f);
-  return f;
-}
-
-static apf::Field* compute_residual_linearization_error(
-    RCP<ParameterList> params,
-    RCP<Disc> disc,
-    RCP<Residual<double>> resid,
     RCP<Residual<FADT>> jacobian,
-    apf::Field* uH_h,
-    apf::Field* uh_minus_uH_h,
-    std::string const& str) {
-  apf::Mesh2* mesh = disc->apf_mesh();
+    RCP<Residual<FAD2T>> hessian,
+    RCP<QoI<FAD2T>> qoi_hessian,
+    apf::Field* u,
+    apf::Field* e) {
+  (void)params;
+  (void)jacobian;
+  (void)u;
+  (void)e;
+
   disc->change_shape(FINE);
+  Matrix H(FINE, disc);
   Vector U(FINE, disc);
-  Vector R(FINE, disc);
-  Vector E(FINE, disc);
-  Vector U_diff(FINE, disc);
-  Matrix dRdU(FINE, disc);
-  System ghost_sys(GHOST, dRdU, R, R);
-  System owned_sys(OWNED, dRdU, R, R);
-  ParameterList const dbcs = params->sublist("dbcs");
-  dRdU.begin_fill();
-  R.zero();
-  dRdU.zero();
-  fill_vector(FINE, disc, uH_h, U);
-  fill_vector(FINE, disc, uh_minus_uH_h, U_diff);
-  RCP<Weight> W = rcp(new Weight(disc->shape(FINE)));
-  assemble_residual(FINE, JACOBIAN, disc, jacobian, U.val[GHOST], W, ghost_sys);
-  R.gather(Tpetra::ADD);
-  dRdU.gather(Tpetra::ADD);
-  apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, false);
-  dRdU.end_fill();
-  dRdU.val[OWNED]->apply(*(U_diff.val[OWNED]), *(E.val[OWNED]));
-  E.val[OWNED]->update(-1.0, *(R.val[OWNED]), -1.0);
-  double const norm_R = R.val[OWNED]->norm2();
-  double const norm_E = E.val[OWNED]->norm2();
-  print(" > ||R|| = %.15e", norm_R);
-  print(" > ||E_L|| = %.15e", norm_E);
+  fill_vector(FINE, disc, u, U);
+  {
+    Vector dummy(FINE, disc);
+    System ghost(GHOST, H, dummy, dummy);
+    H.begin_fill();
+    assemble_qoi(FINE, disc, hessian, qoi_hessian, U.val[GHOST], &ghost);
+    H.gather(Tpetra::ADD);
+    H.end_fill();
+  }
+
+
   int const neqs = jacobian->num_eqs();
+  apf::Mesh2* mesh = disc->apf_mesh();
   apf::FieldShape* shape = disc->shape(FINE);
-  std::string const name = "ER_L" + str;
-  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
+  apf::Field* f = apf::createPackedField(mesh, "yh", neqs, shape);
   apf::zeroField(f);
-  fill_field(FINE, disc, E.val[OWNED], f);
   return f;
 }
 
@@ -505,8 +467,10 @@ Physics::Physics(RCP<ParameterList> params) {
   m_disc = rcp(new Disc(disc_params));
   m_residual = create_residual<double>(resid_params, m_disc->num_dims());
   m_jacobian = create_residual<FADT>(resid_params, m_disc->num_dims());
+  m_hessian = create_residual<FAD2T>(resid_params, m_disc->num_dims());
   m_qoi = create_QoI<double>(qoi_params);
   m_qoi_deriv = create_QoI<FADT>(qoi_params);
+  m_qoi_hessian = create_QoI<FAD2T>(qoi_params);
 }
 
 void Physics::build_disc() {
@@ -545,6 +509,12 @@ double Physics::compute_qoi(int space, apf::Field* u) {
     u);
 }
 
+apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* uH) {
+  print("prolonging uH onto h");
+  ASSERT(apf::getShape(uH) == m_disc->shape(COARSE));
+  return calibr8::project(m_disc, uH, "uH_h");
+}
+
 apf::Field* Physics::solve_adjoint(int space, apf::Field* u) {
   print("adjoint %s", m_disc->space_name(space).c_str());
   ASSERT(apf::getShape(u) == m_disc->shape(space));
@@ -567,250 +537,18 @@ apf::Field* Physics::solve_linearized_error(apf::Field* u) {
       u);
 }
 
-apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* uH) {
-  print("prolonging uH onto h");
-  ASSERT(apf::getShape(uH) == m_disc->shape(COARSE));
-  return calibr8::project(m_disc, uH, "uH_h");
-}
-
-apf::Field* Physics::prolong_z_coarse_onto_fine(apf::Field* zH) {
-  print("prolonging zH onto h");
-  ASSERT(apf::getShape(zH) == m_disc->shape(COARSE));
-  return calibr8::project(m_disc, zH, "zH_h");
-}
-
-apf::Field* Physics::restrict_u_fine_onto_fine(apf::Field* uh) {
-  print("restricting uh onto H, represented on h");
-  ASSERT(apf::getShape(uh) == m_disc->shape(FINE));
-  apf::Field* tmp = calibr8::project(m_disc, uh, "tmp");
-  apf::Field* uh_H = calibr8::project(m_disc, tmp, "uh_H");
-  apf::destroyField(tmp);
-  return uh_H;
-}
-
-apf::Field* Physics::restrict_z_fine_onto_fine(apf::Field* zh) {
-  print("restricting zh onto H, represented on h");
-  ASSERT(apf::getShape(zh) == m_disc->shape(FINE));
-  apf::Field* tmp = calibr8::project(m_disc, zh, "tmp");
-  apf::Field* zh_H = calibr8::project(m_disc, tmp, "zh_H");
-  apf::destroyField(tmp);
-  return zh_H;
-}
-
-apf::Field* Physics::subtract_u_coarse_from_u_fine(apf::Field* uh, apf::Field* uH) {
-  print("subtracting uH_h from uh");
-  ASSERT(apf::getShape(uh) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(uH) == m_disc->shape(FINE));
-  return op(subtract, m_disc, uh, uH, "uh_minus_uH_h");
-}
-
-apf::Field* Physics::subtract_u_coarse_from_u_spr(apf::Field* uh_spr, apf::Field* uH) {
-  print("subtracting uH_h from uh_spr");
-  ASSERT(apf::getShape(uh_spr) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(uH) == m_disc->shape(FINE));
-  return op(subtract, m_disc, uh_spr, uH, "uh_spr_minus_uH_h");
-}
-
-apf::Field* Physics::subtract_z_coarse_from_z_fine(apf::Field* zh, apf::Field* zH) {
-  print("subtracting zH_h from zh");
-  ASSERT(apf::getShape(zh) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(zH) == m_disc->shape(FINE));
-  return op(subtract, m_disc, zh, zH, "zh_minus_zH_h");
-}
-
-apf::Field* Physics::subtract_z_coarse_from_z_spr(apf::Field* zh_spr, apf::Field* zH) {
-  print("subtracting zH_h from zh_spr");
-  ASSERT(apf::getShape(zh_spr) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(zH) == m_disc->shape(FINE));
-  return op(subtract, m_disc, zh_spr, zH, "zh_spr_minus_zH_h");
-}
-
-apf::Field* Physics::recover_u_fine_from_u_coarse(apf::Field* uH) {
-  print("performing spr recovery on uH");
-  ASSERT(apf::getShape(uH) == m_disc->shape(COARSE));
-  std::string const name = std::string(apf::getName(uH)) + "_ip";
-  apf::Field* uH_ips = interpolate_to_ips(uH, name);
-  m_disc->change_shape(FINE);
-  apf::Field* uh_spr = spr_recovery(uH_ips);
-  apf::renameField(uh_spr, "uh_spr");
-  apf::destroyField(uH_ips);
-  return uh_spr;
-}
-
-apf::Field* Physics::recover_z_fine_from_z_coarse(apf::Field* zH) {
-  print("performing spr recovery on zH");
-  ASSERT(apf::getShape(zH) == m_disc->shape(COARSE));
-  std::string const name = std::string(apf::getName(zH)) + "_ip";
-  apf::Field* zH_ips = interpolate_to_ips(zH, name);
-  m_disc->change_shape(FINE);
-  apf::Field* zh_spr = spr_recovery(zH_ips);
-  apf::renameField(zh_spr, "zh_spr");
-  apf::destroyField(zH_ips);
-  return zh_spr;
-}
-
-
-
-#if 0
-apf::Field* Physics::evaluate_fine_residual_at_coarse_u(apf::Field* uH_h) {
-  print("evaluating the residual Rh_uH_h");
-  apf::Field* r = calibr8::evaluate_residual(
-      FINE,
+apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* e) {
+  print("2nd order adjoint");
+  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(e) == m_disc->shape(FINE));
+  return calibr8::solve_2nd_adjoint(
       m_params,
       m_disc,
-      m_residual,
-      uH_h);
-  apf::renameField(r, "Rh_uH_h");
-  return r;
-}
-
-double Physics::dot(
-    apf::Field* z,
-    apf::Field* v,
-    std::string const& str1,
-    std::string const& str2) {
-  print("evaluating %s = %s", str1.c_str(), str2.c_str());
-  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(v) == m_disc->shape(FINE));
-  Vector z_vec(FINE, m_disc);
-  Vector v_vec(FINE, m_disc);
-  z_vec.zero();
-  v_vec.zero();
-  fill_vector(FINE, m_disc, z, z_vec);
-  fill_vector(FINE, m_disc, v, v_vec);
-  double const eta = -(z_vec.val[OWNED])->dot(*(v_vec.val[OWNED]));
-  print(" > %s = %.15e", str1.c_str(), eta);
-  return eta;
-}
-
-apf::Field* Physics::compute_residual_linearization_error(
-    apf::Field* uH_h,
-    apf::Field* uh_minus_uH_h,
-    std::string const& str) {
-  print("computing residual linearization error: %s", str.c_str());
-  ASSERT(apf::getShape(uH_h) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(uh_minus_uH_h) == m_disc->shape(FINE));
-  return calibr8::compute_residual_linearization_error(
-    m_params,
-    m_disc,
-    m_residual,
-    m_jacobian,
-    uH_h,
-    uh_minus_uH_h,
-    str);
-}
-
-apf::Field* Physics::add_R_fine_to_EL_fine(apf::Field* Rh, apf::Field* ELh) {
-  print("adding ELh to Rh");
-  ASSERT(apf::getShape(Rh) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(ELh) == m_disc->shape(FINE));
-  return op(add, m_disc, Rh, ELh, "Rh_plus_ELh");
-}
-
-apf::Field* Physics::evaluate_residual(int space, apf::Field* u) {
-  print("evaluating residual");
-  return calibr8::evaluate_residual(
-      space,
-      m_params,
-      m_disc,
-      m_residual,
-      u);
-}
-
-apf::Field* Physics::evaluate_PU_residual(int space, apf::Field* u, apf::Field* z) {
-  return calibr8::evaluate_PU_residual(
-      space,
-      m_params,
-      m_disc,
-      m_residual,
+      m_jacobian,
+      m_hessian,
+      m_qoi_hessian,
       u,
-      z);
+      e);
 }
-
-apf::Field* Physics::compute_eta2(apf::Field* u, apf::Field* z) {
-  print("localizing error using partition of unity approach");
-  return m_residual->assemble(u, z);
-}
-
-apf::Field* Physics::localize_error(apf::Field* R, apf::Field* z, int post) {
-  print("localizing error using simple approach");
-  ASSERT(apf::getShape(R) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  std::string name = "eta";
-  if (post > 0) name += std::to_string(post);
-  return op(negate_multiply, m_disc, R, z, name);
-}
-
-apf::Field* Physics::localize_linearization_error(apf::Field* eta1, apf::Field* eta2) {
-  print("localizing error w/ linearization using simple approach");
-  ASSERT(apf::getShape(eta1) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(eta2) == m_disc->shape(FINE));
-  return op(add, m_disc, eta1, eta2, "eta");
-}
-
-
-
-double Physics::estimate_error(apf::Field* eta) {
-  print("estimating error");
-  double const estimate = op(sum_into, sum_into, m_disc, eta);
-  print(" > eta = %.15e", estimate);
-  return estimate;
-}
-
-double Physics::estimate_error2(apf::Field* R, apf::Field* Z) {
-  print("estimating error 2nd way");
-  ASSERT(apf::getShape(R) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(Z) == m_disc->shape(FINE));
-  Vector R_vec(FINE, m_disc);
-  Vector Z_vec(FINE, m_disc);
-  R_vec.zero();
-  Z_vec.zero();
-  fill_vector(FINE, m_disc, R, R_vec);
-  fill_vector(FINE, m_disc, Z, Z_vec);
-  double const eta = -(Z_vec.val[OWNED])->dot(*R_vec.val[OWNED]);
-  print(" > eta = %.15e", eta);
-  return eta;
-}
-
-double Physics::estimate_error_bound(apf::Field* eta) {
-  print("estimating error bound");
-  double const estimate = op(sum_into, abs_sum_into, m_disc, eta);
-  print(" > |eta| < %.15e", estimate);
-  return estimate;
-}
-
-static apf::Field* evaluate_PU_residual(
-    int space,
-    RCP<ParameterList> params,
-    RCP<Disc> disc,
-    RCP<Residual<double>> residual,
-    apf::Field* u_space,
-    apf::Field* z_space) {
-  apf::Mesh2* mesh = disc->apf_mesh();
-  disc->change_shape(space);
-  ParameterList const dbcs = params->sublist("dbcs");
-  Vector U(space, disc);
-  Vector R(space, disc);
-  System ghost_sys; ghost_sys.b = R.val[GHOST];
-  System owned_sys; owned_sys.b = R.val[OWNED];
-  fill_vector(FINE, disc, u_space, U);
-  R.zero();
-  RCP<Weight> W = rcp(new AdjointWeight(disc->shape(space), z_space));
-  assemble_residual(FINE, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
-  R.gather(Tpetra::ADD);
-  apply_resid_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys);
-  std::string const name = "eta";
-  int const neqs = residual->num_eqs();
-  apf::FieldShape* shape = disc->shape(space);
-  apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
-  apf::zeroField(f);
-  fill_field(space, disc, R.val[OWNED], f);
-  return f;
-}
-
-
-
-
-#endif
 
 }
