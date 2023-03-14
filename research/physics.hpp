@@ -19,8 +19,8 @@ class Physics {
   public:
     apf::Field* solve_primal(int space);
     apf::Field* solve_adjoint(int space, apf::Field* u);
-    apf::Field* solve_linearized_error(apf::Field* u);
-    apf::Field* solve_2nd_adjoint(apf::Field* u, apf::Field* e);
+    apf::Field* solve_linearized_error(apf::Field* u, std::string const& n);
+    apf::Field* solve_2nd_adjoint(apf::Field* u, apf::Field* e, std::string const& n);
     apf::Field* evaluate_residual(int space, apf::Field* u);
     apf::Field* subtract(apf::Field* f, apf::Field* g, std::string const& n);
     apf::Field* prolong(apf::Field* f, std::string const& n);

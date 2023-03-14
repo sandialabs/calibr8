@@ -150,19 +150,22 @@ double op(
 }
 
 void zero_boundary_nodes(
+    ParameterList const& dbcs,
     RCP<Disc> disc,
     apf::Field* f) {
   double const vals[3] = {0.,0.,0.};
   int space = disc->get_space(apf::getShape(f));
-  for (int set = 0; set < disc->num_node_sets(); ++set) {
-    std::string const name = disc->node_set_name(set);
-    NodeSet const& nodes = disc->nodes(space, name);
+  for (auto it = dbcs.begin(); it != dbcs.end(); ++it) {
+    auto const entry = dbcs.entry(it);
+    auto const a = Teuchos::getValue<Teuchos::Array<std::string>>(entry);
+    auto const set = a[1];
+    NodeSet const& nodes = disc->nodes(space, set);
     for (apf::Node const& node : nodes) {
       apf::setComponents(f, node.entity, node.node, &(vals[0]));
     }
   }
 }
-
+ 
 template <typename T>
 void assemble_residual(
     int space,
@@ -406,7 +409,8 @@ static apf::Field* solve_linearized_error(
     RCP<ParameterList> params,
     RCP<Disc> disc,
     RCP<Residual<FADT>> jacobian,
-    apf::Field* u) {
+    apf::Field* u,
+    std::string const& n) {
   apf::Mesh2* mesh = disc->apf_mesh();
   disc->change_shape(FINE);
   Vector U(FINE, disc);
@@ -431,7 +435,7 @@ static apf::Field* solve_linearized_error(
   solve(lin_alg, FINE, disc, owned_sys);
   int const neqs = jacobian->num_eqs();
   apf::FieldShape* shape = disc->shape(FINE);
-  apf::Field* f = apf::createPackedField(mesh, "e_linearized", neqs, shape);
+  apf::Field* f = apf::createPackedField(mesh, n.c_str(), neqs, shape);
   apf::zeroField(f);
   fill_field(FINE, disc, EL.val[OWNED], f);
   return f;
@@ -443,6 +447,7 @@ static apf::Field* solve_2nd_adjoint(
     RCP<Residual<FADT>> jacobian,
     RCP<Residual<FAD2T>> hessian,
     RCP<QoI<FAD2T>> qoi_hessian,
+    std::string const& n,
     apf::Field* u,
     apf::Field* el) {
   disc->change_shape(FINE);
@@ -480,7 +485,7 @@ static apf::Field* solve_2nd_adjoint(
   int const neqs = jacobian->num_eqs();
   apf::Mesh2* mesh = disc->apf_mesh();
   apf::FieldShape* shape = disc->shape(FINE);
-  apf::Field* f = apf::createPackedField(mesh, "yh", neqs, shape);
+  apf::Field* f = apf::createPackedField(mesh, n.c_str(), neqs, shape);
   apf::zeroField(f);
   fill_field(FINE, disc, Y.val[OWNED], f);
   return f;
@@ -562,16 +567,17 @@ apf::Field* Physics::solve_adjoint(int space, apf::Field* u) {
       u);
 }
 
-apf::Field* Physics::solve_linearized_error(apf::Field* u) {
+apf::Field* Physics::solve_linearized_error(apf::Field* u, std::string const& n) {
   ASSERT(apf::getShape(u) == m_disc->shape(FINE));
   return calibr8::solve_linearized_error(
       m_params,
       m_disc,
       m_jacobian,
-      u);
+      u,
+      n);
 }
 
-apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* e) {
+apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* e, std::string const& n) {
   ASSERT(apf::getShape(u) == m_disc->shape(FINE));
   ASSERT(apf::getShape(e) == m_disc->shape(FINE));
   return calibr8::solve_2nd_adjoint(
@@ -580,6 +586,7 @@ apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* e) {
       m_jacobian,
       m_hessian,
       m_qoi_hessian,
+      n,
       u,
       e);
 }
@@ -615,7 +622,8 @@ apf::Field* Physics::recover(apf::Field* f, std::string const& n) {
   apf::Field* f_ips = interpolate_to_ips(f, name);
   m_disc->change_shape(FINE);
   apf::Field* f_spr = spr_recovery(f_ips);
-  zero_boundary_nodes(m_disc, f_spr);
+  ParameterList const dbcs = m_params->sublist("dbcs");
+  zero_boundary_nodes(dbcs, m_disc, f_spr);
   apf::renameField(f_spr, n.c_str());
   apf::destroyField(f_ips);
   return f_spr;

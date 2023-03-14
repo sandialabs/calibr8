@@ -11,31 +11,32 @@ class Adjoint : public Error {
     void destroy_intermediate_fields() override;
     void write_history(std::string const& file, double J_ex) override;
   private:
-    apf::Field* m_u_coarse = nullptr;     // the primal solution solved on the coarse space
-    apf::Field* m_u_fine = nullptr;       // the primal solution solved on the fine space
-    apf::Field* m_u_prolonged = nullptr;  // the coarse primal solution prolonged to the fine space
-    apf::Field* m_u_restricted = nullptr; // the fine primal solution restricted to the coarse space
-    apf::Field* m_u_recovered = nullptr;  // the SPR primal solution on the fine space
+    apf::Field* m_u_coarse = nullptr;           // the primal solution solved on the coarse space
+    apf::Field* m_u_fine = nullptr;             // the primal solution solved on the fine space
+    apf::Field* m_u_prolonged = nullptr;        // the coarse primal solution prolonged to the fine space
+    apf::Field* m_u_restricted = nullptr;       // the fine primal solution restricted to the coarse space
+    apf::Field* m_u_recovered = nullptr;        // the SPR primal solution on the fine space
   private:
-    apf::Field* m_e_exact = nullptr;        // the exact discretization error
-    apf::Field* m_e_linearized = nullptr;   // the linearized discretization error
-    apf::Field* m_e_recovered = nullptr;    // the discretization error approximated using SPR
-
-
-
-//  private:
-//    apf::Field* m_error_exact = nullptr;        // the exact discretization error
-//    apf::Field* m_error_linearized = nullptr;   // the linearized discretization error
-//    apf::Field* m_z_coarse = nullptr;     // the adjoint solution on the coarse space
-//    apf::Field* m_z_fine = nullptr;       // the adjoint solution on the fine space
-//
-//
-//
-//    apf::Field* m_uH_h = nullptr;   // the prolongation of uH onto the fine space
-//    apf::Field* m_elh = nullptr;    // the linearized discretization error solution
-//    apf::Field* m_zh = nullptr;     // the adjoint solution solved on the fine space
-//    apf::Field* m_yh = nullptr;     // the 2nd order adjoint solved on the fine space
-//    apf::Field* m_Rh_uH = nullptr;  // the fine space residual evaluated at the prolonged solution
+    apf::Field* m_ue_exact = nullptr;           // the exact primal discretization error
+    apf::Field* m_ue_linearized = nullptr;      // the linearized primal discretization error
+    apf::Field* m_ue_recovered = nullptr;       // the primal discretization error approximated using SPR
+  private:
+    apf::Field* m_z_coarse = nullptr;           // the adjoint solution solved on the coarse space
+    apf::Field* m_z_fine = nullptr;             // the adjoint solution solved on the fine space
+    apf::Field* m_z_prolonged = nullptr;        // the coarse adjoint solution prolonged to the fine space
+    apf::Field* m_z_restricted = nullptr;       // the fine adjoint solution restricted to the coarse space
+    apf::Field* m_z_restricted_fine = nullptr;  // the restricted adjoint prolonged onto the fine space
+    apf::Field* m_z_recovered = nullptr;        // the SPR adjoint solution on the fine space
+  private:
+    apf::Field* m_ze_exact = nullptr;           // the exact adjoint discretization error
+    apf::Field* m_ze_restricted = nullptr;      // the adjoint discretization error using the restricted adjoint
+    apf::Field* m_ze_recovered = nullptr;       // the adjoint discretization error approximated using SPR
+  private:
+    apf::Field* m_y_linearized = nullptr;       // the 2nd order adjoint solution using the linearized error
+    apf::Field* m_y_recovered = nullptr;        // the 2nd order adjoint solution using the recovered error
+  private:
+    apf::Field* m_ERL_exact = nullptr;          // the exact residual linearization error
+    apf::Field* m_ERL_recovered = nullptr;      // the residual linearization error computed using SPR recovery
   private:
     std::vector<int> m_nelems;
     std::vector<int> m_H_dofs;

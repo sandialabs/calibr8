@@ -20,73 +20,99 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   m_h_dofs.push_back(get_ndofs(FINE, physics));
 
   // ---
-  // PRIMAL PROBLEM DATA
+  // PRIMAL PROBLEM
   // ---
 
-  // solve the primal problem on the coarse space
   print("solving coarse primal problem");
   m_u_coarse = physics->solve_primal(COARSE);
-
-  // solve the primal problem on the fine space
   print("solving fine primal problem");
   m_u_fine = physics->solve_primal(FINE);
-
-  // prolong the coarse primal solution onto the fine space
   print("prolonging the coarse primal solution onto the fine space");
   m_u_prolonged = physics->prolong(m_u_coarse, "u_prolonged");
-
-  // restrict the fine primal solution onto the coarse space
   print("restricting the fine primal solution onto the coarse space");
   m_u_restricted = physics->restrict(m_u_fine, "u_restricted");
-
-  // recover the fine primal solution using SPR
   print("applying SPR to the coarse primal solution");
   m_u_recovered = physics->recover(m_u_coarse, "u_recovered");
 
   // ---
-  // DISCRETIZATION ERROR DATA
+  // QUANTITIES OF INTEREST
   // ---
 
-  // compute the exact discretization error
-  print("computing the exact discretization error");
-  m_e_exact = physics->subtract(m_u_fine, m_u_prolonged, "e_exact");
+  print("computing the QoI on the coarse space");
+  double const J_coarse = physics->compute_qoi(COARSE, m_u_coarse);
+  print("computing the QoI on the fine space");
+  double const J_fine = physics->compute_qoi(FINE, m_u_fine);
+  double const Jeh = J_fine - J_coarse;
 
-  // compute the linearized discretization error
-  print("computing the linearized discretization error");
-  m_e_linearized = physics->solve_linearized_error(m_u_prolonged);
+  // ---
+  // PRIMAL DISCRETIZATION ERROR
+  // ---
 
-  // compute the recovered discretization error
-  print("computing the recovered discretization error");
-  m_e_recovered = physics->subtract(m_u_recovered, m_u_prolonged, "e_recovered");
+  print("computing the exact primal discretization error");
+  m_ue_exact = physics->subtract(m_u_fine, m_u_prolonged, "ue_exact");
+  print("computing the linearized primal discretization error");
+  m_ue_linearized = physics->solve_linearized_error(m_u_prolonged, "ue_linearized");
+  print("computing the recovered primal discretization error");
+  m_ue_recovered = physics->subtract(m_u_recovered, m_u_prolonged, "ue_recovered");
+
+  // ---
+  // LINEAR ADJOINT PROBLEM
+  // ---
+
+  print("solving coarse adjoint problem");
+  m_z_coarse = physics->solve_adjoint(COARSE, m_u_coarse);
+  print("solving fine adjoint problem");
+  m_z_fine = physics->solve_adjoint(FINE, m_u_prolonged);
+  print("prolonging the coarse adjoint solution onto the fine space");
+  m_z_prolonged = physics->prolong(m_z_coarse, "z_prolonged");
+  print("restricting the fine adjoint solution onto the coarse space");
+  m_z_restricted = physics->restrict(m_z_fine, "z_restricted");
+  print("prolonging the restricted adjoint solution onto the fine space");
+  m_z_restricted_fine = physics->prolong(m_z_restricted, "z_restricted_fine");
+  print("applying SPR to the coarse adjoint solution");
+  m_z_recovered = physics->recover(m_z_coarse, "z_recovered");
+
+  // ---
+  // ADJOINT DISCRETIZATION ERROR
+  // ---
+
+  print("computing the exact adjoint discretization error");
+  m_ze_exact = physics->subtract(m_z_fine, m_z_prolonged, "ze_exact");
+  print("computing the restricted adjoint discretization error");
+  m_ze_restricted = physics->subtract(m_z_fine, m_z_restricted_fine, "ze_restricted");
+  print("computing the recovered adjoint discretization error");
+  m_ze_recovered = physics->subtract(m_z_recovered, m_z_prolonged, "ze_recovered");
+
+  // ---
+  // 2nd ORDER ADJOINT PROBLEM
+  // ---
+
+  print("solving 2nd order adjoint with linearized discretization error");
+  m_y_linearized = physics->solve_2nd_adjoint(m_u_prolonged, m_ue_linearized, "y_linearized");
+  print("solving 2nd order adjoint with recovered discretization error");
+  m_y_recovered = physics->solve_2nd_adjoint(m_u_prolonged, m_ue_recovered, "y_recovered");
+
+  // ---
+  // RESIDUAL LINEARIZATION ERROR
+  // ---
+
+  print("computing the exact residual linearization error");
+  print("computing the recovered residual linearization error");
+
+
+
+
+  // ---
+  // ITERATION SUMMARY
+  // ---
+
+  print("summary for this adaptive iteration");
+  print("> JH = %.15e", J_coarse);
+  print("> Jh = %.15e", J_fine);
+  print("> Jeh = %.15e", Jeh);
 
 
 #if 0
-  // solve the primal problem on the coarse space
-  print("solving primal H");
-  m_uH = physics->solve_primal(COARSE);
-  print("computing qoi H");
-  double const JH = physics->compute_qoi(COARSE, m_uH);
-  print(" > JH = %.15e", JH);
-
-  // solve the primal problem on the fine space
-  print("solving primal h");
-  m_uh = physics->solve_primal(FINE);
-  print("computing qoi h");
-  double const Jh = physics->compute_qoi(FINE, m_uh);
-  print(" > Jh = %.15e", Jh);
-
-  // prolong the coarse primal solution onto the fine space
-  print("prolonging uH onto h");
-  m_uH_h = physics->prolong_u_coarse_onto_fine(m_uH);
-
-  // solve auxiliary problems on the fine space
-  print("solving linearized error h");
-  m_elh = physics->solve_linearized_error(m_uH_h);
-  print("solving adjoint h");
-  m_zh = physics->solve_adjoint(FINE, m_uH_h);
-  print("solving 2nd adjoint h");
-  m_yh = physics->solve_2nd_adjoint(m_uH_h, m_elh);
-
   // compute the residual error contributions
   print("evaluating eta1");
   m_Rh_uH = physics->evaluate_residual(m_uH_h);
@@ -115,9 +141,22 @@ void Adjoint::destroy_intermediate_fields() {
   apf::destroyField(m_u_prolonged); m_u_prolonged = nullptr;
   apf::destroyField(m_u_restricted); m_u_restricted = nullptr;
   apf::destroyField(m_u_recovered); m_u_recovered = nullptr;
-  apf::destroyField(m_e_exact); m_e_exact = nullptr;
-  apf::destroyField(m_e_linearized); m_e_linearized = nullptr;
-  apf::destroyField(m_e_recovered); m_e_recovered = nullptr;
+  apf::destroyField(m_ue_exact); m_ue_exact = nullptr;
+  apf::destroyField(m_ue_linearized); m_ue_linearized = nullptr;
+  apf::destroyField(m_ue_recovered); m_ue_recovered = nullptr;
+  apf::destroyField(m_z_coarse); m_z_coarse = nullptr;
+  apf::destroyField(m_z_fine); m_z_fine = nullptr;
+  apf::destroyField(m_z_prolonged); m_z_prolonged = nullptr;
+  apf::destroyField(m_z_restricted); m_z_restricted = nullptr;
+  apf::destroyField(m_z_restricted_fine); m_z_restricted_fine = nullptr;
+  apf::destroyField(m_z_recovered); m_z_recovered = nullptr;
+  apf::destroyField(m_ze_exact); m_ze_exact = nullptr;
+  apf::destroyField(m_ze_restricted); m_ze_restricted = nullptr;
+  apf::destroyField(m_ze_recovered); m_ze_recovered = nullptr;
+  apf::destroyField(m_y_linearized); m_y_linearized = nullptr;
+  apf::destroyField(m_y_recovered); m_y_recovered = nullptr;
+  apf::destroyField(m_ERL_exact); m_ERL_exact = nullptr;
+  apf::destroyField(m_ERL_recovered); m_ERL_recovered = nullptr;
 }
 
 }
