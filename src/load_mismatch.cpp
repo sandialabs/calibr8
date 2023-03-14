@@ -144,8 +144,7 @@ T LoadMismatch<T>::compute_load(
     apf::Vector3 N(0., 0., 0.);
 
     if (ndims == 3) {
-      apf::Vector3 N = ree::computeFaceOutwardNormal(mesh, elem_entity, face,
-          iota_face);
+      N = ree::computeFaceOutwardNormal(mesh, elem_entity, face, iota_face);
     } else if (ndims == 2) {
       N[0] = m_normal_2D[0];
       N[1] = m_normal_2D[1];
