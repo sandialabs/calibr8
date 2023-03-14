@@ -8,7 +8,7 @@
 namespace calibr8 {
 
 template <typename T>
-class QoI3 : public QoI<T> {
+class QoI_Point : public QoI<T> {
 
   private:
 
@@ -17,12 +17,12 @@ class QoI3 : public QoI<T> {
 
   public:
 
-    QoI3(ParameterList const& params) : QoI<T>() {
+    QoI_Point(ParameterList const& params) : QoI<T>() {
       m_eq = params.get<int>("eq");
       m_node = params.get<std::string>("node");
     }
 
-    ~QoI3() override {
+    ~QoI_Point() override {
     }
 
     void at_point(

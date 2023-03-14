@@ -1,7 +1,7 @@
 #include "qoi.hpp"
-#include "qoi1.hpp"
-#include "qoi2.hpp"
-#include "qoi3.hpp"
+#include "qoi_gradient.hpp"
+#include "qoi_point.hpp"
+#include "qoi_value.hpp"
 #include "residual.hpp"
 
 namespace calibr8 {
@@ -115,12 +115,12 @@ double QoI<T>::value() {
 template <typename T>
 RCP<QoI<T>> create_QoI(ParameterList const& params) {
   std::string const type = params.get<std::string>("type");
-  if (type == "qoi1") {
-    return rcp(new QoI1<T>(params));
-  } else if (type == "qoi2") {
-    return rcp(new QoI2<T>(params));
-  } else if (type == "qoi3") {
-    return rcp(new QoI3<T>(params));
+  if (type == "value") {
+    return rcp(new QoI_Value<T>(params));
+  } else if (type == "gradient") {
+    return rcp(new QoI_Gradient<T>(params));
+  } else if (type == "point") {
+    return rcp(new QoI_Point<T>(params));
   } else {
     throw std::runtime_error("invalid qoi");
   }

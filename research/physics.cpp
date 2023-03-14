@@ -149,6 +149,20 @@ double op(
   return result;
 }
 
+void zero_boundary_nodes(
+    RCP<Disc> disc,
+    apf::Field* f) {
+  double const vals[3] = {0.,0.,0.};
+  int space = disc->get_space(apf::getShape(f));
+  for (int set = 0; set < disc->num_node_sets(); ++set) {
+    std::string const name = disc->node_set_name(set);
+    NodeSet const& nodes = disc->nodes(space, name);
+    for (apf::Node const& node : nodes) {
+      apf::setComponents(f, node.entity, node.node, &(vals[0]));
+    }
+  }
+}
+
 template <typename T>
 void assemble_residual(
     int space,
@@ -347,8 +361,6 @@ static double compute_qoi(
   assemble_qoi(space, disc, resid, qoi, U.val[GHOST], nullptr);
   double J = qoi->value();
   J = PCU_Add_Double(J);
-  std::string const name = "J" + disc->space_name(space);
-  print(" > %s = %.15e", name.c_str(), J);
   return J;
 }
 
@@ -419,7 +431,7 @@ static apf::Field* solve_linearized_error(
   solve(lin_alg, FINE, disc, owned_sys);
   int const neqs = jacobian->num_eqs();
   apf::FieldShape* shape = disc->shape(FINE);
-  apf::Field* f = apf::createPackedField(mesh, "elh", neqs, shape);
+  apf::Field* f = apf::createPackedField(mesh, "e_linearized", neqs, shape);
   apf::zeroField(f);
   fill_field(FINE, disc, EL.val[OWNED], f);
   return f;
@@ -531,7 +543,6 @@ void Physics::destroy_residual_data() {
 }
 
 apf::Field* Physics::solve_primal(int space) {
-  print("solving primal %s", m_disc->space_name(space).c_str());
   return calibr8::solve_primal(
       space,
       m_params,
@@ -540,22 +551,7 @@ apf::Field* Physics::solve_primal(int space) {
       m_jacobian);
 }
 
-apf::Field* Physics::prolong_u_coarse_onto_fine(apf::Field* uH) {
-  print("prolonging uH onto h");
-  ASSERT(apf::getShape(uH) == m_disc->shape(COARSE));
-  return calibr8::project(m_disc, uH, "uH_h");
-}
-
-apf::Field* Physics::compute_exact_error(apf::Field* uh, apf::Field* uH) {
-  print("computing exact error uh - uH_h");
-  ASSERT(apf::getShape(uh) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(uH) == m_disc->shape(FINE));
-  apf::Field* f = op(subtract, m_disc, uh, uH, "eh");
-  return f;
-}
-
 apf::Field* Physics::solve_adjoint(int space, apf::Field* u) {
-  print("solving adjoint %s", m_disc->space_name(space).c_str());
   ASSERT(apf::getShape(u) == m_disc->shape(space));
   return calibr8::solve_adjoint(
       space,
@@ -567,7 +563,6 @@ apf::Field* Physics::solve_adjoint(int space, apf::Field* u) {
 }
 
 apf::Field* Physics::solve_linearized_error(apf::Field* u) {
-  print("solving linearized errror");
   ASSERT(apf::getShape(u) == m_disc->shape(FINE));
   return calibr8::solve_linearized_error(
       m_params,
@@ -577,7 +572,6 @@ apf::Field* Physics::solve_linearized_error(apf::Field* u) {
 }
 
 apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* e) {
-  print("solving 2nd order adjoint");
   ASSERT(apf::getShape(u) == m_disc->shape(FINE));
   ASSERT(apf::getShape(e) == m_disc->shape(FINE));
   return calibr8::solve_2nd_adjoint(
@@ -590,20 +584,45 @@ apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* e) {
       e);
 }
 
-apf::Field* Physics::evaluate_residual(apf::Field* u) {
-  print("evaluating residual at prolonged solution");
-  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
+apf::Field* Physics::evaluate_residual(int space, apf::Field* u) {
+  ASSERT(apf::getShape(u) == m_disc->shape(space));
   return calibr8::evaluate_residual(
-      FINE,
+      space,
       m_params,
       m_disc,
       m_residual,
       u);
 }
 
+apf::Field* Physics::subtract(apf::Field* f, apf::Field* g, std::string const& n) {
+  ASSERT(apf::getShape(f) == apf::getShape(g));
+  return op(calibr8::subtract, m_disc, f, g, n.c_str());
+}
+
+apf::Field* Physics::prolong(apf::Field* f, std::string const& n) {
+  ASSERT(apf::getShape(f) == m_disc->shape(COARSE));
+  return calibr8::project(m_disc, f, n.c_str());
+}
+
+apf::Field* Physics::restrict(apf::Field* f, std::string const& n) {
+  ASSERT(apf::getShape(f) == m_disc->shape(FINE));
+  return calibr8::project(m_disc, f, n.c_str());
+}
+
+apf::Field* Physics::recover(apf::Field* f, std::string const& n) {
+  ASSERT(apf::getShape(f) == m_disc->shape(COARSE));
+  std::string const name = std::string(apf::getName(f)) + "_ip";
+  apf::Field* f_ips = interpolate_to_ips(f, name);
+  m_disc->change_shape(FINE);
+  apf::Field* f_spr = spr_recovery(f_ips);
+  zero_boundary_nodes(m_disc, f_spr);
+  apf::renameField(f_spr, n.c_str());
+  apf::destroyField(f_ips);
+  return f_spr;
+}
+
 double Physics::compute_qoi(int space, apf::Field* u) {
   ASSERT(apf::getShape(u) == m_disc->shape(space));
-  print("qoi %s", m_disc->space_name(space).c_str());
   return calibr8::compute_qoi(
     space,
     m_params,
@@ -613,8 +632,7 @@ double Physics::compute_qoi(int space, apf::Field* u) {
     u);
 }
 
-double Physics::dot(apf::Field* a, apf::Field* b, std::string const& s) {
-  print("%s", s.c_str());
+double Physics::dot(apf::Field* a, apf::Field* b) {
   ASSERT(apf::getShape(a) == m_disc->shape(FINE));
   ASSERT(apf::getShape(b) == m_disc->shape(FINE));
   Vector A(FINE, m_disc);

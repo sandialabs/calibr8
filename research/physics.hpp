@@ -18,15 +18,17 @@ class Physics {
     void destroy_residual_data();
   public:
     apf::Field* solve_primal(int space);
-    apf::Field* prolong_u_coarse_onto_fine(apf::Field* uH);
-    apf::Field* compute_exact_error(apf::Field* uh, apf::Field* uH);
     apf::Field* solve_adjoint(int space, apf::Field* u);
     apf::Field* solve_linearized_error(apf::Field* u);
     apf::Field* solve_2nd_adjoint(apf::Field* u, apf::Field* e);
-    apf::Field* evaluate_residual(apf::Field* u);
+    apf::Field* evaluate_residual(int space, apf::Field* u);
+    apf::Field* subtract(apf::Field* f, apf::Field* g, std::string const& n);
+    apf::Field* prolong(apf::Field* f, std::string const& n);
+    apf::Field* restrict(apf::Field* f, std::string const& n);
+    apf::Field* recover(apf::Field* f, std::string const& n);
   public:
     double compute_qoi(int space, apf::Field* u);
-    double dot(apf::Field* a, apf::Field* b, std::string const& s);
+    double dot(apf::Field* a, apf::Field* b);
   private:
     RCP<ParameterList> m_params;
     RCP<Disc> m_disc;
