@@ -87,7 +87,7 @@ static double add(double a, double b) { return a+b; }
 static double subtract(double a, double b) { return a-b; }
 static double negate_multiply(double a, double b) { return -a*b; }
 
-static void sum_into (double& a, double b) { a += b; }
+static void sum_into(double& a, double b) { a += b; }
 static void abs_sum_into(double& a, double b) { a += std::abs(b); }
 
 apf::Field* op(
@@ -491,6 +491,133 @@ static apf::Field* solve_2nd_adjoint(
   return f;
 }
 
+static apf::Field* solve_ERL(
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<double>> resid,
+    RCP<Residual<FADT>> jacobian,
+    apf::Field* uH_h,
+    apf::Field* uh_minus_uH_h,
+    std::string const& n) {
+  apf::Mesh2* mesh = disc->apf_mesh();
+  disc->change_shape(FINE);
+  Vector U(FINE, disc);
+  Vector R(FINE, disc);
+  Vector E(FINE, disc);
+  Vector U_diff(FINE, disc);
+  Matrix dRdU(FINE, disc);
+  System ghost_sys(GHOST, dRdU, R, R);
+  System owned_sys(OWNED, dRdU, R, R);
+  ParameterList const dbcs = params->sublist("dbcs");
+  dRdU.begin_fill();
+  R.zero();
+  dRdU.zero();
+  fill_vector(FINE, disc, uH_h, U);
+  fill_vector(FINE, disc, uh_minus_uH_h, U_diff);
+  RCP<Weight> W = rcp(new Weight(disc->shape(FINE)));
+  assemble_residual(FINE, JACOBIAN, disc, jacobian, U.val[GHOST], W, ghost_sys);
+  R.gather(Tpetra::ADD);
+  dRdU.gather(Tpetra::ADD);
+  apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, false);
+  dRdU.end_fill();
+  dRdU.val[OWNED]->apply(*(U_diff.val[OWNED]), *(E.val[OWNED]));
+  E.val[OWNED]->update(-1.0, *(R.val[OWNED]), -1.0);
+  int const neqs = jacobian->num_eqs();
+  apf::FieldShape* shape = disc->shape(FINE);
+  apf::Field* f = apf::createPackedField(mesh, n.c_str(), neqs, shape);
+  apf::zeroField(f);
+  fill_field(FINE, disc, E.val[OWNED], f);
+  return f;
+}
+
+static double compute_J_remainder(
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<FADT>> jacobian,
+    RCP<QoI<FADT>> qoi_deriv,
+    Vector const& E,
+    apf::Field* u_eval,
+    double Jeh) {
+  ParameterList const dbcs = params->sublist("dbcs");
+  Vector dummy_vec(FINE, disc);
+  Matrix dummy_mat(FINE, disc);
+  Vector U(FINE, disc);
+  Vector dJdUT(FINE, disc);
+  fill_vector(FINE, disc, u_eval, U);
+  dJdUT.zero();
+  System ghost_sys(GHOST, dummy_mat, dummy_vec, dJdUT);
+  System owned_sys(OWNED, dummy_mat, dummy_vec, dJdUT);
+  assemble_qoi(FINE, disc, jacobian, qoi_deriv, U.val[GHOST], &ghost_sys);
+  dJdUT.gather(Tpetra::ADD);
+  apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, true);
+  double const JL = (dJdUT.val[OWNED])->dot(*(E.val[OWNED]));
+  return Jeh - JL;
+}
+
+static apf::Field* find_u_star_J(
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<double>> residual,
+    RCP<Residual<FADT>> jacobian,
+    RCP<QoI<double>> qoi,
+    RCP<QoI<FADT>> qoi_deriv,
+    exact_in in) {
+  ParameterList const dbcs = params->sublist("dbcs");
+  Vector E(FINE, disc);
+  Vector dummy_vec(FINE, disc);
+  Matrix dummy_mat(FINE, disc);
+  fill_vector(FINE, disc, in.ue_exact, E);
+  double const Jeh = in.J_fine - in.J_coarse;
+  int iter = 1;
+  double theta_left = 0.0;
+  double theta_right = 1.0;
+  apf::Field* u_star_J = nullptr;
+  apf::Field* u_left = nullptr;
+  double r_left = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, in.u_coarse, Jeh);
+  double r_right = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, in.u_fine, Jeh); 
+  if ((r_left * r_right) > 1.e-8) {
+    throw std::runtime_error("invalid qoi bisection starting points");
+  }
+  while (true) {
+    double const theta_mid = 0.5*(theta_right + theta_left);
+    auto left = [&] (double a, double b) { return (theta_left-1.)*a + theta_left*b; };
+    auto mid = [&] (double a, double b) { return (theta_mid-1.)*a + theta_mid*b; };
+    u_star_J = op(mid, disc, in.u_coarse, in.u_fine, "u_star_J");
+    u_left = op(left, disc, in.u_coarse, in.u_fine, "u_left");
+    double r_mid = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, u_star_J, Jeh);
+    double r_left = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, u_left, Jeh);
+    apf::destroyField(u_left);
+    print("> (%d) qoi bisesction iteration", iter);
+    print("> theta_mid = %.15e", theta_mid);
+    print("> r_mid = %.15e", r_mid);
+    if (std::abs(r_mid) < 1.e-8) {
+      print("> converged");
+      break;
+    } else if ((r_mid * r_left) < 0.) {
+      theta_right = theta_mid;
+      apf::destroyField(u_star_J);
+    } else {
+      theta_left = theta_mid;
+      apf::destroyField(u_star_J);
+    }
+    iter++;
+  }
+  return u_star_J;
+}
+
+static exact_out solve_exact_adjoint(
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<double>> residual,
+    RCP<Residual<FADT>> jacobian,
+    RCP<QoI<double>> qoi,
+    RCP<QoI<FADT>> qoi_deriv,
+    exact_in in) {
+  exact_out out;
+  out.u_star_J = find_u_star_J(params, disc, residual, jacobian, qoi, qoi_deriv, in);
+  return out;
+}
+
 static apf::Field* evaluate_residual(
     int space,
     RCP<ParameterList> params,
@@ -577,9 +704,9 @@ apf::Field* Physics::solve_linearized_error(apf::Field* u, std::string const& n)
       n);
 }
 
-apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* e, std::string const& n) {
+apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* ue, std::string const& n) {
   ASSERT(apf::getShape(u) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(e) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(ue) == m_disc->shape(FINE));
   return calibr8::solve_2nd_adjoint(
       m_params,
       m_disc,
@@ -588,7 +715,36 @@ apf::Field* Physics::solve_2nd_adjoint(apf::Field* u, apf::Field* e, std::string
       m_qoi_hessian,
       n,
       u,
-      e);
+      ue);
+}
+
+apf::Field* Physics::solve_ERL(apf::Field* u, apf::Field* ue, std::string const& n) {
+  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(ue) == m_disc->shape(FINE));
+  return calibr8::solve_ERL(
+      m_params,
+      m_disc,
+      m_residual,
+      m_jacobian,
+      u,
+      ue,
+      n);
+}
+
+exact_out Physics::solve_exact_adjoint(exact_in in) {
+  ASSERT(apf::getShape(in.u_coarse) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(in.u_fine) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(in.ue_exact) == m_disc->shape(FINE));
+  ASSERT(in.J_coarse != 0.);
+  ASSERT(in.J_fine != 0.);
+  return calibr8::solve_exact_adjoint(
+      m_params,
+      m_disc,
+      m_residual,
+      m_jacobian,
+      m_qoi,
+      m_qoi_deriv,
+      in);
 }
 
 apf::Field* Physics::evaluate_residual(int space, apf::Field* u) {

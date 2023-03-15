@@ -10,14 +10,6 @@ Adjoint::Adjoint(ParameterList const& params) {
 
 apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
 
-  // ---
-  // DISCRETIZATION INFORMATION
-  // ---
-
-  // compute and store discretization information
-  m_nelems.push_back(get_nelems(physics));
-  m_H_dofs.push_back(get_ndofs(COARSE, physics));
-  m_h_dofs.push_back(get_ndofs(FINE, physics));
 
   // ---
   // PRIMAL PROBLEM
@@ -97,32 +89,55 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   // ---
 
   print("computing the exact residual linearization error");
+  m_ERL_exact = physics->solve_ERL(m_u_prolonged, m_ue_exact, "ERL_exact");
   print("computing the recovered residual linearization error");
+  m_ERL_recovered = physics->solve_ERL(m_u_prolonged, m_ue_recovered, "ERL_recovered");
 
+  // ---
+  // NONLINEAR ADJOINT PROBLEM
+  // ---
 
+  print("solving nonlinear adjoint problem");
+  exact_in in;
+  in.u_coarse = m_u_prolonged;
+  in.u_fine = m_u_fine;
+  in.ue_exact = m_ue_exact;
+  in.J_coarse = J_coarse;
+  in.J_fine = J_fine;
+  exact_out out = physics->solve_exact_adjoint(in);
+  m_u_star_J = out.u_star_J;
+  m_u_star_R = out.u_star_R;
+  m_z_star = out.z_star;
 
+  // ---
+  // COMPUTABLE ERROR CONTRIBUTIONS
+  // ---
+
+  print("computing error contributions");
+  m_R_prolonged = physics->evaluate_residual(FINE, m_u_prolonged);
+  int const num_elems = get_nelems(physics);
+  int const num_coarse_dofs = get_ndofs(COARSE, physics);
+  int const num_fine_dofs = get_ndofs(FINE, physics);
+  double const eta1_exact = -(physics->dot(m_z_fine, m_R_prolonged));
+  double const eta1_recovered = -(physics->dot(m_z_recovered, m_R_prolonged));
+  double const eta2_linearized = -(physics->dot(m_y_linearized, m_R_prolonged));
+  double const eta2_recovered = -(physics->dot(m_y_recovered, m_R_prolonged));
 
   // ---
   // ITERATION SUMMARY
   // ---
 
   print("summary for this adaptive iteration");
+  print("> elems = %d", num_elems);
+  print("> H_dofs = %d", num_coarse_dofs);
+  print("> h_dofs = %d", num_fine_dofs);
   print("> JH = %.15e", J_coarse);
   print("> Jh = %.15e", J_fine);
   print("> Jeh = %.15e", Jeh);
-
-
-#if 0
-  // compute the residual error contributions
-  print("evaluating eta1");
-  m_Rh_uH = physics->evaluate_residual(m_uH_h);
-  double const eta1 = -(physics->dot(m_zh, m_Rh_uH));
-  print("> eta1 = %.15e", eta1);
-  print("evaluating eta2");
-  double const eta2 = -(physics->dot(m_yh, m_Rh_uH));
-  print("> eta2 = %.15e", eta2);
-#endif
-
+  print("> eta1_exact = %.15e", eta1_exact);
+  print("> eta1_recovered = %.15e", eta1_recovered);
+  print("> eta2_linearized = %.15e", eta2_linearized);
+  print("> eta2_recovered = %.15e", eta2_recovered);
 
   apf::Mesh2* m = physics->disc()->apf_mesh();
   apf::Field* e = apf::createStepField(m, "eta", apf::SCALAR);
@@ -157,6 +172,10 @@ void Adjoint::destroy_intermediate_fields() {
   apf::destroyField(m_y_recovered); m_y_recovered = nullptr;
   apf::destroyField(m_ERL_exact); m_ERL_exact = nullptr;
   apf::destroyField(m_ERL_recovered); m_ERL_recovered = nullptr;
+  apf::destroyField(m_u_star_J); m_u_star_J = nullptr;
+  apf::destroyField(m_u_star_R); m_u_star_R = nullptr;
+  apf::destroyField(m_z_star); m_z_star = nullptr;
+  apf::destroyField(m_R_prolonged); m_R_prolonged = nullptr;
 }
 
 }

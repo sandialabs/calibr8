@@ -38,11 +38,11 @@ class Adjoint : public Error {
     apf::Field* m_ERL_exact = nullptr;          // the exact residual linearization error
     apf::Field* m_ERL_recovered = nullptr;      // the residual linearization error computed using SPR recovery
   private:
-    std::vector<int> m_nelems;
-    std::vector<int> m_H_dofs;
-    std::vector<int> m_h_dofs;
-    std::vector<double> m_JH;
-    std::vector<double> m_Jh;
+    apf::Field* m_u_star_J = nullptr;           // the state at which qoi linearization errors vanish
+    apf::Field* m_u_star_R = nullptr;           // the state at which residual linearization errors vanish
+    apf::Field* m_z_star = nullptr;             // the exact nonlinear adjoint solution
+  private:
+    apf::Field* m_R_prolonged = nullptr;        // the residual evaluated at the prolonged solution
 };
 
 }
