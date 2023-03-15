@@ -11,6 +11,15 @@ function(set_code_standards target_name)
   set_property(TARGET ${target_name} PROPERTY CXX_EXTENSIONS OFF)
 endfunction()
 
+function(install_and_export target_name)
+  install(
+    TARGETS ${target_name}
+    EXPORT ${target_name}-target
+  )
+  install(EXPORT ${target_name}-target
+    DESTINATION lib/cmake/${PROJECT_NAME})
+endfunction()
+
 # deal with Kokkos' lack of CMake skills
 set(CMAKE_CXX_EXTENSIONS OFF)
 
