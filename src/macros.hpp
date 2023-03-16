@@ -6,7 +6,7 @@
   do {                                                \
     if (! (cond)) {                                   \
       char omsg[2048];                                \
-      sprintf(omsg, "%s failed at %s + %d \n",        \
+      snprintf(omsg, 2048, "%s failed at %s + %d \n",        \
         #cond, __FILE__, __LINE__);                   \
       calibr8::assert_fail(omsg);            \
     }                                                 \
@@ -16,7 +16,7 @@
   do {                                                \
     if (! (cond)) {                                   \
       char omsg[2048];                                \
-      sprintf(omsg, "%s failed at %s + %d \n %s \n",  \
+      snprintf(omsg, 2048, "%s failed at %s + %d \n %s \n",  \
         #cond, __FILE__, __LINE__, msg);              \
       calibr8::assert_fail(omsg);            \
     }                                                 \
