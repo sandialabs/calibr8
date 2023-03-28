@@ -373,7 +373,8 @@ static apf::Field* solve_adjoint(
     RCP<Disc> disc,
     RCP<Residual<FADT>> jacobian,
     RCP<QoI<FADT>> qoi,
-    apf::Field* u_space) {
+    apf::Field* u_space,
+    std::string const& post="") {
   apf::Mesh2* mesh = disc->apf_mesh();
   disc->change_shape(space);
   Vector U(space, disc);
@@ -396,7 +397,7 @@ static apf::Field* solve_adjoint(
   apply_jacob_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys, true);
   dRdUT.end_fill();
   solve(lin_alg, space, disc, owned_sys);
-  std::string const name = "z" + disc->space_name(space);
+  std::string const name = "z" + disc->space_name(space) + post;
   int const neqs = jacobian->num_eqs();
   apf::FieldShape* shape = disc->shape(space);
   apf::Field* f = apf::createPackedField(mesh, name.c_str(), neqs, shape);
@@ -554,24 +555,24 @@ static double compute_J_remainder(
   return Jeh - JL;
 }
 
-static apf::Field* find_u_star_J(
+static apf::Field* find_u_star(
     RCP<ParameterList> params,
     RCP<Disc> disc,
     RCP<Residual<double>> residual,
     RCP<Residual<FADT>> jacobian,
     RCP<QoI<double>> qoi,
     RCP<QoI<FADT>> qoi_deriv,
-    exact_in in) {
+    nonlinear_in in) {
   ParameterList const dbcs = params->sublist("dbcs");
   Vector E(FINE, disc);
   Vector dummy_vec(FINE, disc);
   Matrix dummy_mat(FINE, disc);
-  fill_vector(FINE, disc, in.ue_exact, E);
+  fill_vector(FINE, disc, in.ue, E);
   double const Jeh = in.J_fine - in.J_coarse;
   int iter = 1;
   double theta_left = 0.0;
   double theta_right = 1.0;
-  apf::Field* u_star_J = nullptr;
+  apf::Field* u_star = nullptr;
   apf::Field* u_left = nullptr;
   double r_left = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, in.u_coarse, Jeh);
   double r_right = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, in.u_fine, Jeh); 
@@ -582,39 +583,145 @@ static apf::Field* find_u_star_J(
     double const theta_mid = 0.5*(theta_right + theta_left);
     auto left = [&] (double a, double b) { return (theta_left-1.)*a + theta_left*b; };
     auto mid = [&] (double a, double b) { return (theta_mid-1.)*a + theta_mid*b; };
-    u_star_J = op(mid, disc, in.u_coarse, in.u_fine, "u_star_J");
+    u_star = op(mid, disc, in.u_coarse, in.u_fine, "u_star");
     u_left = op(left, disc, in.u_coarse, in.u_fine, "u_left");
-    double r_mid = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, u_star_J, Jeh);
+    double r_mid = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, u_star, Jeh);
     double r_left = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, u_left, Jeh);
     apf::destroyField(u_left);
     print("> (%d) qoi bisesction iteration", iter);
     print("> theta_mid = %.15e", theta_mid);
     print("> r_mid = %.15e", r_mid);
-    if (std::abs(r_mid) < 1.e-8) {
+    if (std::abs(r_mid) < 1.e-10) {
       print("> converged");
       break;
     } else if ((r_mid * r_left) < 0.) {
       theta_right = theta_mid;
-      apf::destroyField(u_star_J);
+      apf::destroyField(u_star);
     } else {
       theta_left = theta_mid;
-      apf::destroyField(u_star_J);
+      apf::destroyField(u_star);
     }
     iter++;
   }
-  return u_star_J;
+  return u_star;
 }
 
-static exact_out solve_exact_adjoint(
+static apf::Field* find_u_star_newton(
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<FADT>> jacobian,
+    RCP<QoI<double>> qoi,
+    RCP<QoI<FADT>> qoi_deriv,
+    RCP<QoI<FAD2T>> qoi_hessian,
+    nonlinear_in in) {
+
+  ParameterList const dbcs = params->sublist("dbcs");
+  ParameterList const newton = params->sublist("newton solve");
+
+  Vector E(FINE, disc);
+  Matrix H(FINE, disc);
+  Vector dummy_vec(FINE, disc);
+  fill_vector(FINE, disc, in.ue, E);
+
+  double const Jeh = in.J_fine - in.J_coarse;
+  int iter = 1;
+  bool converged = false;
+  int const max_iters = newton.get<int>("max iters");
+  double const tolerance = newton.get<double>("tolerance");
+
+
+#if 0
+  Matrix dRdUT(FINE, disc);
+  Vector U(FINE, disc);
+  Vector Y(FINE, disc);
+  Vector EL(FINE, disc);
+  Vector RHS(FINE, disc);
+  fill_vector(FINE, disc, u, U);
+  fill_vector(FINE, disc, el, EL);
+  System ghost_sys(GHOST, dRdUT, Y, RHS);
+  System owned_sys(OWNED, dRdUT, Y, RHS);
+  ParameterList const dbcs = params->sublist("dbcs");
+  ParameterList& lin_alg = params->sublist("adjoint linear algebra");
+  {
+    RHS.zero();
+    Matrix H(FINE, disc);
+    Vector dummy(FINE, disc);
+    System ghost(GHOST, H, dummy, dummy);
+    H.begin_fill();
+    assemble_qoi(FINE, disc, hessian, qoi_hessian, U.val[GHOST], &ghost);
+    H.gather(Tpetra::ADD);
+    H.end_fill();
+    H.val[OWNED]->apply(*(EL.val[OWNED]), *(RHS.val[OWNED]));
+  }
+#endif
+
+
+  apf::Field* u_star = nullptr;
+  while ((iter <= max_iters) && (!converged)) {
+    print(" > (%d) Newton iteration", iter);
+
+    auto star_op = [&] (double a, double b) { return (theta-1.)*a + theta*b; };
+    u_star = op(star_op, disc, in.u_coarse, in.u_fine, "u_star_tmp");
+    double f = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, u_star, Jeh); 
+    if (std::abs(f) < tolerance) {
+      converged = true;
+      break;
+    }
+
+    theta = theta - f/df;
+    apf::destroyField(u_star);
+
+
+
+
+    dRdU.begin_fill();
+    dU.zero();
+    R.zero();
+    dRdU.zero();
+    assemble_residual(space, JACOBIAN, disc, jacobian, U.val[GHOST], W, ghost_sys);
+    dRdU.gather(Tpetra::ADD);
+    R.gather(Tpetra::ADD);
+    apply_jacob_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys, false);
+    dRdU.end_fill();
+    R.val[OWNED]->scale(-1.0);
+    solve(lin_alg, space, disc, owned_sys);
+    U.val[OWNED]->update(1.0, *(dU.val[OWNED]), 1.0);
+    U.scatter(Tpetra::INSERT);
+    R.zero();
+    assemble_residual(space, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
+    R.gather(Tpetra::ADD);
+    apply_resid_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys);
+    double const R_norm = R.val[OWNED]->norm2();
+    print(" > ||R|| = %e", R_norm);
+    if (R_norm < tolerance) converged = true;
+    iter++;
+
+    break;
+  }
+
+  return u_star;
+
+}
+
+static nonlinear_out solve_nonlinear_adjoint(
     RCP<ParameterList> params,
     RCP<Disc> disc,
     RCP<Residual<double>> residual,
     RCP<Residual<FADT>> jacobian,
     RCP<QoI<double>> qoi,
     RCP<QoI<FADT>> qoi_deriv,
-    exact_in in) {
-  exact_out out;
-  out.u_star_J = find_u_star_J(params, disc, residual, jacobian, qoi, qoi_deriv, in);
+    RCP<QoI<FAD2T>> qoi_hessian,
+    nonlinear_in in) {
+  nonlinear_out out;
+  out.u_star = find_u_star(
+      params, disc, residual, jacobian, qoi, qoi_deriv, in);
+
+  auto tmp = find_u_star_newton(
+      params, disc, jacobian, qoi, qoi_deriv, qoi_hessian, in);
+  apf::destroyField(tmp);
+
+  out.z_star = solve_adjoint(
+      FINE, params, disc, jacobian, qoi_deriv, out.u_star, "_star");
   return out;
 }
 
@@ -731,19 +838,20 @@ apf::Field* Physics::solve_ERL(apf::Field* u, apf::Field* ue, std::string const&
       n);
 }
 
-exact_out Physics::solve_exact_adjoint(exact_in in) {
+nonlinear_out Physics::solve_nonlinear_adjoint(nonlinear_in in) {
   ASSERT(apf::getShape(in.u_coarse) == m_disc->shape(FINE));
   ASSERT(apf::getShape(in.u_fine) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(in.ue_exact) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(in.ue) == m_disc->shape(FINE));
   ASSERT(in.J_coarse != 0.);
   ASSERT(in.J_fine != 0.);
-  return calibr8::solve_exact_adjoint(
+  return calibr8::solve_nonlinear_adjoint(
       m_params,
       m_disc,
       m_residual,
       m_jacobian,
       m_qoi,
       m_qoi_deriv,
+      m_qoi_hessian,
       in);
 }
 

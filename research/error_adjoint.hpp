@@ -18,7 +18,6 @@ class Adjoint : public Error {
     apf::Field* m_u_recovered = nullptr;        // the SPR primal solution on the fine space
   private:
     apf::Field* m_ue_exact = nullptr;           // the exact primal discretization error
-    apf::Field* m_ue_linearized = nullptr;      // the linearized primal discretization error
     apf::Field* m_ue_recovered = nullptr;       // the primal discretization error approximated using SPR
   private:
     apf::Field* m_z_coarse = nullptr;           // the adjoint solution solved on the coarse space
@@ -32,14 +31,13 @@ class Adjoint : public Error {
     apf::Field* m_ze_restricted = nullptr;      // the adjoint discretization error using the restricted adjoint
     apf::Field* m_ze_recovered = nullptr;       // the adjoint discretization error approximated using SPR
   private:
-    apf::Field* m_y_linearized = nullptr;       // the 2nd order adjoint solution using the linearized error
+    apf::Field* m_y_exact = nullptr;            // the 2nd order adjoint solution using the exact error
     apf::Field* m_y_recovered = nullptr;        // the 2nd order adjoint solution using the recovered error
   private:
     apf::Field* m_ERL_exact = nullptr;          // the exact residual linearization error
     apf::Field* m_ERL_recovered = nullptr;      // the residual linearization error computed using SPR recovery
   private:
-    apf::Field* m_u_star_J = nullptr;           // the state at which qoi linearization errors vanish
-    apf::Field* m_u_star_R = nullptr;           // the state at which residual linearization errors vanish
+    apf::Field* m_u_star = nullptr;           // the state at which qoi linearization errors vanish
     apf::Field* m_z_star = nullptr;             // the exact nonlinear adjoint solution
   private:
     apf::Field* m_R_prolonged = nullptr;        // the residual evaluated at the prolonged solution

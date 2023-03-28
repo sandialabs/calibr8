@@ -8,17 +8,16 @@
 
 namespace calibr8 {
 
-struct exact_in {
+struct nonlinear_in {
   apf::Field* u_coarse = nullptr;
   apf::Field* u_fine = nullptr;
-  apf::Field* ue_exact = nullptr;
+  apf::Field* ue = nullptr;
   double J_coarse = 0.;
   double J_fine = 0.;
 };
 
-struct exact_out {
-  apf::Field* u_star_J = nullptr;
-  apf::Field* u_star_R = nullptr;
+struct nonlinear_out {
+  apf::Field* u_star = nullptr;
   apf::Field* z_star = nullptr;
 };
 
@@ -36,7 +35,7 @@ class Physics {
     apf::Field* solve_linearized_error(apf::Field* u, std::string const& n);
     apf::Field* solve_2nd_adjoint(apf::Field* u, apf::Field* ee, std::string const& n);
     apf::Field* solve_ERL(apf::Field* u, apf::Field* ue, std::string const& n);
-    exact_out solve_exact_adjoint(exact_in in);
+    nonlinear_out solve_nonlinear_adjoint(nonlinear_in in);
     apf::Field* evaluate_residual(int space, apf::Field* u);
     apf::Field* subtract(apf::Field* f, apf::Field* g, std::string const& n);
     apf::Field* prolong(apf::Field* f, std::string const& n);
