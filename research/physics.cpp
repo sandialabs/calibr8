@@ -610,97 +610,51 @@ static apf::Field* find_u_star_newton(
     RCP<ParameterList> params,
     RCP<Disc> disc,
     RCP<Residual<FADT>> jacobian,
-    RCP<QoI<double>> qoi,
+    RCP<Residual<FAD2T>> hessian,
     RCP<QoI<FADT>> qoi_deriv,
     RCP<QoI<FAD2T>> qoi_hessian,
     nonlinear_in in) {
-
   ParameterList const dbcs = params->sublist("dbcs");
   ParameterList const newton = params->sublist("newton solve");
-
-  Vector E(FINE, disc);
-  Matrix H(FINE, disc);
-  Vector dummy_vec(FINE, disc);
-  fill_vector(FINE, disc, in.ue, E);
-
   double const Jeh = in.J_fine - in.J_coarse;
   int iter = 1;
   bool converged = false;
   int const max_iters = newton.get<int>("max iters");
   double const tolerance = newton.get<double>("tolerance");
-
-
-#if 0
-  Matrix dRdUT(FINE, disc);
+  Vector E(FINE, disc);
   Vector U(FINE, disc);
-  Vector Y(FINE, disc);
-  Vector EL(FINE, disc);
-  Vector RHS(FINE, disc);
-  fill_vector(FINE, disc, u, U);
-  fill_vector(FINE, disc, el, EL);
-  System ghost_sys(GHOST, dRdUT, Y, RHS);
-  System owned_sys(OWNED, dRdUT, Y, RHS);
-  ParameterList const dbcs = params->sublist("dbcs");
-  ParameterList& lin_alg = params->sublist("adjoint linear algebra");
-  {
-    RHS.zero();
-    Matrix H(FINE, disc);
-    Vector dummy(FINE, disc);
-    System ghost(GHOST, H, dummy, dummy);
-    H.begin_fill();
-    assemble_qoi(FINE, disc, hessian, qoi_hessian, U.val[GHOST], &ghost);
-    H.gather(Tpetra::ADD);
-    H.end_fill();
-    H.val[OWNED]->apply(*(EL.val[OWNED]), *(RHS.val[OWNED]));
-  }
-#endif
-
-
+  Matrix H(FINE, disc);
+  Vector He(FINE, disc);
+  Vector dummy(FINE, disc);
+  System ghost_sys(GHOST, H, dummy, dummy);
+  fill_vector(FINE, disc, in.ue, E);
   apf::Field* u_star = nullptr;
+  double theta = 0.9;
   while ((iter <= max_iters) && (!converged)) {
-    print(" > (%d) Newton iteration", iter);
-
+    print("> (%d) Newton iteration", iter);
     auto star_op = [&] (double a, double b) { return (theta-1.)*a + theta*b; };
     u_star = op(star_op, disc, in.u_coarse, in.u_fine, "u_star_tmp");
     double f = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, u_star, Jeh); 
+    print("> theta = %.15e", theta);
+    print("> |f| = %.15e", std::abs(f));
     if (std::abs(f) < tolerance) {
       converged = true;
       break;
     }
-
+    H.zero();
+    He.zero();
+    H.begin_fill();
+    fill_vector(FINE, disc, u_star, U);
+    assemble_qoi(FINE, disc, hessian, qoi_hessian, U.val[GHOST], &ghost_sys);
+    H.gather(Tpetra::ADD);
+    H.end_fill();
+    H.val[OWNED]->apply(*(E.val[OWNED]), *(He.val[OWNED]));
+    double const df = -(E.val[OWNED])->dot(*(He.val[OWNED]));
     theta = theta - f/df;
     apf::destroyField(u_star);
-
-
-
-
-    dRdU.begin_fill();
-    dU.zero();
-    R.zero();
-    dRdU.zero();
-    assemble_residual(space, JACOBIAN, disc, jacobian, U.val[GHOST], W, ghost_sys);
-    dRdU.gather(Tpetra::ADD);
-    R.gather(Tpetra::ADD);
-    apply_jacob_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys, false);
-    dRdU.end_fill();
-    R.val[OWNED]->scale(-1.0);
-    solve(lin_alg, space, disc, owned_sys);
-    U.val[OWNED]->update(1.0, *(dU.val[OWNED]), 1.0);
-    U.scatter(Tpetra::INSERT);
-    R.zero();
-    assemble_residual(space, RESIDUAL, disc, residual, U.val[GHOST], W, ghost_sys);
-    R.gather(Tpetra::ADD);
-    apply_resid_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys);
-    double const R_norm = R.val[OWNED]->norm2();
-    print(" > ||R|| = %e", R_norm);
-    if (R_norm < tolerance) converged = true;
     iter++;
-
-    break;
   }
-
   return u_star;
-
 }
 
 static nonlinear_out solve_nonlinear_adjoint(
@@ -708,6 +662,7 @@ static nonlinear_out solve_nonlinear_adjoint(
     RCP<Disc> disc,
     RCP<Residual<double>> residual,
     RCP<Residual<FADT>> jacobian,
+    RCP<Residual<FAD2T>> hessian,
     RCP<QoI<double>> qoi,
     RCP<QoI<FADT>> qoi_deriv,
     RCP<QoI<FAD2T>> qoi_hessian,
@@ -717,7 +672,7 @@ static nonlinear_out solve_nonlinear_adjoint(
       params, disc, residual, jacobian, qoi, qoi_deriv, in);
 
   auto tmp = find_u_star_newton(
-      params, disc, jacobian, qoi, qoi_deriv, qoi_hessian, in);
+      params, disc, jacobian, hessian, qoi_deriv, qoi_hessian, in);
   apf::destroyField(tmp);
 
   out.z_star = solve_adjoint(
@@ -849,6 +804,7 @@ nonlinear_out Physics::solve_nonlinear_adjoint(nonlinear_in in) {
       m_disc,
       m_residual,
       m_jacobian,
+      m_hessian,
       m_qoi,
       m_qoi_deriv,
       m_qoi_hessian,
