@@ -531,7 +531,7 @@ static apf::Field* solve_ERL(
   return f;
 }
 
-static double compute_J_remainder(
+static double compute_f(
     RCP<ParameterList> params,
     RCP<Disc> disc,
     RCP<Residual<FADT>> jacobian,
@@ -539,7 +539,6 @@ static double compute_J_remainder(
     Vector const& E,
     apf::Field* u_eval,
     double Jeh) {
-  ParameterList const dbcs = params->sublist("dbcs");
   Vector dummy_vec(FINE, disc);
   Matrix dummy_mat(FINE, disc);
   Vector U(FINE, disc);
@@ -550,7 +549,6 @@ static double compute_J_remainder(
   System owned_sys(OWNED, dummy_mat, dummy_vec, dJdUT);
   assemble_qoi(FINE, disc, jacobian, qoi_deriv, U.val[GHOST], &ghost_sys);
   dJdUT.gather(Tpetra::ADD);
-  apply_jacob_dbcs(dbcs, FINE, disc, U.val[OWNED], owned_sys, true);
   double const JL = (dJdUT.val[OWNED])->dot(*(E.val[OWNED]));
   return Jeh - JL;
 }
@@ -563,7 +561,6 @@ static apf::Field* find_u_star(
     RCP<QoI<double>> qoi,
     RCP<QoI<FADT>> qoi_deriv,
     nonlinear_in in) {
-  ParameterList const dbcs = params->sublist("dbcs");
   Vector E(FINE, disc);
   Vector dummy_vec(FINE, disc);
   Matrix dummy_mat(FINE, disc);
@@ -574,27 +571,49 @@ static apf::Field* find_u_star(
   double theta_right = 1.0;
   apf::Field* u_star = nullptr;
   apf::Field* u_left = nullptr;
-  double r_left = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, in.u_coarse, Jeh);
-  double r_right = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, in.u_fine, Jeh); 
-  if ((r_left * r_right) > 1.e-8) {
+  double f_left = compute_f(params, disc, jacobian, qoi_deriv, E, in.u_coarse, Jeh);
+  double f_right = compute_f(params, disc, jacobian, qoi_deriv, E, in.u_fine, Jeh); 
+
+  std::cout << "f_left: " << f_left << "\n";
+  std::cout << "f_right: " << f_right << "\n";
+
+  if ((f_left * f_right) > 1.e-8) {
     throw std::runtime_error("invalid qoi bisection starting points");
   }
+
+
+  { // print some values of f to visualize it
+    int const n = 10;
+    double const dx = 1./double(n);
+    std::cout << "theta, f\n";
+    for (int i = 0; i < n+1; ++i) {
+      double const theta = i*dx;
+      auto tmp_op = [&] (double a, double b) { return (1.-theta)*a + theta*b; };
+      auto u_tmp = op(tmp_op, disc, in.u_coarse, in.u_fine, "u_tmp");
+      double const f = compute_f(params, disc, jacobian, qoi_deriv, E, u_tmp, Jeh);
+      std::cout << theta << ", " << f << "\n";
+      apf::destroyField(u_tmp);
+    }
+    std::cout << "---\n";
+  }
+
+
   while (true) {
     double const theta_mid = 0.5*(theta_right + theta_left);
-    auto left = [&] (double a, double b) { return (theta_left-1.)*a + theta_left*b; };
-    auto mid = [&] (double a, double b) { return (theta_mid-1.)*a + theta_mid*b; };
+    auto left = [&] (double a, double b) { return (1.-theta_left)*a + theta_left*b; };
+    auto mid = [&] (double a, double b) { return (1.-theta_mid)*a + theta_mid*b; };
     u_star = op(mid, disc, in.u_coarse, in.u_fine, "u_star");
     u_left = op(left, disc, in.u_coarse, in.u_fine, "u_left");
-    double r_mid = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, u_star, Jeh);
-    double r_left = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, u_left, Jeh);
+    double f_mid = compute_f(params, disc, jacobian, qoi_deriv, E, u_star, Jeh);
+    double f_left = compute_f(params, disc, jacobian, qoi_deriv, E, u_left, Jeh);
     apf::destroyField(u_left);
     print("> (%d) qoi bisesction iteration", iter);
-    print("> theta_mid = %.15e", theta_mid);
-    print("> r_mid = %.15e", r_mid);
-    if (std::abs(r_mid) < 1.e-10) {
+    print("> theta = %.15e", theta_mid);
+    print("> |f| = %.15e", f_mid);
+    if (std::abs(f_mid) < 1.e-10) {
       print("> converged");
       break;
-    } else if ((r_mid * r_left) < 0.) {
+    } else if ((f_mid * f_left) < 0.) {
       theta_right = theta_mid;
       apf::destroyField(u_star);
     } else {
@@ -629,12 +648,12 @@ static apf::Field* find_u_star_newton(
   System ghost_sys(GHOST, H, dummy, dummy);
   fill_vector(FINE, disc, in.ue, E);
   apf::Field* u_star = nullptr;
-  double theta = 0.9;
+  double theta = 0.5;
   while ((iter <= max_iters) && (!converged)) {
     print("> (%d) Newton iteration", iter);
-    auto star_op = [&] (double a, double b) { return (theta-1.)*a + theta*b; };
+    auto star_op = [&] (double a, double b) { return (1.-theta)*a + theta*b; };
     u_star = op(star_op, disc, in.u_coarse, in.u_fine, "u_star_tmp");
-    double f = compute_J_remainder(params, disc, jacobian, qoi_deriv, E, u_star, Jeh); 
+    double f = compute_f(params, disc, jacobian, qoi_deriv, E, u_star, Jeh); 
     print("> theta = %.15e", theta);
     print("> |f| = %.15e", std::abs(f));
     if (std::abs(f) < tolerance) {
@@ -671,10 +690,12 @@ static nonlinear_out solve_nonlinear_adjoint(
   out.u_star = find_u_star(
       params, disc, residual, jacobian, qoi, qoi_deriv, in);
 
-  auto tmp = find_u_star_newton(
+  auto u_tmp = find_u_star_newton(
       params, disc, jacobian, hessian, qoi_deriv, qoi_hessian, in);
-  apf::destroyField(tmp);
+  apf::destroyField(u_tmp);
 
+  // this needs to be re-written to take into account different evaluation
+  // points for the adjoint jacobian and for the qoi deriv RHS
   out.z_star = solve_adjoint(
       FINE, params, disc, jacobian, qoi_deriv, out.u_star, "_star");
   return out;
