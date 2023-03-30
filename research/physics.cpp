@@ -580,7 +580,8 @@ static apf::Field* find_u_star_newton(
   while ((iter <= max_iters) && (!converged)) {
     print("> (%d) Newton iteration", iter);
     auto star_op = [&] (double a, double b) { return (1.-theta)*a + theta*b; };
-    u_star = op(star_op, disc, in.u_coarse, in.u_fine, "u_star_tmp");
+    std::string const name = "u_star" + in.name_append;
+    u_star = op(star_op, disc, in.u_coarse, in.u_fine, name);
     double f = compute_f(params, disc, jacobian, qoi_deriv, E, u_star, Jeh); 
     print("> theta = %.15e", theta);
     print("> |f| = %.15e", std::abs(f));
@@ -617,12 +618,12 @@ static nonlinear_out solve_nonlinear_adjoint(
   nonlinear_out out;
   out.u_star = find_u_star_newton(
       params, disc, jacobian, hessian, qoi_deriv, qoi_hessian, in);
-  apf::destroyField(u_tmp);
 
   // this needs to be re-written to take into account different evaluation
   // points for the adjoint jacobian and for the qoi deriv RHS
+  std::string const append = "_star" + in.name_append;
   out.z_star = solve_adjoint(
-      FINE, params, disc, jacobian, qoi_deriv, out.u_star, "_star");
+      FINE, params, disc, jacobian, qoi_deriv, out.u_star, append);
   return out;
 }
 

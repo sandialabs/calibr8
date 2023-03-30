@@ -34,6 +34,8 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   double const J_coarse = physics->compute_qoi(COARSE, m_u_coarse);
   print("computing the QoI on the fine space");
   double const J_fine = physics->compute_qoi(FINE, m_u_fine);
+  print("computing the QoI at the recovered solution");
+  double const J_recovered = physics->compute_qoi(FINE, m_u_recovered);
   double const Jeh = J_fine - J_coarse;
 
   // ---
@@ -92,10 +94,10 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   m_ERL_recovered = physics->solve_ERL(m_u_prolonged, m_ue_recovered, "ERL_recovered");
 
   // ---
-  // EXACT NONLINEAR ADJOINT PROBLEM
+  // EXACT MODIFIED ADJOINT PROBLEM
   // ---
 
-  print("solving nonlinear adjoint problem");
+  print("solving modified adjoint problem");
   {
     nonlinear_in in;
     in.u_coarse = m_u_prolonged;
@@ -106,6 +108,25 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
     nonlinear_out out = physics->solve_nonlinear_adjoint(in);
     m_u_star = out.u_star;
     m_z_star = out.z_star;
+  }
+
+  // ---
+  // RECOVERED MODIFIED ADJOINT PROBLEM
+  // ---
+
+  print("solving recovered modified adjoint problem");
+  {
+    nonlinear_in in;
+    in.name_append = "_recovered";
+    in.u_coarse = m_u_prolonged;
+    in.u_fine = m_u_recovered;
+    in.ue = m_ue_recovered;
+    in.J_coarse = J_coarse;
+    in.J_fine = J_recovered;
+    nonlinear_out out = physics->solve_nonlinear_adjoint(in);
+    m_u_star_recovered = out.u_star;
+    m_z_star_recovered = out.z_star;
+    in.J_fine = J_recovered;
   }
 
   // ---
@@ -127,6 +148,7 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   double const eta4_tilde = -(physics->dot(m_y_recovered, m_ERL_recovered));
 
   double const tmp = -(physics->dot(m_z_star, m_R_prolonged));
+  double const tmp2 = -(physics->dot(m_z_star_recovered, m_R_prolonged));
 
   // ---
   // ITERATION SUMMARY
@@ -140,6 +162,7 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   print("> ---");
   print("> JH = %.15e", J_coarse);
   print("> Jh = %.15e", J_fine);
+  print("> Jr = %.15e", J_recovered);
   print("> Jeh = %.15e", Jeh);
   print("> ---");
   print("> eta1 = %.15e", eta1);
@@ -153,6 +176,7 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   print("> eta4_tilde = %.15e", eta4_tilde);
   print("> ---");
   print("> tmp = %.15e", tmp);
+  print("> tmp2 = %.15e", tmp2);
 
   apf::Mesh2* m = physics->disc()->apf_mesh();
   apf::Field* e = apf::createStepField(m, "eta", apf::SCALAR);
@@ -188,6 +212,8 @@ void Adjoint::destroy_intermediate_fields() {
   apf::destroyField(m_ERL_recovered); m_ERL_recovered = nullptr;
   apf::destroyField(m_u_star); m_u_star = nullptr;
   apf::destroyField(m_z_star); m_z_star = nullptr;
+  apf::destroyField(m_u_star_recovered); m_u_star_recovered = nullptr;
+  apf::destroyField(m_z_star_recovered); m_z_star_recovered = nullptr;
   apf::destroyField(m_R_prolonged); m_R_prolonged = nullptr;
 }
 

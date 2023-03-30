@@ -9,6 +9,7 @@
 namespace calibr8 {
 
 struct nonlinear_in {
+  std::string name_append = "";
   apf::Field* u_coarse = nullptr;
   apf::Field* u_fine = nullptr;
   apf::Field* ue = nullptr;
