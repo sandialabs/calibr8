@@ -374,24 +374,31 @@ static apf::Field* solve_adjoint(
     RCP<Residual<FADT>> jacobian,
     RCP<QoI<FADT>> qoi,
     apf::Field* u_space,
-    std::string const& post="") {
+    std::string const& post="",
+    apf::Field* u_star = nullptr) {
   apf::Mesh2* mesh = disc->apf_mesh();
   disc->change_shape(space);
   Vector U(space, disc);
   Vector Z(space, disc);
   Vector dJdUT(space, disc);
   Matrix dRdUT(space, disc);
+  Vector U_star(space, disc);
   System ghost_sys(GHOST, dRdUT, Z, dJdUT);
   System owned_sys(OWNED, dRdUT, Z, dJdUT);
   ParameterList const dbcs = params->sublist("dbcs");
   ParameterList& lin_alg = params->sublist("adjoint linear algebra");
   fill_vector(space, disc, u_space, U);
+  if (u_star) {
+    fill_vector(space, disc, u_star, U_star);
+  } else {
+    fill_vector(space, disc, u_space, U_star);
+  }
   dRdUT.begin_fill();
   dJdUT.zero();
   Z.zero();
   RCP<Weight> W = rcp(new Weight(disc->shape(space)));
   assemble_residual(space, ADJOINT, disc, jacobian, U.val[GHOST], W, ghost_sys);
-  assemble_qoi(space, disc, jacobian, qoi, U.val[GHOST], &ghost_sys);
+  assemble_qoi(space, disc, jacobian, qoi, U_star.val[GHOST], &ghost_sys);
   dRdUT.gather(Tpetra::ADD);
   dJdUT.gather(Tpetra::ADD);
   apply_jacob_dbcs(dbcs, space, disc, U.val[OWNED], owned_sys, true);
@@ -618,12 +625,9 @@ static nonlinear_out solve_nonlinear_adjoint(
   nonlinear_out out;
   out.u_star = find_u_star_newton(
       params, disc, jacobian, hessian, qoi_deriv, qoi_hessian, in);
-
-  // this needs to be re-written to take into account different evaluation
-  // points for the adjoint jacobian and for the qoi deriv RHS
   std::string const append = "_star" + in.name_append;
   out.z_star = solve_adjoint(
-      FINE, params, disc, jacobian, qoi_deriv, out.u_star, append);
+      FINE, params, disc, jacobian, qoi_deriv, in.u_coarse, append, out.u_star);
   return out;
 }
 
