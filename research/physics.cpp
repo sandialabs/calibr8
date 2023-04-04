@@ -800,6 +800,12 @@ apf::Field* Physics::recover(apf::Field* f, std::string const& n) {
   return f_spr;
 }
 
+apf::Field* Physics::localize_error(apf::Field* u, apf::Field* z, std::string const& name) {
+  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  return m_residual->assemble(u, z, name);
+}
+
 double Physics::compute_qoi(int space, apf::Field* u) {
   ASSERT(apf::getShape(u) == m_disc->shape(space));
   return calibr8::compute_qoi(

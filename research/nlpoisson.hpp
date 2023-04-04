@@ -71,11 +71,13 @@ class NLPoisson : public Residual<T> {
 
     }
 
-    // debug
-    apf::Field* assemble(apf::Field* u_field, apf::Field* z_field) override {
+    apf::Field* assemble(
+        apf::Field* u_field,
+        apf::Field* z_field,
+        std::string const& name) override {
       apf::Mesh* mesh = apf::getMesh(u_field);
       apf::FieldShape* PU = apf::getLagrange(1);
-      apf::Field* eta = apf::createPackedField(mesh, "eta2", this->m_neqs, PU);
+      apf::Field* eta = apf::createPackedField(mesh, name.c_str(), this->m_neqs, PU);
       apf::zeroField(eta);
       int const ndims = mesh->getDimension();
       int q_order = 6;
