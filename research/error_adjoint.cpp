@@ -109,6 +109,11 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
     m_u_star = out.u_star;
     m_z_star = out.z_star;
   }
+  print("restricting the star adjoint solution onto the coarse space");
+  m_z_star_restricted = physics->restrict(m_z_star, "z_star_restricted");
+  print("prolonging the restricted star adjoint solution onto the fine space");
+  m_z_star_restricted_fine = physics->prolong(m_z_star_restricted, "z_star_restricted_fine");
+
 
   // ---
   // RECOVERED MODIFIED ADJOINT PROBLEM
@@ -128,6 +133,18 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
     m_z_star_recovered = out.z_star;
     in.J_fine = J_recovered;
   }
+  print("restricting the recovered star adjoint solution onto the coarse space");
+  m_z_star_recovered_restricted = physics->restrict(m_z_star_recovered, "z_star_recovered_restricted");
+  print("prolonging the restricted recovered star adjoint solution onto the fine space");
+  m_z_star_recovered_restricted_fine = physics->prolong(m_z_star_recovered_restricted, "z_star_recovered_restricted_fine");
+
+  // ---
+  // MODIFIED ADJOINT DISCRETIZATION ERROR
+  // --
+  print ("computing the restricted star adjoint discretization error");
+  m_ze_star_restricted = physics->subtract(m_z_star, m_z_star_restricted_fine, "ze_star_restricted");
+  print("computing the recovered star adjoint discretization error");
+  m_ze_star_recovered = physics->subtract(m_z_star_recovered, m_z_star_recovered_restricted_fine, "ze_star_recovered");
 
   // ---
   // COMPUTABLE ERROR CONTRIBUTIONS
@@ -214,6 +231,12 @@ void Adjoint::destroy_intermediate_fields() {
   apf::destroyField(m_z_star); m_z_star = nullptr;
   apf::destroyField(m_u_star_recovered); m_u_star_recovered = nullptr;
   apf::destroyField(m_z_star_recovered); m_z_star_recovered = nullptr;
+  apf::destroyField(m_z_star_restricted); m_z_star_restricted = nullptr;
+  apf::destroyField(m_z_star_restricted_fine); m_z_star_restricted_fine = nullptr;
+  apf::destroyField(m_z_star_recovered_restricted); m_z_star_recovered_restricted = nullptr;
+  apf::destroyField(m_z_star_recovered_restricted_fine);  m_z_star_recovered_restricted_fine = nullptr;
+  apf::destroyField(m_ze_star_restricted); m_ze_star_restricted = nullptr;
+  apf::destroyField(m_ze_star_recovered); m_ze_star_recovered = nullptr;
   apf::destroyField(m_R_prolonged); m_R_prolonged = nullptr;
 }
 
