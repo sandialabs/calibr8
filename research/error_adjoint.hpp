@@ -47,10 +47,16 @@ class Adjoint : public Error {
     apf::Field* m_z_star_recovered_restricted = nullptr;      // the recovered star adjoint solution restricted to the coarse space
     apf::Field* m_z_star_recovered_restricted_fine = nullptr; // the above field represented on the fine space
   private:
-    apf::Field* m_ze_star_restricted = nullptr; // the difference between the z_star field and its restricted represenation
-    apf::Field* m_ze_star_recovered = nullptr;  // the difference between the recovered z_star field and its restricted representation
+    apf::Field* m_ze_star_restricted = nullptr;               // the difference between the z_star field and its restricted represenation
+    apf::Field* m_ze_star_recovered = nullptr;                // the difference between the recovered z_star field and its restricted representation
   private:
-    apf::Field* m_R_prolonged = nullptr;        // the residual evaluated at the prolonged solution
+    apf::Field* m_R_prolonged = nullptr;                      // the residual evaluated at the prolonged solution
+  private:
+    apf::Field* m_R_ze_star_restricted_PU = nullptr;          // a localized error representation
+    apf::Field* m_R_ze_star_restricted_simple = nullptr;      // a localized error representation
+  private:
+    std::vector<int> m_H_dofs;
+    std::vector<double> m_JH;
 };
 
 }

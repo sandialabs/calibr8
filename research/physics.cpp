@@ -833,11 +833,11 @@ double Physics::dot(apf::Field* a, apf::Field* b) {
   return (A.val[OWNED])->dot(*(B.val[OWNED]));
 }
 
-double Physics::compute_sum(int space, apf::Field* e) {
+double Physics::compute_sum(apf::Field* e) {
   return op(sum_into, sum_into, m_disc, e);
 }
 
-double Physics::compute_bound(int space, apf::Field* e) {
+double Physics::compute_bound(apf::Field* e) {
   return op(sum_into, abs_sum_into, m_disc, e);
 }
 

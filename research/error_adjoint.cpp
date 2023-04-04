@@ -10,7 +10,6 @@ Adjoint::Adjoint(ParameterList const& params) {
 
 apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
 
-
   // ---
   // PRIMAL PROBLEM
   // ---
@@ -114,7 +113,6 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   print("prolonging the restricted star adjoint solution onto the fine space");
   m_z_star_restricted_fine = physics->prolong(m_z_star_restricted, "z_star_restricted_fine");
 
-
   // ---
   // RECOVERED MODIFIED ADJOINT PROBLEM
   // ---
@@ -141,17 +139,25 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   // ---
   // MODIFIED ADJOINT DISCRETIZATION ERROR
   // --
-  print ("computing the restricted star adjoint discretization error");
+  print("computing the restricted star adjoint discretization error");
   m_ze_star_restricted = physics->subtract(m_z_star, m_z_star_restricted_fine, "ze_star_restricted");
   print("computing the recovered star adjoint discretization error");
   m_ze_star_recovered = physics->subtract(m_z_star_recovered, m_z_star_recovered_restricted_fine, "ze_star_recovered");
+
+  // ---
+  // LOCALIZED ERROR FIELDS
+  // ---
+  m_R_prolonged = physics->evaluate_residual(FINE, m_u_prolonged);
+  print("localizing the error with PU and ze_star");
+  m_R_ze_star_restricted_PU = physics->localize_PU(m_u_prolonged, m_ze_star_restricted, "-R.ze_star_PU");
+  print("localizing the error with simple and ze_star");
+  m_R_ze_star_restricted_simple = physics->localize_simple(m_R_prolonged, m_ze_star_restricted, "R.ze_star_simple");
 
   // ---
   // COMPUTABLE ERROR CONTRIBUTIONS
   // ---
 
   print("computing error contributions");
-  m_R_prolonged = physics->evaluate_residual(FINE, m_u_prolonged);
   int const num_elems = get_nelems(physics);
   int const num_coarse_dofs = get_ndofs(COARSE, physics);
   int const num_fine_dofs = get_ndofs(FINE, physics);
@@ -195,13 +201,23 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   print("> tmp = %.15e", tmp);
   print("> tmp2 = %.15e", tmp2);
 
-  apf::Mesh2* m = physics->disc()->apf_mesh();
-  apf::Field* e = apf::createStepField(m, "eta", apf::SCALAR);
-  apf::zeroField(e);
+  // ---
+  // INTERPOLATE THE ERROR FIELD TO CELL CENTERS
+  // ---
+  apf::Field* e = interp_error_to_cells(m_R_ze_star_restricted_PU);
+
+  m_H_dofs.push_back(num_coarse_dofs);
+  m_JH.push_back(J_coarse);
+
   return e;
+
 }
 
 void Adjoint::write_history(std::string const& file, double J_ex) {
+  std::cout << std::scientific << std::setprecision(15);
+  for (int i = 0; i < m_JH.size(); ++i) {
+    std::cout << m_H_dofs[i] << ", " << J_ex << ", " << m_JH[i] << "\n";
+  }
   (void)file;
   (void)J_ex;
 }
@@ -238,6 +254,8 @@ void Adjoint::destroy_intermediate_fields() {
   apf::destroyField(m_ze_star_restricted); m_ze_star_restricted = nullptr;
   apf::destroyField(m_ze_star_recovered); m_ze_star_recovered = nullptr;
   apf::destroyField(m_R_prolonged); m_R_prolonged = nullptr;
+  apf::destroyField(m_R_ze_star_restricted_PU); m_R_ze_star_restricted_PU = nullptr;
+  apf::destroyField(m_R_ze_star_restricted_simple); m_R_ze_star_restricted_simple = nullptr;
 }
 
 }

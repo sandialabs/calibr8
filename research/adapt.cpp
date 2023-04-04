@@ -182,7 +182,7 @@ void Target::adapt(
   auto in = ma::makeAdvanced(ma::configure(mesh, size_field));
   in->maximumIterations = 1;
   in->shouldCoarsen = false;
-  in->shouldFixShape = false;
+  in->shouldFixShape = true;
   in->goodQuality = 0.4;
   in->shouldRunPreParma = true;
   in->shouldRunMidParma = true;

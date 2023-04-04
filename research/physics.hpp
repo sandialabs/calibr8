@@ -47,8 +47,8 @@ class Physics {
   public:
     double compute_qoi(int space, apf::Field* u);
     double dot(apf::Field* a, apf::Field* b);
-    double compute_sum(int space, apf::Field* e);
-    double compute_bound(int space, apf::Field* e);
+    double compute_sum(apf::Field* e);
+    double compute_bound(apf::Field* e);
   private:
     RCP<ParameterList> m_params;
     RCP<Disc> m_disc;
