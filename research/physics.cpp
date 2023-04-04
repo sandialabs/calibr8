@@ -800,10 +800,16 @@ apf::Field* Physics::recover(apf::Field* f, std::string const& n) {
   return f_spr;
 }
 
-apf::Field* Physics::localize_error(apf::Field* u, apf::Field* z, std::string const& name) {
+apf::Field* Physics::localize_PU(apf::Field* u, apf::Field* z, std::string const& n) {
   ASSERT(apf::getShape(u) == m_disc->shape(FINE));
   ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  return m_residual->assemble(u, z, name);
+  return m_residual->assemble(u, z, n);
+}
+
+apf::Field* Physics::localize_simple(apf::Field* R, apf::Field* z, std::string const& n) {
+  ASSERT(apf::getShape(R) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  return op(negate_multiply, m_disc, R, z, n);
 }
 
 double Physics::compute_qoi(int space, apf::Field* u) {
@@ -825,6 +831,14 @@ double Physics::dot(apf::Field* a, apf::Field* b) {
   fill_vector(FINE, m_disc, a, A);
   fill_vector(FINE, m_disc, b, B);
   return (A.val[OWNED])->dot(*(B.val[OWNED]));
+}
+
+double Physics::compute_sum(int space, apf::Field* e) {
+  return op(sum_into, sum_into, m_disc, e);
+}
+
+double Physics::compute_bound(int space, apf::Field* e) {
+  return op(sum_into, abs_sum_into, m_disc, e);
 }
 
 }

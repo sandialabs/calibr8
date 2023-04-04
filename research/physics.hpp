@@ -42,10 +42,13 @@ class Physics {
     apf::Field* prolong(apf::Field* f, std::string const& n);
     apf::Field* restrict(apf::Field* f, std::string const& n);
     apf::Field* recover(apf::Field* f, std::string const& n);
-    apf::Field* localize_error(apf::Field* u, apf::Field* z, std::string const& n);
+    apf::Field* localize_PU(apf::Field* u, apf::Field* z, std::string const& n);
+    apf::Field* localize_simple(apf::Field* R, apf::Field* z, std::string const& n);
   public:
     double compute_qoi(int space, apf::Field* u);
     double dot(apf::Field* a, apf::Field* b);
+    double compute_sum(int space, apf::Field* e);
+    double compute_bound(int space, apf::Field* e);
   private:
     RCP<ParameterList> m_params;
     RCP<Disc> m_disc;
