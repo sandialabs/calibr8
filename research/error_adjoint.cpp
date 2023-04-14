@@ -195,6 +195,7 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   double const eta_tilde_bound = physics->compute_bound(m_eta_tilde_local);
   double const eta_quad_bound = physics->compute_bound(m_eta_quad_local);
   double const eta_quad_tilde_bound = physics->compute_bound(m_eta_quad_tilde_local);
+  double const norm_ERL = std::sqrt(physics->dot(m_ERL_exact, m_ERL_exact));
 
   // ---
   // ITERATION SUMMARY
@@ -236,6 +237,7 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   print("> eta_quad bound = %.15e", eta_quad_bound);
   print("> eta_quad_tilde bound = %.15e", eta_quad_tilde_bound);
   print("> ---");
+  print("> ||E^R_L|| = %.15e", norm_ERL);
 
   m_elems.push_back(num_elems);
   m_H_dofs.push_back(num_coarse_dofs);
@@ -258,6 +260,7 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   m_eta_tilde_bound.push_back(eta_tilde_bound);
   m_eta_quad_bound.push_back(eta_quad_bound);
   m_eta_quad_tilde_bound.push_back(eta_quad_bound);
+  m_norm_ERL.push_back(norm_ERL);
 
   // ---
   // INTERPOLATE THE CHOSEN ERROR FIELD TO CELL CENTERS
@@ -310,7 +313,8 @@ void Adjoint::write_history(std::string const& file, double J_ex) {
   stream << "eta_bound ";
   stream << "eta_tilde_bound ";
   stream << "eta_quad_bound ";
-  stream << "eta_quad_tilde_bound\n";
+  stream << "eta_quad_tilde_bound ";
+  stream << "norm_ERL\n";
   for (size_t i = 0; i < m_elems.size(); ++i) {
     stream << m_elems[i] << " ";
     stream << m_H_dofs[i] << " ";
@@ -333,7 +337,8 @@ void Adjoint::write_history(std::string const& file, double J_ex) {
     stream << m_eta_bound[i] << " ";
     stream << m_eta_tilde_bound[i] << " ";
     stream << m_eta_quad_bound[i] << " ";
-    stream << m_eta_quad_tilde_bound[i] << "\n";
+    stream << m_eta_quad_tilde_bound[i] << " ";
+    stream << m_norm_ERL[i] << "\n";
   }
   write_stream(file + "/error.dat", stream);
 }

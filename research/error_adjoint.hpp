@@ -76,6 +76,7 @@ class Adjoint : public Error {
     std::vector<double> m_eta_tilde_bound;
     std::vector<double> m_eta_quad_bound;
     std::vector<double> m_eta_quad_tilde_bound;
+    std::vector<double> m_norm_ERL;
 };
 
 }
