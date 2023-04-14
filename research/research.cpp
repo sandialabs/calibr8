@@ -25,7 +25,7 @@ Driver::Driver(std::string const& in) {
   m_params = rcp(new ParameterList);
   Teuchos::updateParametersFromYamlFile(in, m_params.ptr());
   m_physics = rcp(new Physics(m_params));
-  m_error = create_error(m_params->sublist("error"));
+  m_error = create_error(*m_params);
   m_adapt = create_adapt(m_params->sublist("adapt"));
 }
 

@@ -800,13 +800,39 @@ apf::Field* Physics::recover(apf::Field* f, std::string const& n) {
   return f_spr;
 }
 
+apf::Field* Physics::modify_star(
+    apf::Field* z, apf::Field* R, apf::Field* E, std::string const& n) {
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(R) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(E) == m_disc->shape(FINE));
+  double const num = this->dot(z,E);
+  double const den = this->dot(R,R);
+  double const gamma = num/den;
+  auto add_scaled = [&] (double a, double b) {
+    return a + gamma*b;
+  };
+  return op(add_scaled, m_disc, z, R, n);
+}
+
+apf::Field* Physics::diff(apf::Field* z, std::string const& n) {
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  apf::Field* z1 = this->restrict(z, "tmp1");
+  apf::Field* z2 = this->prolong(z1, "tmp2");
+  apf::Field* diff = this->subtract(z, z2, n);
+  apf::destroyField(z1);
+  apf::destroyField(z2);
+  return diff;
+}
+
+#if 0
 apf::Field* Physics::localize_PU(apf::Field* u, apf::Field* z, std::string const& n) {
   ASSERT(apf::getShape(u) == m_disc->shape(FINE));
   ASSERT(apf::getShape(z) == m_disc->shape(FINE));
   return m_residual->assemble(u, z, n);
 }
+#endif
 
-apf::Field* Physics::localize_simple(apf::Field* R, apf::Field* z, std::string const& n) {
+apf::Field* Physics::localize(apf::Field* R, apf::Field* z, std::string const& n) {
   ASSERT(apf::getShape(R) == m_disc->shape(FINE));
   ASSERT(apf::getShape(z) == m_disc->shape(FINE));
   return op(negate_multiply, m_disc, R, z, n);
