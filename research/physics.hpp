@@ -46,6 +46,11 @@ class Physics {
         apf::Field* z, apf::Field* R, apf::Field* E, std::string const& n);
     apf::Field* diff(apf::Field* z, std::string const& n);
     apf::Field* localize(apf::Field* R, apf::Field* z, std::string const& n);
+    apf::Field* localize(
+        apf::Field* R,
+        apf::Field* z, apf::Field* z_diff,
+        apf::Field* y, apf::Field* y_diff,
+        apf::Field* E, std::string const& n);
   public:
     double compute_qoi(int space, apf::Field* u);
     double dot(apf::Field* a, apf::Field* b);

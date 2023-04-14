@@ -824,18 +824,37 @@ apf::Field* Physics::diff(apf::Field* z, std::string const& n) {
   return diff;
 }
 
-#if 0
-apf::Field* Physics::localize_PU(apf::Field* u, apf::Field* z, std::string const& n) {
-  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
-  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  return m_residual->assemble(u, z, n);
-}
-#endif
-
 apf::Field* Physics::localize(apf::Field* R, apf::Field* z, std::string const& n) {
   ASSERT(apf::getShape(R) == m_disc->shape(FINE));
   ASSERT(apf::getShape(z) == m_disc->shape(FINE));
   return op(negate_multiply, m_disc, R, z, n);
+}
+
+apf::Field* Physics::localize(
+    apf::Field* R,
+    apf::Field* z, apf::Field* z_diff,
+    apf::Field* y, apf::Field* y_diff,
+    apf::Field* E, std::string const& n) {
+  ASSERT(apf::getShape(R) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(z) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(z_diff) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(y) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(y_diff) == m_disc->shape(FINE));
+  ASSERT(apf::getShape(E) == m_disc->shape(FINE));
+  apf::Field* eta1 = op(negate_multiply, m_disc, R, z_diff, "tmp1");
+  apf::Field* eta2 = op(negate_multiply, m_disc, R, y_diff, "tmp2");
+  apf::Field* eta3 = op(negate_multiply, m_disc, E, z, "tmp3");
+  apf::Field* eta4 = op(negate_multiply, m_disc, E, y, "tmp4");
+  apf::Field* eta12 = op(add, m_disc, eta1, eta2, "tmp5");
+  apf::Field* eta34 = op(add, m_disc, eta3, eta4, "tmp6");
+  apf::Field* result = op(add, m_disc, eta12, eta34, n);
+  apf::destroyField(eta1);
+  apf::destroyField(eta2);
+  apf::destroyField(eta3);
+  apf::destroyField(eta4);
+  apf::destroyField(eta12);
+  apf::destroyField(eta34);
+  return result;
 }
 
 double Physics::compute_qoi(int space, apf::Field* u) {
