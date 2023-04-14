@@ -142,12 +142,13 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   // LOCALIZE DIFFERENT ERROR CONTRIBUTIONS
   // ---
   
-  print("localizing eta_1");
+  print("localizing eta1");
   m_eta1_local = physics->localize(m_R_prolonged, m_z_fine_diff, "eta1_local");
   print("localizing eta");
   m_eta_local = physics->localize(m_R_prolonged, m_z_star_star_diff, "eta_local");
   print("localizing eta_tilde");
   m_eta_tilde_local = physics->localize(m_R_prolonged, m_z_star_star_recovered_diff, "eta_tilde_local");
+  // localize the two quadratic error estimates here..
 
   // ---
   // COMPUTABLE ERROR CONTRIBUTIONS
@@ -167,6 +168,7 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   double const eta4_tilde = -(physics->dot(m_y_recovered, m_ERL_recovered));
   double const eta = -(physics->dot(m_z_star_star, m_R_prolonged));
   double const eta_tilde = -(physics->dot(m_z_star_star_recovered, m_R_prolonged));
+  // compute bounds based on localized field here...
 
   // ---
   // ITERATION SUMMARY
@@ -183,9 +185,6 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   print("> Jr = %.15e", J_recovered);
   print("> Jeh = %.15e", Jeh);
   print("> ---");
-  print("> eta = %.15e", eta);
-  print("> eta_tilde = %.15e", eta_tilde);
-  print("> ---");
   print("> eta1 = %.15e", eta1);
   print("> eta2 = %.15e", eta2);
   print("> eta3 = %.15e", eta3);
@@ -195,6 +194,8 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   print("> eta3_tilde = %.15e", eta3_tilde);
   print("> eta4_tilde = %.15e", eta4_tilde);
   print("> ---");
+  print("> eta = %.15e", eta);
+  print("> eta_tilde = %.15e", eta_tilde);
 
   m_elems.push_back(num_elems);
   m_H_dofs.push_back(num_coarse_dofs);
@@ -222,13 +223,28 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
 
 }
 
-void Adjoint::write_history(std::string const& file, double J_ex) {
-  std::cout << std::scientific << std::setprecision(15);
-  for (int i = 0; i < m_JH.size(); ++i) {
-    std::cout << m_H_dofs[i] << ", " << J_ex << ", " << m_JH[i] << "\n";
+static void write_stream(
+    std::filesystem::path const& path,
+    std::stringstream const& stream) {
+  std::ofstream file_stream(path.c_str());
+  if (!file_stream.is_open()) {
+    throw std::runtime_error(
+        "write_stream - could not open: " + path.string());
   }
-  (void)file;
-  (void)J_ex;
+  file_stream << stream.rdbuf();
+  file_stream.close();
+}
+
+void Adjoint::write_history(std::string const& file, double J_ex) {
+  std::stringstream stream;
+  stream << std::scientific << std::setprecision(15);
+  stream << "elems H_dofs h_dofs\n";
+  for (size_t i = 0; i < m_elems.size(); ++i) {
+    stream << m_elems[i] << " ";
+    stream << m_H_dofs[i] << " ";
+    stream << m_h_dofs[i] << "\n";
+  }
+  write_stream(file + "/error.dat", stream);
 }
 
 void Adjoint::destroy_intermediate_fields() {
