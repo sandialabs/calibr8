@@ -248,13 +248,13 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   m_eta2.push_back(eta2);
   m_eta3.push_back(eta3);
   m_eta4.push_back(eta4);
-  m_eta2_tilde.push_back(eta2);
-  m_eta3_tilde.push_back(eta3);
-  m_eta4_tilde.push_back(eta4);
+  m_eta2_tilde.push_back(eta2_tilde);
+  m_eta3_tilde.push_back(eta3_tilde);
+  m_eta4_tilde.push_back(eta4_tilde);
   m_eta.push_back(eta);
   m_eta_tilde.push_back(eta_tilde);
   m_eta_quad.push_back(eta_quad);
-  m_eta_quad_tilde.push_back(eta_quad);
+  m_eta_quad_tilde.push_back(eta_quad_tilde);
   m_eta1_bound.push_back(eta1_bound);
   m_eta_bound.push_back(eta_bound);
   m_eta_tilde_bound.push_back(eta_tilde_bound);
