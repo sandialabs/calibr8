@@ -824,10 +824,10 @@ apf::Field* Physics::diff(apf::Field* z, std::string const& n) {
   return diff;
 }
 
-apf::Field* Physics::localize(apf::Field* R, apf::Field* z, std::string const& n) {
-  ASSERT(apf::getShape(R) == m_disc->shape(FINE));
+apf::Field* Physics::localize(apf::Field* u, apf::Field* z, std::string const& n) {
+  ASSERT(apf::getShape(u) == m_disc->shape(FINE));
   ASSERT(apf::getShape(z) == m_disc->shape(FINE));
-  return op(negate_multiply, m_disc, R, z, n);
+  return m_residual->assemble(u, z, n);
 }
 
 apf::Field* Physics::localize(

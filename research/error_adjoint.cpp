@@ -60,9 +60,9 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   m_z_star_star_diff = physics->diff(m_z_star_star, "z_star_star_diff");
 
   print("localizing eta1");
-  m_eta1_local = physics->localize(m_R_prolonged, m_z_fine_diff, "eta1_local");
+  m_eta1_local = physics->localize(m_u_prolonged, m_z_fine_diff, "eta1_local");
   print("localizing eta2");
-  m_eta2_local = physics->localize(m_R_prolonged, m_z_star_star_diff, "eta2_local");
+  m_eta2_local = physics->localize(m_u_prolonged, m_z_star_star_diff, "eta2_local");
 
   print("computing error contributions");
   int const num_elems = get_nelems(physics);
