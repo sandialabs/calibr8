@@ -8,10 +8,6 @@ Adjoint::Adjoint(ParameterList const& params) {
   auto const& resid_params = params.sublist("residual");
   auto const& qoi_params = params.sublist("quantity of interest");
   auto const& error_params = params.sublist("error");
-  double const alpha = resid_params.get<double>("alpha");
-  double const beta = qoi_params.get<double>("beta");
-  m_linear_physics = (alpha == 0.);
-  m_linear_qoi = (beta == 1.);
   m_error_field = error_params.get<std::string>("field");
 }
 
@@ -117,9 +113,12 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   // INTERPOLATE THE CHOSEN ERROR FIELD TO CELL CENTERS
   // ---
 
+  m_error_eta1 = interp_error_to_cells(m_eta1_local, "error_eta1");
+  m_error_eta2 = interp_error_to_cells(m_eta2_local, "error_eta2");
+
   apf::Field* e = nullptr;
-  if      (m_error_field == "eta1") e = interp_error_to_cells(m_eta1_local);
-  else if (m_error_field == "eta2") e = interp_error_to_cells(m_eta2_local);
+  if      (m_error_field == "eta1") e = interp_error_to_cells(m_eta1_local, "error");
+  else if (m_error_field == "eta2") e = interp_error_to_cells(m_eta2_local, "error");
   else {
     throw std::runtime_error("invalid error field: " + m_error_field);
   }
@@ -185,6 +184,8 @@ void Adjoint::destroy_intermediate_fields() {
   apf::destroyField(m_z_star_star_diff); m_z_star_star_diff = nullptr;
   apf::destroyField(m_eta1_local); m_eta1_local = nullptr;
   apf::destroyField(m_eta2_local); m_eta2_local = nullptr;
+  apf::destroyField(m_error_eta1); m_error_eta1 = nullptr;
+  apf::destroyField(m_error_eta2); m_error_eta2 = nullptr;
 }
 
 }

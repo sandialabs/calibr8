@@ -1,6 +1,7 @@
 #include "qoi.hpp"
 #include "qoi_gradient.hpp"
 #include "qoi_point.hpp"
+#include "qoi_sqrt_gradient.hpp"
 #include "qoi_value.hpp"
 #include "residual.hpp"
 
@@ -119,6 +120,8 @@ RCP<QoI<T>> create_QoI(ParameterList const& params) {
     return rcp(new QoI_Value<T>(params));
   } else if (type == "gradient") {
     return rcp(new QoI_Gradient<T>(params));
+  } else if (type == "sqrt gradient") {
+    return rcp(new QoI_SqrtGradient<T>(params));
   } else if (type == "point") {
     return rcp(new QoI_Point<T>(params));
   } else {

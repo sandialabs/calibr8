@@ -21,7 +21,7 @@ class Error {
 int get_ndofs(int space, RCP<Physics> physics);
 int get_nelems(RCP<Physics> physics);
 void write_stream(std::string const& path, std::stringstream const& stream);
-apf::Field* interp_error_to_cells(apf::Field* eta);
+apf::Field* interp_error_to_cells(apf::Field* eta, std::string const& n);
 
 RCP<Error> create_error(ParameterList const& params);
 

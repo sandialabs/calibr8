@@ -75,10 +75,10 @@ void Error::write_pvd(std::string const& file, int nctr) {
   write_stream(file + "/" + "fine.pvd", fine_stream);
 }
 
-apf::Field* interp_error_to_cells(apf::Field* eta) {
+apf::Field* interp_error_to_cells(apf::Field* eta, std::string const& n) {
   print("interpolating error field to cell centers");
   apf::Mesh* mesh = apf::getMesh(eta);
-  apf::Field* error = apf::createStepField(mesh, "error", apf::SCALAR);
+  apf::Field* error = apf::createStepField(mesh, n.c_str(), apf::SCALAR);
   int const neqs = apf::countComponents(eta);
   Array1D<double> values(neqs, 0.);
   apf::MeshEntity* ent;

@@ -612,6 +612,78 @@ static apf::Field* find_u_star_newton(
   return u_star;
 }
 
+static apf::Field* find_u_star_bisection(
+    RCP<ParameterList> params,
+    RCP<Disc> disc,
+    RCP<Residual<double>> residual,
+    RCP<Residual<FADT>> jacobian,
+    RCP<QoI<double>> qoi,
+    RCP<QoI<FADT>> qoi_deriv,
+    nonlinear_in in) {
+  Vector E(FINE, disc);
+  Vector dummy_vec(FINE, disc);
+  Matrix dummy_mat(FINE, disc);
+  fill_vector(FINE, disc, in.ue, E);
+  double const Jeh = in.J_fine - in.J_coarse;
+  int iter = 1;
+  double theta_left = 0.0;
+  double theta_right = 1.0;
+  apf::Field* u_star = nullptr;
+  apf::Field* u_left = nullptr;
+  double f_left = compute_f(params, disc, jacobian, qoi_deriv, E, in.u_coarse, Jeh);
+  double f_right = compute_f(params, disc, jacobian, qoi_deriv, E, in.u_fine, Jeh); 
+
+  std::cout << "f_left: " << f_left << "\n";
+  std::cout << "f_right: " << f_right << "\n";
+
+  if ((f_left * f_right) > 1.e-8) {
+    throw std::runtime_error("invalid qoi bisection starting points");
+  }
+
+
+  { // print some values of f to visualize it
+    int const n = 10;
+    double const dx = 1./double(n);
+    std::cout << "theta, f\n";
+    for (int i = 0; i < n+1; ++i) {
+      double const theta = i*dx;
+      auto tmp_op = [&] (double a, double b) { return (1.-theta)*a + theta*b; };
+      auto u_tmp = op(tmp_op, disc, in.u_coarse, in.u_fine, "u_tmp");
+      double const f = compute_f(params, disc, jacobian, qoi_deriv, E, u_tmp, Jeh);
+      std::cout << theta << ", " << f << "\n";
+      apf::destroyField(u_tmp);
+    }
+    std::cout << "---\n";
+  }
+
+
+  while (true) {
+    double const theta_mid = 0.5*(theta_right + theta_left);
+    auto left = [&] (double a, double b) { return (1.-theta_left)*a + theta_left*b; };
+    auto mid = [&] (double a, double b) { return (1.-theta_mid)*a + theta_mid*b; };
+    u_star = op(mid, disc, in.u_coarse, in.u_fine, "u_star");
+    u_left = op(left, disc, in.u_coarse, in.u_fine, "u_left");
+    double f_mid = compute_f(params, disc, jacobian, qoi_deriv, E, u_star, Jeh);
+    double f_left = compute_f(params, disc, jacobian, qoi_deriv, E, u_left, Jeh);
+    apf::destroyField(u_left);
+    print("> (%d) qoi bisesction iteration", iter);
+    print("> theta = %.15e", theta_mid);
+    print("> |f| = %.15e", f_mid);
+    if (std::abs(f_mid) < 1.e-10) {
+      print("> converged");
+      break;
+    } else if ((f_mid * f_left) < 0.) {
+      theta_right = theta_mid;
+      apf::destroyField(u_star);
+    } else {
+      theta_left = theta_mid;
+      apf::destroyField(u_star);
+    }
+    iter++;
+  }
+  return u_star;
+}
+
 static nonlinear_out solve_nonlinear_adjoint(
     RCP<ParameterList> params,
     RCP<Disc> disc,
@@ -622,9 +694,16 @@ static nonlinear_out solve_nonlinear_adjoint(
     RCP<QoI<FADT>> qoi_deriv,
     RCP<QoI<FAD2T>> qoi_hessian,
     nonlinear_in in) {
+  auto const& error_params = params->sublist("error");
+  bool const bisection = error_params.get<bool>("bisection");
   nonlinear_out out;
-  out.u_star = find_u_star_newton(
+  if (bisection) {
+    out.u_star = find_u_star_bisection(
+        params, disc, residual, jacobian, qoi, qoi_deriv, in);
+  } else {
+    out.u_star = find_u_star_newton(
       params, disc, jacobian, hessian, qoi_deriv, qoi_hessian, in);
+  }
   std::string const append = "_star" + in.name_append;
   out.z_star = solve_adjoint(
       FINE, params, disc, jacobian, qoi_deriv, in.u_coarse, append, out.u_star);
