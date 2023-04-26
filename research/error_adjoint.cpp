@@ -113,9 +113,6 @@ apf::Field* Adjoint::compute_error(RCP<Physics> physics) {
   // INTERPOLATE THE CHOSEN ERROR FIELD TO CELL CENTERS
   // ---
 
-  m_error_eta1 = interp_error_to_cells(m_eta1_local, "error_eta1");
-  m_error_eta2 = interp_error_to_cells(m_eta2_local, "error_eta2");
-
   apf::Field* e = nullptr;
   if      (m_error_field == "eta1") e = interp_error_to_cells(m_eta1_local, "error");
   else if (m_error_field == "eta2") e = interp_error_to_cells(m_eta2_local, "error");
@@ -184,8 +181,6 @@ void Adjoint::destroy_intermediate_fields() {
   apf::destroyField(m_z_star_star_diff); m_z_star_star_diff = nullptr;
   apf::destroyField(m_eta1_local); m_eta1_local = nullptr;
   apf::destroyField(m_eta2_local); m_eta2_local = nullptr;
-  apf::destroyField(m_error_eta1); m_error_eta1 = nullptr;
-  apf::destroyField(m_error_eta2); m_error_eta2 = nullptr;
 }
 
 }

@@ -28,8 +28,6 @@ class Adjoint : public Error {
     apf::Field* m_z_star_star_diff = nullptr;   // the adjoint weight for AMR
     apf::Field* m_eta1_local = nullptr;         // the traditional estimate localized
     apf::Field* m_eta2_local = nullptr;         // the new estimate localized
-    apf::Field* m_error_eta1 = nullptr;         // the error field interpolated to cell centers
-    apf::Field* m_error_eta2 = nullptr;         // the error field interpolated to cell centers
   private:
     std::vector<int> m_elems;
     std::vector<int> m_H_dofs;
