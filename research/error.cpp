@@ -79,11 +79,23 @@ apf::Field* interp_error_to_cells(apf::Field* eta, std::string const& n) {
   print("interpolating error field to cell centers");
   apf::Mesh* mesh = apf::getMesh(eta);
   apf::Field* error = apf::createStepField(mesh, n.c_str(), apf::SCALAR);
-  apf::MeshEntity* elem;
+  int const neqs = apf::countComponents(eta);
+  Array1D<double> values(neqs, 0.);
+  apf::MeshEntity* ent;
   apf::MeshIterator* elems = mesh->begin(mesh->getDimension());
-  while ((elem = mesh->iterate(elems))) {
-    double const val = apf::getScalar(eta, elem, 0);
-    apf::setScalar(error, elem, 0, std::abs(val));
+  while ((ent = mesh->iterate(elems))) {
+    apf::Vector3 xi;
+    apf::MeshElement* me = apf::createMeshElement(mesh, ent);
+    apf::Element* e = apf::createElement(eta, me);
+    apf::getIntPoint(me, 1, 0, xi);
+    apf::getComponents(e, xi, &(values[0]));
+    double error_val = 0.;
+    for (int eq = 0; eq < neqs; ++eq) {
+      error_val += std::abs(values[eq]);
+    }
+    apf::setScalar(error, ent, 0, error_val);
+    apf::destroyElement(e);
+    apf::destroyMeshElement(me);
   }
   mesh->end(elems);
   return error;

@@ -149,32 +149,6 @@ double op(
   return result;
 }
 
-double elem_sum(apf::Field* a) {
-  double result = 0;
-  apf::Mesh* mesh = apf::getMesh(a);
-  apf::MeshEntity* elem;
-  auto elems = mesh->begin(mesh->getDimension());
-  while ((elem = mesh->iterate(elems))) {
-    result += apf::getScalar(a, elem, 0);
-  }
-  mesh->end(elems);
-  result = PCU_Add_Double(result);
-  return result;
-}
-
-double elem_abs_sum(apf::Field* a) {
-  double result = 0;
-  apf::Mesh* mesh = apf::getMesh(a);
-  apf::MeshEntity* elem;
-  auto elems = mesh->begin(mesh->getDimension());
-  while ((elem = mesh->iterate(elems))) {
-    result += std::abs(apf::getScalar(a, elem, 0));
-  }
-  mesh->end(elems);
-  result = PCU_Add_Double(result);
-  return result;
-}
-
 void zero_boundary_nodes(
     ParameterList const& dbcs,
     RCP<Disc> disc,
@@ -984,11 +958,11 @@ double Physics::dot(apf::Field* a, apf::Field* b) {
 }
 
 double Physics::compute_sum(apf::Field* e) {
-  return elem_sum(e);
+  return op(sum_into, sum_into, m_disc, e);
 }
 
 double Physics::compute_bound(apf::Field* e) {
-  return elem_abs_sum(e);
+  return op(sum_into, abs_sum_into, m_disc, e);
 }
 
 }
