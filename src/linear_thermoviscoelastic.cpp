@@ -17,7 +17,7 @@ using minitensor::transpose;
 
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
-  p.set<std::string>("type", "linear_thermoviscoelatic");
+  p.set<std::string>("type", "linear_thermoviscoelastic");
   p.sublist("materials");
   //p.sublist("prony files");
   // temperature function
@@ -26,13 +26,10 @@ static ParameterList get_valid_local_residual_params() {
 
 static ParameterList get_valid_material_params() {
   ParameterList p;
-  p.set<double>("kappa", 0.);
-  p.set<double>("mu", 0.);
-  p.set<double>("alpha", 0.);
-  p.set<double>("T_ref", 0.);
-  p.set<double>("Delta_t", 0.);
-  p.set<double>("T_init", 0.);
-  p.set<double>("T_rate", 0.);
+  p.set<double>("E", 0.);
+  p.set<double>("nu", 0.);
+  p.set<double>("cte", 0.);
+  p.set<double>("delta_T", 0.);
   return p;
 }
 
@@ -66,11 +63,13 @@ LTVE<T>::~LTVE() {
 
 template <typename T>
 void LTVE<T>::init_params() {
-  int const num_params = 2;
+  int const num_params = 4;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
   this->m_param_names[0] = "E";
   this->m_param_names[1] = "nu";
+  this->m_param_names[2] = "cte";
+  this->m_param_names[3] = "delta_T";
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
   ParameterList& all_material_params = this->m_params_list.sublist("materials", true);
@@ -80,6 +79,8 @@ void LTVE<T>::init_params() {
     material_params.validateParameters(get_valid_material_params(), 0);
     this->m_param_values[es][0] = material_params.get<double>("E");
     this->m_param_values[es][1] = material_params.get<double>("nu");
+    this->m_param_values[es][2] = material_params.get<double>("cte");
+    this->m_param_values[es][3] = material_params.get<double>("delta_T");
   }
   this->m_active_indices.resize(1);
   this->m_active_indices[0].resize(1);
@@ -109,13 +110,16 @@ int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     int const ndims = global->num_dims();
     FADT const E = this->m_params[0];
     FADT const nu = this->m_params[1];
+    FADT const cte = this->m_params[2];
+    FADT const delta_T = this->m_params[3];
     FADT const mu = compute_mu(E, nu);
-    FADT const lambda = compute_lambda(E, nu);
+    FADT const kappa = compute_kappa(E, nu);
     Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
     Tensor<FADT> const grad_u = global->grad_vector_x(0);
     Tensor<FADT> const grad_u_T = transpose(grad_u);
     Tensor<FADT> const eps = 0.5 * (grad_u + grad_u_T);
-    Tensor<FADT> const cauchy = lambda * trace(eps) * I + 2. * mu * eps;
+    Tensor<FADT> const cauchy = kappa * (trace(eps) - 3. * cte * delta_T) * I
+      + 2. * mu * dev(eps);
     this->set_sym_tensor_xi(0, cauchy);
   }
 
@@ -142,8 +146,10 @@ int LTVE<T>::evaluate(
 
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
+  T const cte = this->m_params[2];
+  T const delta_T = this->m_params[3];
   T const mu = compute_mu(E, nu);
-  T const lambda = compute_lambda(E, nu);
+  T const kappa = compute_kappa(E, nu);
 
   Tensor<T> const cauchy = this->sym_tensor_xi(0);
 
@@ -152,7 +158,8 @@ int LTVE<T>::evaluate(
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const grad_u_T = transpose(grad_u);
   Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-  Tensor<T> R_cauchy = cauchy - lambda * trace(eps) * I - 2. * mu * eps;
+  Tensor<T> R_cauchy = cauchy - kappa * (trace(eps) - 3. * cte * delta_T) * I
+      - 2. * mu * dev(eps);
 
   this->set_sym_tensor_R(0, R_cauchy);
 
