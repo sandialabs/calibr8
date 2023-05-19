@@ -27,6 +27,7 @@ set(CALIBR8_SOURCES
   load_mismatch.cpp
   linear_alg.cpp
   linear_solve.cpp
+  linear_thermoviscoelastic.cpp
   local_residual.cpp
   mechanics.cpp
   mechanics_plane_stress.cpp
