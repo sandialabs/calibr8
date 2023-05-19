@@ -25,7 +25,12 @@ class LTVE : public LocalResidual<T> {
     T hydro_cauchy(RCP<GlobalResidual<T>> global);
     T pressure_scale_factor();
 
-  //private:
+  private:
+    void compute_temperature();
+    //void compute_lag();
+    double m_delta_t = 0.;
+    double m_delta_temp = 0.;
+    Array1D<double> m_temperature;
 };
 
 }

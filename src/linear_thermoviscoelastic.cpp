@@ -1,3 +1,5 @@
+#include <fstream>
+#include <iomanip>
 #include <Eigen/Dense>
 #include "control.hpp"
 #include "defines.hpp"
@@ -6,6 +8,11 @@
 #include "linear_thermoviscoelastic.hpp"
 #include "material_params.hpp"
 
+// read in prony files to populate tau/weight for volume and shear
+// compute J_3 and shift factor
+// compute rate form of linear elastic problem
+// add in viscoelastic parts
+// compare with sierra simple seal
 
 namespace calibr8 {
 
@@ -19,6 +26,10 @@ static ParameterList get_valid_local_residual_params() {
   ParameterList p;
   p.set<std::string>("type", "linear_thermoviscoelastic");
   p.sublist("materials");
+  p.set<int>("num steps", 1);
+  p.set<double>("temperature increment", 1.);
+  p.set<double>("time increment", 1.);
+  p.set<double>("initial temperature", 1.);
   //p.sublist("prony files");
   // temperature function
   return p;
@@ -33,6 +44,26 @@ static ParameterList get_valid_material_params() {
   return p;
 }
 
+template <typename T>
+void LTVE<T>::compute_temperature() {
+  int const num_steps = (this->m_params_list).template get<int>("num steps");
+  double const initial_temp = (this->m_params_list).template get<double>("initial temperature");
+  m_delta_temp = (this->m_params_list).template get<double>("temperature increment");
+  m_temperature.resize(num_steps + 1);
+  m_temperature[0] = initial_temp;
+  for (int t = 1; t <= num_steps; ++t) {
+    m_temperature[t] = initial_temp - t * m_delta_temp;
+  }
+  std::ofstream out_file;
+  const std::string temp_file = "temperature.txt";
+  out_file.open(temp_file);
+  out_file << std::scientific << std::setprecision(17);
+  for (int t = 0; t <= num_steps; ++t) {
+    out_file << m_temperature[t] << "\n";
+  }
+  out_file.close();
+}
+
 //void compute_lag() {
 //
 //}
@@ -42,6 +73,8 @@ LTVE<T>::LTVE(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
+
+  this->compute_temperature();
 
   int const num_residuals = 1;
 
@@ -85,6 +118,8 @@ void LTVE<T>::init_params() {
   this->m_active_indices.resize(1);
   this->m_active_indices[0].resize(1);
   this->m_active_indices[0][0] = 0;
+
+  //this->compute_shift_factors();
 }
 
 template <typename T>
