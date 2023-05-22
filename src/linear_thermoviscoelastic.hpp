@@ -26,14 +26,23 @@ class LTVE : public LocalResidual<T> {
     T pressure_scale_factor();
 
   private:
-    void compute_temperature(ParameterList const& inputs);
     void read_prony_series(ParameterList const& prony_files);
-    //void compute_lag();
+    void compute_temperature(ParameterList const& inputs);
+    void compute_shift_factors();
+    double compute_J3(Array1D<double> const& J3_k_prev);
+    Array1D<double> compute_J3_k(double const psi, Array1D<double> const& J3_k_prev,
+        bool compute_func = true);
+    void residual_and_deriv(double const psi, Array1D<double> const& J3_k_prev,
+        double const temp, double r_val, double r_deriv);
+    double lag_nonlinear_solve(double const psi, Array1D<double> const& J3_k_prev,
+        double const temp, double const tol = 1e-10, double const max_iters = 10);
     double m_delta_t = 0.;
     double m_delta_temp = 0.;
     Array2D<double> m_vol_prony;
     Array2D<double> m_shear_prony;
     Array1D<double> m_temperature;
+    Array1D<double> m_log10_shift_factor; // psi
+    Array1D<double> m_J3;
 };
 
 }
