@@ -30,6 +30,9 @@ static ParameterList get_valid_local_residual_params() {
   p.set<double>("temperature increment", 1.);
   p.set<double>("time increment", 1.);
   p.set<double>("initial temperature", 1.);
+  p.set<double>("reference temperature", 1.);
+  p.set<double>("WLF C_1", 1.);
+  p.set<double>("WLF C_2", 1.);
   p.sublist("prony files");
   return p;
 }
@@ -39,9 +42,6 @@ static ParameterList get_valid_material_params() {
   p.set<double>("E", 0.);
   p.set<double>("nu", 0.);
   p.set<double>("cte", 0.);
-  p.set<double>("C1", 0.);
-  p.set<double>("C2", 0.);
-  p.set<double>("T_ref", 0.);
   return p;
 }
 
@@ -93,6 +93,9 @@ void LTVE<T>::compute_temperature(ParameterList const& inputs) {
   double const initial_temp = inputs.get<double>("initial temperature");
   m_delta_temp = inputs.get<double>("temperature increment");
   m_delta_t = inputs.get<double>("time increment");
+  m_temp_ref = inputs.get<double>("reference temperature");
+  m_C_1 = inputs.get<double>("WLF C_1");
+  m_C_2 = inputs.get<double>("WLF C_2");
   m_temperature.resize(num_steps + 1);
   m_temperature[0] = initial_temp;
   for (size_t t = 1; t <= num_steps; ++t) {
@@ -151,21 +154,25 @@ void LTVE<T>::residual_and_deriv(
     double const psi,
     Array1D<double> const& J3_k_prev,
     double const temp,
-    double r_val,
-    double r_deriv) {
-
-  double const C_1 = val(this->m_params[3]);
-  double const C_2 = val(this->m_params[4]);
-  double const T_ref = val(this->m_params[5]);
+    double& r_val,
+    double& r_deriv) {
 
   Array1D<double> J3_k = this->compute_J3_k(psi, J3_k_prev);
   Array1D<double> J3_k_deriv = this->compute_J3_k(psi, J3_k_prev, false);
   double const J3 = compute_J3(J3_k);
   double const J3_deriv = compute_J3(J3_k_deriv);
 
-  double const N = temp - T_ref - J3;
-  r_val = psi + (C_1 * N) / (C_2 + N);
-  r_deriv = 1. - C_1 * C_2 * J3_deriv / std::pow(C_2 + N, 2);
+  double const N = temp - m_temp_ref - J3;
+//  print("temp = %e", temp);
+//  print("T_ref = %e", T_ref);
+//  print("J3 = %e", J3);
+//  print("C_1 = %e", C_1);
+//  print("C_2 = %e", C_2);
+  r_val = psi + (m_C_1 * N) / (m_C_2 + N);
+  r_deriv = 1. - m_C_1 * m_C_2 * J3_deriv / std::pow(m_C_2 + N, 2);
+
+  //print("r_val = %e, r_deriv = %e", r_val, r_deriv);
+  //fail("Done");
 }
 
 template <typename T>
@@ -174,12 +181,12 @@ double LTVE<T>::lag_nonlinear_solve(
     Array1D<double> const& J3_k_prev,
     double const temp,
     double const tol,
-    double const max_iters) {
+    int const max_iters) {
 
   int iter = 0;
   bool converged = false;
 
-  double R = 0.;
+  double R = 10. * tol;
   double dR = 0.;
   double psi_newton = psi;
 
@@ -198,7 +205,7 @@ double LTVE<T>::lag_nonlinear_solve(
 
 template <typename T>
 void LTVE<T>::compute_shift_factors() {
-  int const num_steps = m_temperature.size();
+  int const num_steps = m_temperature.size(); // includes initial condition
   //print("num steps = %d", num_steps);
   double psi = -8.;
   m_log10_shift_factor.resize(num_steps);
@@ -247,15 +254,12 @@ LTVE<T>::~LTVE() {
 
 template <typename T>
 void LTVE<T>::init_params() {
-  int const num_params = 6;
+  int const num_params = 3;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
   this->m_param_names[0] = "E";
   this->m_param_names[1] = "nu";
   this->m_param_names[2] = "cte";
-  this->m_param_names[3] = "C1";
-  this->m_param_names[4] = "C2";
-  this->m_param_names[5] = "T_ref";
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
   ParameterList& all_material_params = this->m_params_list.sublist("materials", true);
@@ -266,9 +270,6 @@ void LTVE<T>::init_params() {
     this->m_param_values[es][0] = material_params.get<double>("E");
     this->m_param_values[es][1] = material_params.get<double>("nu");
     this->m_param_values[es][2] = material_params.get<double>("cte");
-    this->m_param_values[es][3] = material_params.get<double>("C1");
-    this->m_param_values[es][4] = material_params.get<double>("C2");
-    this->m_param_values[es][5] = material_params.get<double>("T_ref");
   }
   this->m_active_indices.resize(1);
   this->m_active_indices[0].resize(1);
