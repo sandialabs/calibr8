@@ -26,10 +26,13 @@ class LTVE : public LocalResidual<T> {
     T pressure_scale_factor();
 
   private:
-    void compute_temperature();
+    void compute_temperature(ParameterList const& inputs);
+    void read_prony_series(ParameterList const& prony_files);
     //void compute_lag();
     double m_delta_t = 0.;
     double m_delta_temp = 0.;
+    Array2D<double> m_vol_prony;
+    Array2D<double> m_shear_prony;
     Array1D<double> m_temperature;
 };
 

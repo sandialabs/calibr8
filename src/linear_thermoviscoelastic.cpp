@@ -30,8 +30,7 @@ static ParameterList get_valid_local_residual_params() {
   p.set<double>("temperature increment", 1.);
   p.set<double>("time increment", 1.);
   p.set<double>("initial temperature", 1.);
-  //p.sublist("prony files");
-  // temperature function
+  p.sublist("prony files");
   return p;
 }
 
@@ -40,20 +39,64 @@ static ParameterList get_valid_material_params() {
   p.set<double>("E", 0.);
   p.set<double>("nu", 0.);
   p.set<double>("cte", 0.);
-  p.set<double>("delta_T", 0.);
+  p.set<double>("delta_T", 0.); // might not need this one
   return p;
 }
 
 template <typename T>
-void LTVE<T>::compute_temperature() {
-  int const num_steps = (this->m_params_list).template get<int>("num steps");
-  double const initial_temp = (this->m_params_list).template get<double>("initial temperature");
-  m_delta_temp = (this->m_params_list).template get<double>("temperature increment");
+void LTVE<T>::read_prony_series(ParameterList const& prony_files) {
+  std::string const& vol_prony_file = prony_files.get<std::string>("volume prony file");
+  std::string const& shear_prony_file = prony_files.get<std::string>("shear prony file");
+  std::string line;
+  Array1D<double> prony_data(2);
+
+  std::ifstream vol_in_file(vol_prony_file);
+  while(getline(vol_in_file, line)) {
+    std::stringstream ss(line);
+    if (ss >> prony_data[0] >> prony_data[1]) {
+      m_vol_prony.push_back(prony_data);
+    }
+  }
+
+  std::ifstream shear_in_file(shear_prony_file);
+  while(getline(shear_in_file, line)) {
+    std::stringstream ss(line);
+    if (ss >> prony_data[0] >> prony_data[1]) {
+      m_shear_prony.push_back(prony_data);
+    }
+  }
+
+#if 0
+  int const num_vol_prony_terms = m_vol_prony.size();
+  for (int i = 0; i < num_vol_prony_terms; ++i) {
+    print("volume prony (tau_%d, w_%d) = (%e, %e)", i, i, m_vol_prony[i][0], m_vol_prony[i][1]);
+  }
+
+  print("\n");
+
+  int const num_shear_prony_terms = m_shear_prony.size();
+  for (int i = 0; i < num_shear_prony_terms; ++i) {
+    print("shear prony (tau_%d, w_%d) = (%e, %e)", i, i, m_shear_prony[i][0], m_shear_prony[i][1]);
+  }
+#endif
+}
+
+
+template <typename T>
+void LTVE<T>::compute_temperature(ParameterList const& inputs) {
+  //int const num_steps = (this->m_params_list).template get<int>("num steps");
+  //double const initial_temp = (this->m_params_list).template get<double>("initial temperature");
+  //m_delta_temp = (this->m_params_list).template get<double>("temperature increment");
+  int const num_steps = inputs.get<int>("num steps");
+  double const initial_temp = inputs.get<double>("initial temperature");
+  m_delta_temp = inputs.get<double>("temperature increment");
   m_temperature.resize(num_steps + 1);
   m_temperature[0] = initial_temp;
   for (int t = 1; t <= num_steps; ++t) {
-    m_temperature[t] = initial_temp - t * m_delta_temp;
+    m_temperature[t] = initial_temp + t * m_delta_temp;
   }
+
+#if 0
   std::ofstream out_file;
   const std::string temp_file = "temperature.txt";
   out_file.open(temp_file);
@@ -62,6 +105,7 @@ void LTVE<T>::compute_temperature() {
     out_file << m_temperature[t] << "\n";
   }
   out_file.close();
+#endif
 }
 
 //void compute_lag() {
@@ -74,7 +118,9 @@ LTVE<T>::LTVE(ParameterList const& inputs, int ndims) {
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
 
-  this->compute_temperature();
+  this->compute_temperature(inputs);
+  ParameterList const& prony_params = inputs.sublist("prony files");
+  this->read_prony_series(prony_params);
 
   int const num_residuals = 1;
 
