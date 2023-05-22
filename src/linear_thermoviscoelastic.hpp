@@ -44,7 +44,7 @@ class LTVE : public LocalResidual<T> {
     Array2D<double> m_vol_prony;
     Array2D<double> m_shear_prony;
     Array1D<double> m_temperature;
-    Array1D<double> m_log10_shift_factor; // psi
+    Array1D<double> m_log10_shift_factor;
     Array1D<double> m_J3;
 };
 

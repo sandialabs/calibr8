@@ -67,28 +67,11 @@ void LTVE<T>::read_prony_series(ParameterList const& prony_files) {
       m_shear_prony.push_back(prony_data);
     }
   }
-
-#if 0
-  int const num_vol_prony_terms = m_vol_prony.size();
-  for (int i = 0; i < num_vol_prony_terms; ++i) {
-    print("volume prony (tau_%d, w_%d) = (%e, %e)", i, i, m_vol_prony[i][0], m_vol_prony[i][1]);
-  }
-
-  print("\n");
-
-  int const num_shear_prony_terms = m_shear_prony.size();
-  for (int i = 0; i < num_shear_prony_terms; ++i) {
-    print("shear prony (tau_%d, w_%d) = (%e, %e)", i, i, m_shear_prony[i][0], m_shear_prony[i][1]);
-  }
-#endif
 }
 
 
 template <typename T>
 void LTVE<T>::compute_temperature(ParameterList const& inputs) {
-  //int const num_steps = (this->m_params_list).template get<int>("num steps");
-  //double const initial_temp = (this->m_params_list).template get<double>("initial temperature");
-  //m_delta_temp = (this->m_params_list).template get<double>("temperature increment");
   int const num_steps = inputs.get<int>("num steps");
   double const initial_temp = inputs.get<double>("initial temperature");
   m_delta_temp = inputs.get<double>("temperature increment");
@@ -101,17 +84,6 @@ void LTVE<T>::compute_temperature(ParameterList const& inputs) {
   for (size_t t = 1; t <= num_steps; ++t) {
     m_temperature[t] = initial_temp + t * m_delta_temp;
   }
-
-#if 1
-  std::ofstream out_file;
-  const std::string temp_file = "temperature.txt";
-  out_file.open(temp_file);
-  out_file << std::scientific << std::setprecision(17);
-  for (int t = 0; t <= num_steps; ++t) {
-    out_file << m_temperature[t] << "\n";
-  }
-  out_file.close();
-#endif
 }
 
 template <typename T>
@@ -163,16 +135,8 @@ void LTVE<T>::residual_and_deriv(
   double const J3_deriv = compute_J3(J3_k_deriv);
 
   double const N = temp - m_temp_ref - J3;
-//  print("temp = %e", temp);
-//  print("T_ref = %e", T_ref);
-//  print("J3 = %e", J3);
-//  print("C_1 = %e", C_1);
-//  print("C_2 = %e", C_2);
   r_val = psi + (m_C_1 * N) / (m_C_2 + N);
   r_deriv = 1. - m_C_1 * m_C_2 * J3_deriv / std::pow(m_C_2 + N, 2);
-
-  //print("r_val = %e, r_deriv = %e", r_val, r_deriv);
-  //fail("Done");
 }
 
 template <typename T>
@@ -205,19 +169,17 @@ double LTVE<T>::lag_nonlinear_solve(
 
 template <typename T>
 void LTVE<T>::compute_shift_factors() {
-  int const num_steps = m_temperature.size(); // includes initial condition
-  //print("num steps = %d", num_steps);
+  int const total_num_steps = m_temperature.size(); // includes initial condition
   double psi = -8.;
-  m_log10_shift_factor.resize(num_steps);
+  m_log10_shift_factor.resize(total_num_steps);
   m_log10_shift_factor[0] = psi;
-  m_J3.resize(num_steps);
+  m_J3.resize(total_num_steps);
   m_J3[0] = 0.;
   Array1D<double> J3_k(m_vol_prony.size(), 0.);
 
-  for (size_t i = 1; i < num_steps; ++i) {
+  for (size_t i = 1; i < total_num_steps; ++i) {
     psi = lag_nonlinear_solve(m_log10_shift_factor[i-1], J3_k,
         m_temperature[i]);
-    //print("i = %d, psi = %e", i, psi);
     J3_k = compute_J3_k(psi, J3_k);
     m_log10_shift_factor[i] = psi;
     m_J3[i] = compute_J3(J3_k);
@@ -244,8 +206,6 @@ LTVE<T>::LTVE(ParameterList const& inputs, int ndims) {
   this->m_resid_names[0] = "cauchy";
   this->m_var_types[0] = SYM_TENSOR;
   this->m_num_eqs[0] = get_num_eqs(SYM_TENSOR, ndims);
-
-  // compute the WLF a
 }
 
 template <typename T>
@@ -275,19 +235,7 @@ void LTVE<T>::init_params() {
   this->m_active_indices[0].resize(1);
   this->m_active_indices[0][0] = 0;
 
-  print("Before compute shift");
   this->compute_shift_factors();
-  print("After compute shift");
-
-  int const num_steps = m_log10_shift_factor.size();
-  std::ofstream out_file;
-  const std::string shift_factor_file = "log10_wlf_lag.txt";
-  out_file.open(shift_factor_file);
-  out_file << std::scientific << std::setprecision(17);
-  for (int t = 0; t < num_steps; ++t) {
-    out_file << m_log10_shift_factor[t] << "\n";
-  }
-  out_file.close();
 }
 
 template <typename T>
