@@ -83,6 +83,17 @@ class LocalResidual {
         Array1D<apf::Field*> const& xi,
         Array1D<apf::Field*> const& xi_prev);
 
+    //! \brief Interpolate auxiliary local variables to the current integration point
+    //! \param pt The integration point index
+    //! \param xi The auxiliary local state variable fields at the current step
+    //! \param xi_prev The auxiliary local state variable fields at the previous step
+    //! \details Local fields are not 'gathered' in the same way that global
+    //! fields are because they are totally uncoupled from one another.
+    void gather_aux(
+        int pt,
+        Array1D<apf::Field*> const& chi,
+        Array1D<apf::Field*> const& chi_prev);
+
     //! \brief Seed the local variables as derivative quantities
     //! \details Returns the total number of seeded variables
     int seed_wrt_xi();
@@ -122,11 +133,13 @@ class LocalResidual {
     //! \param global The global residual equations
     //! \param use_path Use a flag to force a specific branch
     //! \param path The flag used to specify the branch path
+    //! \param step The index for the load step
     //! \details Returns an int defining which branch path the evaluation took
     virtual int evaluate(
         RCP<GlobalResidual<T>> global,
         bool use_path = false,
-        int path = 0) = 0;
+        int path = 0,
+        int step = 1) = 0;
 
     //! \brief A flag to determine if these equations correspond
     //! to finite deformation
@@ -394,6 +407,11 @@ class LocalResidual {
     Array1D<int> m_var_types;
     Array1D<std::string> m_resid_names;
 
+    int m_num_aux_vars = -1;
+    Array1D<int> m_num_aux_var_eqs;
+    Array1D<int> m_aux_var_types;
+    Array1D<std::string> m_aux_var_names;
+
     ParameterList m_params_list;
 
     Array1D<T> m_params;
@@ -408,10 +426,13 @@ class LocalResidual {
     int m_num_nodes = -1;
     int m_num_dofs = -1;
 
+    int m_num_aux_dofs = -1;
+
     // for finite deformation plane stress
     int m_z_stretch_idx = -1;
 
     Array1D<int> m_dxi_offsets;
+    Array1D<int> m_aux_offsets;
 
     apf::FieldShape* m_shape = nullptr;
     apf::MeshElement* m_mesh_elem = nullptr;
@@ -419,6 +440,9 @@ class LocalResidual {
     Array2D<T> m_xi;
     Array2D<T> m_xi_prev;
     Array2D<T> m_R;
+
+    Array2D<T> m_aux;
+    Array2D<T> m_aux_prev;
 
     //! \endcond
 

@@ -209,8 +209,10 @@ template <typename T>
 int HyperJ2<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
-    int path_in) {
+    int path_in,
+    int step) {
 
+  (void) step;
   int path = ELASTIC;
   int const ndims = this->m_num_dims;
   double const sqrt_23 = std::sqrt(2./3.);

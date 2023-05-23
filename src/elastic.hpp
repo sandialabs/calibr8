@@ -18,7 +18,8 @@ class Elastic : public LocalResidual<T> {
     int evaluate(
         RCP<GlobalResidual<T>> global,
         bool force_path = false,
-        int path = 0);
+        int path = 0,
+        int step = 1);
     bool is_finite_deformation() { return false; }
     Tensor<T> cauchy(RCP<GlobalResidual<T>> global);
     Tensor<T> dev_cauchy(RCP<GlobalResidual<T>> global);

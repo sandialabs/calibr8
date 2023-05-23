@@ -203,9 +203,37 @@ LTVE<T>::LTVE(ParameterList const& inputs, int ndims) {
   this->m_var_types.resize(num_residuals);
   this->m_resid_names.resize(num_residuals);
 
+  int const num_sym_tensor_eqs = get_num_eqs(SYM_TENSOR, ndims);
+  int const num_scalar_eqs = get_num_eqs(SCALAR, ndims);
+
   this->m_resid_names[0] = "cauchy";
   this->m_var_types[0] = SYM_TENSOR;
-  this->m_num_eqs[0] = get_num_eqs(SYM_TENSOR, ndims);
+  this->m_num_eqs[0] = num_sym_tensor_eqs;
+
+  int const num_vol_prony_terms = m_vol_prony.size();
+  int const num_shear_prony_terms = m_shear_prony.size();
+
+  int const num_aux_variables = num_vol_prony_terms + num_shear_prony_terms;
+  this->m_num_aux_vars = num_aux_variables;
+  this->m_num_aux_var_eqs.resize(num_aux_variables);
+  this->m_aux_var_types.resize(num_aux_variables);
+  this->m_aux_var_names.resize(num_aux_variables);
+
+  int v = 0;
+
+  for (int k = 0; k < num_vol_prony_terms; ++k) {
+    this->m_aux_var_names[v] = "Jvol" + std::to_string(k);
+    this->m_aux_var_types[v] = SCALAR;
+    this->m_num_aux_var_eqs[v] = num_scalar_eqs;
+    v++;
+  }
+
+  for (int k = 0; k < num_shear_prony_terms; ++k) {
+    this->m_aux_var_names[v] = "Jshear" + std::to_string(k);
+    this->m_aux_var_types[v] = SYM_TENSOR;
+    this->m_num_aux_var_eqs[v] = num_sym_tensor_eqs;
+    v++;
+  }
 }
 
 template <typename T>
@@ -289,8 +317,10 @@ template <typename T>
 int LTVE<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
-    int path_in) {
+    int path_in,
+    int step) {
 
+  (void) step;
   // always elastic
   int const path = 0;
 

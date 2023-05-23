@@ -130,8 +130,10 @@ template <typename T>
 int IsotropicElastic<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
-    int path_in) {
+    int path_in,
+    int step) {
 
+  (void) step;
   // always elastic
   int const path = 0;
 

@@ -38,10 +38,12 @@ class HypoHillPlaneStress : public LocalResidual<T> {
     //! \param global The global residual equations
     //! \param force_path Force a specific evaluation path
     //! \param path The evaluation path to force
+    //! \param step The load step
     int evaluate(
         RCP<GlobalResidual<T>> global,
         bool force_path = false,
-        int path = 0);
+        int path = 0,
+        int step = 1);
 
     //! \brief Do these equations correspond to finite deformation
     bool is_finite_deformation() { return true; }

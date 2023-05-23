@@ -82,12 +82,24 @@ void LocalResidual<T>::before_elems(int const es, RCP<Disc> disc) {
   resize(m_xi_prev, m_num_residuals, m_num_eqs);
   resize(m_R, m_num_residuals, m_num_eqs);
 
+  // resize the 'nodal' (integration point) quantities for the auxiliary variables
+  resize(m_aux, m_num_aux_vars, m_num_aux_var_eqs);
+  resize(m_aux, m_num_aux_vars, m_num_aux_var_eqs);
+
   // initialize the offsets for indexing into derivative arrays
   m_num_dofs = 0;
   m_dxi_offsets.resize(m_num_residuals);
   for (int i = 0; i < m_num_residuals; ++i) {
     m_dxi_offsets[i] = m_num_dofs;
     m_num_dofs += m_num_eqs[i];
+  }
+
+  // initialize the offsets for indexing auxiliary variables
+  m_num_aux_dofs = 0;
+  m_aux_offsets.resize(m_num_aux_vars);
+  for (int i = 0; i < m_num_aux_vars; ++i) {
+    m_aux_offsets[i] = m_num_aux_dofs;
+    m_num_aux_dofs += m_num_aux_var_eqs[i];
   }
 
   // set the parameters for the element set
@@ -715,6 +727,10 @@ void LocalResidual<T>::after_elems() {
   m_xi.resize(0);
   m_xi_prev.resize(0);
   m_dxi_offsets.resize(0);
+  m_num_aux_dofs = -1;
+  m_aux.resize(0);
+  m_aux_prev.resize(0);
+  m_aux_offsets.resize(0);
 }
 
 template <typename T>

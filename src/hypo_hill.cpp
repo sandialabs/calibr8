@@ -225,8 +225,10 @@ template <typename T>
 int HypoHill<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
-    int path_in) {
+    int path_in,
+    int step) {
 
+  (void) step;
   int path = ELASTIC;
   int const ndims = this->m_num_dims;
 

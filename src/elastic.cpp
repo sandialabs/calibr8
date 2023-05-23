@@ -83,9 +83,11 @@ template <typename T>
 int Elastic<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
-    int path_in) {
+    int path_in,
+    int step) {
   (void)force_path;
   (void)path_in;
+  (void)step;
   return 0;
 }
 
