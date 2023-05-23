@@ -37,11 +37,16 @@ class LTVE : public LocalResidual<T> {
         double const temp, double& r_val, double& r_deriv);
     double lag_nonlinear_solve(double const psi, Array1D<double> const& J3_k_prev,
         double const temp, double const tol = 1e-10, int const max_iters = 10);
+
+    void compute_present_aux_variables(RCP<GlobalResidual<T>> global, int step);
+    void compute_past_aux_variables(RCP<GlobalResidual<T>> global, int step);
+
     double m_delta_t = 0.;
     double m_delta_temp = 0.;
     double m_temp_ref = 0.;
     double m_C_1 = 0.;
     double m_C_2 = 0.;
+
     Array2D<double> m_vol_prony;
     Array2D<double> m_shear_prony;
     Array1D<double> m_temperature;

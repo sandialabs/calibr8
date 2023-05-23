@@ -274,16 +274,24 @@ void LTVE<T>::init_variables_impl() {
   this->set_sym_tensor_xi(cauchy_idx, cauchy);
 }
 
+template<typename T>
+void LTVE<T>::compute_present_aux_variables(
+    RCP<GlobalResidual<T>> global,
+    int step) {}
+
+template<typename T>
+void LTVE<T>::compute_past_aux_variables(
+    RCP<GlobalResidual<T>> global,
+    int step) {}
+
 template <>
 int LTVE<double>::solve_nonlinear(RCP<GlobalResidual<double>>, int step) {
   return 0;
 }
 
-// update to have all arguements
 template <>
 int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
 
-  (void)step;
   int path;
 
   // pick an initial guess for the local variables
@@ -310,6 +318,8 @@ int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
   EVector const dxi = J.fullPivLu().solve(-R);
 
   this->add_to_sym_tensor_xi(0, dxi);
+
+  this->compute_present_aux_variables(global, step);
 
   return path;
 
