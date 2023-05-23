@@ -257,35 +257,35 @@ class LocalResidual {
 
     //! \brief Get a scalar variable at the current integration point
     //! \param i The auxiliary variable index of interest
-    double scalar_chi(int i) const;
+    T scalar_chi(int i) const;
 
     //! \brief Get a vector variable at the current integration point
     //! \param i The auxiliary variable index of interest
-    Vector<double> vector_chi(int i) const;
+    Vector<T> vector_chi(int i) const;
 
     //! \brief Get a symmetric tensor variable at the current integration point
     //! \param i The auxiliary variable index of interest
-    Tensor<double> sym_tensor_chi(int i) const;
+    Tensor<T> sym_tensor_chi(int i) const;
 
     //! \brief Get a full tensor variable at the current integration point
     //! \param i The auxiliary variable index of interest
-    Tensor<double> tensor_chi(int i) const;
+    Tensor<T> tensor_chi(int i) const;
 
     //! \brief Get a previous scalar variable at the current integration point
     //! \param i The auxiliary variable index of interest
-    double scalar_chi_prev(int i) const;
+    T scalar_chi_prev(int i) const;
 
     //! \brief Get a previous vector variable at the current integration point
     //! \param i The auxiliary variable index of interest
-    Vector<double> vector_chi_prev(int i) const;
+    Vector<T> vector_chi_prev(int i) const;
 
     //! \brief Get a previous symmetric tensor variable at the current integration point
     //! \param i The auxiliary variable index of interest
-    Tensor<double> sym_tensor_chi_prev(int i) const;
+    Tensor<T> sym_tensor_chi_prev(int i) const;
 
     //! \brief Get a previous full tensor variable at the current integration point
     //! \param i The auxiliary variable index of interest
-    Tensor<double> tensor_chi_prev(int i) const;
+    Tensor<T> tensor_chi_prev(int i) const;
 
   protected:
 
@@ -316,42 +316,42 @@ class LocalResidual {
     //! \brief Set a scalar local variable at the current integration point
     //! \param i The auxiliary variable index of interest
     //! \param val The value to set
-    void set_scalar_chi(int i, double const& val);
+    void set_scalar_chi(int i, T const& val);
 
     //! \brief Set a vector local variable at the current integration point
     //! \param i The auxiliary variable index of interest
     //! \param val The value to set
-    void set_vector_chi(int i, Vector<double> const& val);
+    void set_vector_chi(int i, Vector<T> const& val);
 
     //! \brief Set a symmetric tensor local variable at the current integration point
     //! \param i The auxiliary variable index of interest
     //! \param val The value to set
-    void set_sym_tensor_chi(int i, Tensor<double> const& val);
+    void set_sym_tensor_chi(int i, Tensor<T> const& val);
 
     //! \brief Set a full tensor local variable at the current integration point
     //! \param i The auxiliary variable index of interest
     //! \param val The value to set
-    void set_tensor_chi(int i, Tensor<double> const& val);
+    void set_tensor_chi(int i, Tensor<T> const& val);
 
     //! \brief Set a scalar local variable at the current integration point
     //! \param i The auxiliary variable index of interest
     //! \param val The value to set
-    void set_scalar_chi_prev(int i, double const& val);
+    void set_scalar_chi_prev(int i, T const& val);
 
     //! \brief Set a vector local variable at the current integration point
     //! \param i The auxiliary variable index of interest
     //! \param val The value to set
-    void set_vector_chi_prev(int i, Vector<double> const& val);
+    void set_vector_chi_prev(int i, Vector<T> const& val);
 
     //! \brief Set a symmetric tensor local variable at the current integration point
     //! \param i The auxiliary variable index of interest
     //! \param val The value to set
-    void set_sym_tensor_chi_prev(int i, Tensor<double> const& val);
+    void set_sym_tensor_chi_prev(int i, Tensor<T> const& val);
 
     //! \brief Set a full tensor local variable at the current integration point
     //! \param i The auxiliary variable index of interest
     //! \param val The value to set
-    void set_tensor_chi_prev(int i, Tensor<double> const& val);
+    void set_tensor_chi_prev(int i, Tensor<T> const& val);
 
   protected:
 
