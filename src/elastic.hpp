@@ -14,7 +14,7 @@ class Elastic : public LocalResidual<T> {
     ~Elastic();
     void init_params();
     void init_variables_impl();
-    int solve_nonlinear(RCP<GlobalResidual<T>> global);
+    int solve_nonlinear(RCP<GlobalResidual<T>> global, int step = 1);
     int evaluate(
         RCP<GlobalResidual<T>> global,
         bool force_path = false,

@@ -129,13 +129,14 @@ void SmallHillPlaneStrain<T>::init_variables_impl() {
 }
 
 template <>
-int SmallHillPlaneStrain<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int SmallHillPlaneStrain<double>::solve_nonlinear(RCP<GlobalResidual<double>>, int step) {
   return 0;
 }
 
 template <>
-int SmallHillPlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int SmallHillPlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
 
+  (void)step;
   int path;
 
   // pick an initial guess for the local variables

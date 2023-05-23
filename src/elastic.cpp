@@ -75,7 +75,8 @@ void Elastic<T>::init_variables_impl() {
 }
 
 template <typename T>
-int Elastic<T>::solve_nonlinear(RCP<GlobalResidual<T>>) {
+int Elastic<T>::solve_nonlinear(RCP<GlobalResidual<T>>, int step) {
+  (void)step;
   this->set_scalar_xi(0, 0.);
   return 0;
 }

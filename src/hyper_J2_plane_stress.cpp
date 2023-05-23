@@ -161,13 +161,14 @@ void eval_be_bar_plane_stress(
 }
 
 template <>
-int HyperJ2PlaneStress<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int HyperJ2PlaneStress<double>::solve_nonlinear(RCP<GlobalResidual<double>>, int step) {
   return 0;
 }
 
 template <>
-int HyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int HyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
 
+  (void)step;
   int path;
 
   // pick an initial guess for the local variables
@@ -242,7 +243,7 @@ int HyperJ2PlaneStress<T>::evaluate(
     int path_in,
     int step) {
 
-  (void) step;
+  (void)step;
   int path = ELASTIC;
   int const ndims = this->m_num_dims;
   double const sqrt_23 = std::sqrt(2./3.);

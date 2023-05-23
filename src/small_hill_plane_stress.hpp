@@ -32,7 +32,8 @@ class SmallHillPlaneStress : public LocalResidual<T> {
 
     //! \brief Solve the constitutive equations at the current point
     //! \param global The global residual equations
-    int solve_nonlinear(RCP<GlobalResidual<T>> global);
+    //! \param step The load step
+    int solve_nonlinear(RCP<GlobalResidual<T>> global, int step = 1);
 
     //! \brief Evaluate the constitutive equations at the current point
     //! \param global The global residual equations

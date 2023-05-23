@@ -275,13 +275,15 @@ void LTVE<T>::init_variables_impl() {
 }
 
 template <>
-int LTVE<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int LTVE<double>::solve_nonlinear(RCP<GlobalResidual<double>>, int step) {
   return 0;
 }
 
+// update to have all arguements
 template <>
-int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
 
+  (void)step;
   int path;
 
   // pick an initial guess for the local variables

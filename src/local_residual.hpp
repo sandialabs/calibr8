@@ -141,8 +141,9 @@ class LocalResidual {
 
     //! \brief Solve the nonlinear model at the current integration point
     //! \param global The global residual equations
+    //! \param step The index for the load step
     //! \details This will fill in the current state m_xi and residuals m_R
-    virtual int solve_nonlinear(RCP<GlobalResidual<T>> global) = 0;
+    virtual int solve_nonlinear(RCP<GlobalResidual<T>> global, int step = 1) = 0;
 
     //! \brief Evaluate the local residual equations at the current integration point
     //! \param global The global residual equations

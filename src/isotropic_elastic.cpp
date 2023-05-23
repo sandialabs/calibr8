@@ -92,13 +92,14 @@ void IsotropicElastic<T>::init_variables_impl() {
 }
 
 template <>
-int IsotropicElastic<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int IsotropicElastic<double>::solve_nonlinear(RCP<GlobalResidual<double>>, int step) {
   return 0;
 }
 
 template <>
-int IsotropicElastic<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int IsotropicElastic<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
 
+  (void)step;
   int path;
 
   // pick an initial guess for the local variables
@@ -135,7 +136,7 @@ int IsotropicElastic<T>::evaluate(
     int path_in,
     int step) {
 
-  (void) step;
+  (void)step;
   // always elastic
   int const path = 0;
 

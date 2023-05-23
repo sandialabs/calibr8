@@ -129,13 +129,14 @@ void SmallHillPlaneStress<T>::init_variables_impl() {
 }
 
 template <>
-int SmallHillPlaneStress<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int SmallHillPlaneStress<double>::solve_nonlinear(RCP<GlobalResidual<double>>, int step) {
   return 0;
 }
 
 template <>
-int SmallHillPlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int SmallHillPlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
 
+  (void)step;
   int path;
 
   // pick an initial guess for the local variables

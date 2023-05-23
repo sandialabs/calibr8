@@ -158,13 +158,14 @@ Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
 }
 
 template <>
-int HypoHillPlaneStrain<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int HypoHillPlaneStrain<double>::solve_nonlinear(RCP<GlobalResidual<double>>, int step) {
   return 0;
 }
 
 template <>
-int HypoHillPlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int HypoHillPlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
 
+  (void)step;
   int path;
 
   // pick an initial guess for the local variables

@@ -115,13 +115,14 @@ void SmallJ2<T>::init_variables_impl() {
 }
 
 template <>
-int SmallJ2<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int SmallJ2<double>::solve_nonlinear(RCP<GlobalResidual<double>>, int step) {
   return 0;
 }
 
 template <>
-int SmallJ2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int SmallJ2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
 
+  (void)step;
   int path;
 
   // pick an initial guess for the local variables
@@ -180,7 +181,7 @@ int SmallJ2<T>::evaluate(
     int path_in,
     int step) {
 
-  (void) step;
+  (void)step;
   int path = ELASTIC;
   int const ndims = this->m_num_dims;
   double const sqrt_23 = std::sqrt(2./3.);

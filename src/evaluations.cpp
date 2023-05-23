@@ -189,7 +189,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
             local->gather(pt, xi, xi_prev);
             local->gather_aux(pt, chi, chi_prev);
             nderivs = local->seed_wrt_xi();
-            int path = local->solve_nonlinear(global);
+            int path = local->solve_nonlinear(global, step);
             if (is_verification) {
               disc->branch_paths()[step][es][elem] = path;
             }
