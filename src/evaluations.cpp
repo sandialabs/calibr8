@@ -121,6 +121,8 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
   Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
+  Array1D<apf::Field*> chi = disc->aux_fields_present();
+  Array1D<apf::Field*> chi_prev = disc->aux_fields_past();
 
   // modify the fields if we are doing a verification
   bool const is_verification = (disc->type() == VERIFICATION);
@@ -185,12 +187,14 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
             // and store the resultant local residual and its derivatives (dC_dxi)
             global->interpolate(iota);
             local->gather(pt, xi, xi_prev);
+            local->gather_aux(pt, chi, chi_prev);
             nderivs = local->seed_wrt_xi();
             int path = local->solve_nonlinear(global);
             if (is_verification) {
               disc->branch_paths()[step][es][elem] = path;
             }
             local->scatter(pt, xi);
+            local->scatter_aux(pt, chi);
             EMatrix const dC_dxi = local->eigen_jacobian(nderivs);
 
             // re-evaluate the constitutive equations to obtain dC_dx

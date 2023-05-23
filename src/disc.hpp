@@ -254,6 +254,9 @@ class Disc {
     //! \param R The global/local residuals defining the problem
     void create_aux_fields(RCP<Residuals<double>> R);
 
+    //! \brief Set PRESENT aux fields values to PAST
+    void advance_aux_fields();
+
     //! \brief Destroy the primal fields
     //! \param keep_ic Keep the initial condition?
     void destroy_primal(bool keep_ic = true);
@@ -283,6 +286,12 @@ class Disc {
 
     //! \brief Get the virtual fields stored on this discretization
     Array1D<Fields>& virtual_fields() { return m_virtual; }
+
+    //! \brief Get the past auxiliary fields stored on this discretization
+    Array1D<apf::Field*> aux_fields_past() { return m_aux_fields[PAST]; }
+
+    //! \brief Get the present auxiliary fields stored on this discretization
+    Array1D<apf::Field*> aux_fields_present() { return m_aux_fields[PRESENT]; }
 
     //! \brief Get the primal fields at a step
     Fields& primal(int step) { return m_primal[step]; }

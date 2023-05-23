@@ -94,7 +94,7 @@ void LocalResidual<T>::before_elems(int const es, RCP<Disc> disc) {
   if (m_num_aux_vars > 0) {
     // resize the 'nodal' (integration point) quantities for the auxiliary variables
     resize(m_chi, m_num_aux_vars, m_aux_var_num_eqs);
-    resize(m_chi, m_num_aux_vars, m_aux_var_num_eqs);
+    resize(m_chi_prev, m_num_aux_vars, m_aux_var_num_eqs);
 
     // initialize the offsets for indexing auxiliary variables
     m_num_aux_dofs = 0;
@@ -493,6 +493,195 @@ void LocalResidual<T>::set_tensor_R(int i, Tensor<T> const& R) {
   }
 }
 
+template <typename T>
+double LocalResidual<T>::scalar_chi(int i) const {
+  DEBUG_ASSERT(m_aux_var_types[i] == SCALAR);
+  return m_chi[i][0];
+}
+
+template <typename T>
+Vector<double> LocalResidual<T>::vector_chi(int i) const {
+  DEBUG_ASSERT(m_aux_var_types[i] == VECTOR);
+  Vector<double> val(m_num_dims);
+  for (int dim = 0; dim < m_num_dims; ++dim) {
+    val(dim) = m_chi[i][dim];
+  }
+  return val;
+}
+
+template <typename T>
+Tensor<double> LocalResidual<T>::sym_tensor_chi(int i) const {
+  DEBUG_ASSERT(m_aux_var_types[i] == SYM_TENSOR);
+  Tensor<double> val(m_num_dims);
+  if (m_num_dims == 2) {
+    val(0, 0) = m_chi[i][0];
+    val(0, 1) = m_chi[i][1];
+    val(1, 0) = m_chi[i][1];
+    val(1, 1) = m_chi[i][2];
+  }
+  if (m_num_dims == 3) {
+    val(0, 0) = m_chi[i][0];
+    val(0, 1) = m_chi[i][1];
+    val(0, 2) = m_chi[i][2];
+    val(1, 0) = m_chi[i][1];
+    val(1, 1) = m_chi[i][3];
+    val(1, 2) = m_chi[i][4];
+    val(2, 0) = m_chi[i][2];
+    val(2, 1) = m_chi[i][4];
+    val(2, 2) = m_chi[i][5];
+  }
+  return val;
+}
+
+template <typename T>
+Tensor<double> LocalResidual<T>::tensor_chi(int i) const {
+  DEBUG_ASSERT(m_aux_var_types[i] == TENSOR);
+  Tensor<double> val(m_num_dims);
+  int eq = 0;
+  for (int k = 0; k < m_num_dims; ++k) {
+    for (int l = 0; l < m_num_dims; ++l) {
+      val(k, l) = m_chi[i][eq++];
+    }
+  }
+  return val;
+}
+
+template <typename T>
+double LocalResidual<T>::scalar_chi_prev(int i) const {
+  DEBUG_ASSERT(m_aux_var_types[i] == SCALAR);
+  return m_chi_prev[i][0];
+}
+
+template <typename T>
+Vector<double> LocalResidual<T>::vector_chi_prev(int i) const {
+  DEBUG_ASSERT(m_aux_var_types[i] == VECTOR);
+  Vector<double> val(m_num_dims);
+  for (int dim = 0; dim < m_num_dims; ++dim) {
+    val(dim) = m_chi_prev[i][dim];
+  }
+  return val;
+}
+
+template <typename T>
+Tensor<double> LocalResidual<T>::sym_tensor_chi_prev(int i) const {
+  DEBUG_ASSERT(m_aux_var_types[i] == SYM_TENSOR);
+  Tensor<double> val(m_num_dims);
+  if (m_num_dims == 2) {
+    val(0, 0) = m_chi_prev[i][0];
+    val(0, 1) = m_chi_prev[i][1];
+    val(1, 0) = m_chi_prev[i][1];
+    val(1, 1) = m_chi_prev[i][2];
+  }
+  if (m_num_dims == 3) {
+    val(0, 0) = m_chi_prev[i][0];
+    val(0, 1) = m_chi_prev[i][1];
+    val(0, 2) = m_chi_prev[i][2];
+    val(1, 0) = m_chi_prev[i][1];
+    val(1, 1) = m_chi_prev[i][3];
+    val(1, 2) = m_chi_prev[i][4];
+    val(2, 0) = m_chi_prev[i][2];
+    val(2, 1) = m_chi_prev[i][4];
+    val(2, 2) = m_chi_prev[i][5];
+  }
+  return val;
+}
+
+template <typename T>
+Tensor<double> LocalResidual<T>::tensor_chi_prev(int i) const {
+  DEBUG_ASSERT(m_aux_var_types[i] == TENSOR);
+  Tensor<double> val(m_num_dims);
+  int eq = 0;
+  for (int k = 0; k < m_num_dims; ++k) {
+    for (int l = 0; l < m_num_dims; ++l) {
+      val(k, l) = m_chi_prev[i][eq++];
+    }
+  }
+  return val;
+}
+
+template <typename T>
+void LocalResidual<T>::set_scalar_chi(int i, double const& chi) {
+  DEBUG_ASSERT(m_aux_var_types[i] == SCALAR);
+  m_chi[i][0] = chi;
+}
+
+template <typename T>
+void LocalResidual<T>::set_vector_chi(int i, Vector<double> const& chi) {
+  DEBUG_ASSERT(m_aux_var_types[i] == VECTOR);
+  for (int k = 0; k < m_num_dims; ++k) {
+    m_chi[i][k] = chi(k);
+  }
+}
+
+template <typename T>
+void LocalResidual<T>::set_sym_tensor_chi(int i, Tensor<double> const& chi) {
+  DEBUG_ASSERT(m_aux_var_types[i] == SYM_TENSOR);
+  if (m_num_dims == 2) {
+    m_chi[i][0] = chi(0, 0);
+    m_chi[i][1] = chi(0, 1);
+    m_chi[i][2] = chi(1, 1);
+  } else {
+    m_chi[i][0] = chi(0, 0);
+    m_chi[i][1] = chi(0, 1);
+    m_chi[i][2] = chi(0, 2);
+    m_chi[i][3] = chi(1, 1);
+    m_chi[i][4] = chi(1, 2);
+    m_chi[i][5] = chi(2, 2);
+  }
+}
+
+template <typename T>
+void LocalResidual<T>::set_tensor_chi(int i, Tensor<double> const& chi) {
+  DEBUG_ASSERT(m_aux_var_types[i] == TENSOR);
+  int eq = 0;
+  for (int k = 0; k < m_num_dims; ++k) {
+    for (int l = 0; l < m_num_dims; ++l) {
+      m_chi[i][eq++] = chi(k, l);
+    }
+  }
+}
+
+template <typename T>
+void LocalResidual<T>::set_scalar_chi_prev(int i, double const& chi_prev) {
+  DEBUG_ASSERT(m_aux_var_types[i] == SCALAR);
+  m_chi_prev[i][0] = chi_prev;
+}
+
+template <typename T>
+void LocalResidual<T>::set_vector_chi_prev(int i, Vector<double> const& chi_prev) {
+  DEBUG_ASSERT(m_aux_var_types[i] == VECTOR);
+  for (int k = 0; k < m_num_dims; ++k) {
+    m_chi_prev[i][k] = chi_prev(k);
+  }
+}
+
+template <typename T>
+void LocalResidual<T>::set_sym_tensor_chi_prev(int i, Tensor<double> const& chi_prev) {
+  DEBUG_ASSERT(m_aux_var_types[i] == SYM_TENSOR);
+  if (m_num_dims == 2) {
+    m_chi_prev[i][0] = chi_prev(0, 0);
+    m_chi_prev[i][1] = chi_prev(0, 1);
+    m_chi_prev[i][2] = chi_prev(1, 1);
+  } else {
+    m_chi_prev[i][0] = chi_prev(0, 0);
+    m_chi_prev[i][1] = chi_prev(0, 1);
+    m_chi_prev[i][2] = chi_prev(0, 2);
+    m_chi_prev[i][3] = chi_prev(1, 1);
+    m_chi_prev[i][4] = chi_prev(1, 2);
+    m_chi_prev[i][5] = chi_prev(2, 2);
+  }
+}
+
+template <typename T>
+void LocalResidual<T>::set_tensor_chi_prev(int i, Tensor<double> const& chi_prev) {
+  DEBUG_ASSERT(m_aux_var_types[i] == TENSOR);
+  int eq = 0;
+  for (int k = 0; k < m_num_dims; ++k) {
+    for (int l = 0; l < m_num_dims; ++l) {
+      m_chi_prev[i][eq++] = chi_prev(k, l);
+    }
+  }
+}
 
 template <typename T>
 void LocalResidual<T>::set_elem(apf::MeshElement* mesh_elem) {
@@ -520,6 +709,27 @@ void LocalResidual<T>::gather(
   }
 }
 
+template <typename T>
+void LocalResidual<T>::gather_aux(
+    int pt,
+    Array1D<apf::Field*> const& chi,
+    Array1D<apf::Field*> const& chi_prev) {
+  apf::MeshEntity* elem = apf::getMeshEntity(m_mesh_elem);
+  for (int i = 0; i < m_num_aux_vars; ++i) {
+    int const neqs = m_aux_var_num_eqs[i];
+    int const type = m_aux_var_types[i];
+    Array1D<double> const chi_vals =
+      get_node_components(chi[i], elem, pt, type);
+    Array1D<double> const chi_prev_vals =
+      get_node_components(chi_prev[i], elem, pt, type);
+    for (int eq = 0; eq < neqs; ++eq) {
+      m_chi[i][eq] = chi_vals[eq];
+      m_chi_prev[i][eq] = chi_prev_vals[eq];
+    }
+  }
+}
+
+
 template <>
 void LocalResidual<double>::scatter(int, Array1D<apf::Field*>&) {
 }
@@ -531,6 +741,16 @@ void LocalResidual<FADT>::scatter(int pt, Array1D<apf::Field*>& xi) {
     int const type = m_var_types[i];
     Array1D<double> const xi_vals = get_components(m_xi[i], m_num_dims, type);
     apf::setComponents(xi[i], elem, pt, &(xi_vals[0]));
+  }
+}
+
+template <typename T>
+void LocalResidual<T>::scatter_aux(int pt, Array1D<apf::Field*>& chi) {
+  apf::MeshEntity* elem = apf::getMeshEntity(m_mesh_elem);
+  for (int i = 0; i < m_num_aux_vars; ++i) {
+    int const type = m_aux_var_types[i];
+    Array1D<double> const chi_vals = get_components(m_chi[i], m_num_dims, type);
+    apf::setComponents(chi[i], elem, pt, &(chi_vals[0]));
   }
 }
 

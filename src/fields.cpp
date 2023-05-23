@@ -180,6 +180,59 @@ Array1D<double> get_components(
   return apf_vals;
 }
 
+Array1D<double> get_components(
+    Array1D<double> const& chi,
+    int ndims,
+    int type) {
+
+  Array1D<double> apf_vals = Array1D<double>(9, 0.);
+
+  if (type == SCALAR) {
+    apf_vals[0] = chi[0];
+  }
+
+  if (type == VECTOR) {
+    for (int dim = 0; dim < ndims; ++dim) {
+      apf_vals[dim] = chi[dim];
+    }
+  }
+
+  if (type == SYM_TENSOR && ndims == 2) {
+    apf_vals[0] = chi[0];
+    apf_vals[1] = chi[1];
+    apf_vals[3] = chi[1];
+    apf_vals[4] = chi[2];
+  }
+
+  if (type == TENSOR && ndims == 2) {
+    apf_vals[0] = chi[0];
+    apf_vals[1] = chi[1];
+    apf_vals[3] = chi[2];
+    apf_vals[4] = chi[3];
+  }
+
+  if (type == SYM_TENSOR && ndims == 3) {
+    apf_vals[0] = chi[0];
+    apf_vals[1] = chi[1];
+    apf_vals[2] = chi[2];
+    apf_vals[3] = chi[1];
+    apf_vals[4] = chi[3];
+    apf_vals[5] = chi[4];
+    apf_vals[6] = chi[2];
+    apf_vals[7] = chi[4];
+    apf_vals[8] = chi[5];
+  }
+
+  if (type == TENSOR && ndims == 3) {
+    for (int comp = 0; comp < 9; ++comp) {
+      apf_vals[comp] = chi[comp];
+    }
+  }
+
+  return apf_vals;
+}
+
+
 static void interpolate_to_from(
     apf::Field* qp,
     apf::Field* nodal) {

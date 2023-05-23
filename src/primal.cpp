@@ -50,6 +50,9 @@ void Primal::solve_at_step(int step, double t, double) {
   // create or grab the the primal fields at this step
   if (m_disc->type() == COARSE || m_disc->type() == TRUTH) {
     m_disc->create_primal(m_state->residuals, step);
+    if (step > 1) {
+      m_disc->advance_aux_fields();
+    }
   }
   Array1D<apf::Field*> x = m_disc->primal(step).global;
   if (m_disc->type() == VERIFICATION) {

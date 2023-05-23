@@ -98,10 +98,10 @@ class LocalResidual {
         Array1D<apf::Field*> const& xi,
         Array1D<apf::Field*> const& xi_prev);
 
-    //! \brief Interpolate auxiliary local variables to the current integration point
+    //! \brief Interpolate auxiliary local state variables to the current integration point
     //! \param pt The integration point index
-    //! \param xi The auxiliary local state variable fields at the current step
-    //! \param xi_prev The auxiliary local state variable fields at the previous step
+    //! \param chi The auxiliary local state variable fields at the current step
+    //! \param chi_prev The auxiliary local state variable fields at the previous step
     //! \details Local fields are not 'gathered' in the same way that global
     //! fields are because they are totally uncoupled from one another.
     void gather_aux(
@@ -181,6 +181,11 @@ class LocalResidual {
     //! \param xi The local state variable fields at the current step
     void scatter(int pt, Array1D<apf::Field*>& xi);
 
+    //! \brief Save the auxiliary state variables at the current integration point
+    //! \param pt The integration point index
+    //! \param chi The auxiliary state variable fields at the current step
+    void scatter_aux(int pt, Array1D<apf::Field*>& chi);
+
     //! \brief Save the solved adjoint local variables to the current point
     //! \param pt The integration point index
     //! \param phi_pt The solved vector of all local adjoint variables
@@ -249,6 +254,38 @@ class LocalResidual {
     //! \param i The residual index of interest
     Tensor<T> tensor_xi_prev(int i) const;
 
+    //! \brief Get a scalar variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    double scalar_chi(int i) const;
+
+    //! \brief Get a vector variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    Vector<double> vector_chi(int i) const;
+
+    //! \brief Get a symmetric tensor variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    Tensor<double> sym_tensor_chi(int i) const;
+
+    //! \brief Get a full tensor variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    Tensor<double> tensor_chi(int i) const;
+
+    //! \brief Get a previous scalar variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    double scalar_chi_prev(int i) const;
+
+    //! \brief Get a previous vector variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    Vector<double> vector_chi_prev(int i) const;
+
+    //! \brief Get a previous symmetric tensor variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    Tensor<double> sym_tensor_chi_prev(int i) const;
+
+    //! \brief Get a previous full tensor variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    Tensor<double> tensor_chi_prev(int i) const;
+
   protected:
 
     //! \brief Set a scalar local variable at the current integration point
@@ -274,6 +311,46 @@ class LocalResidual {
     //! \param val The value to set
     //! \details This only sets the value, and does not update derivatives
     void set_tensor_xi(int i, Tensor<T> const& val);
+
+    //! \brief Set a scalar local variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    //! \param val The value to set
+    void set_scalar_chi(int i, double const& val);
+
+    //! \brief Set a vector local variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    //! \param val The value to set
+    void set_vector_chi(int i, Vector<double> const& val);
+
+    //! \brief Set a symmetric tensor local variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    //! \param val The value to set
+    void set_sym_tensor_chi(int i, Tensor<double> const& val);
+
+    //! \brief Set a full tensor local variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    //! \param val The value to set
+    void set_tensor_chi(int i, Tensor<double> const& val);
+
+    //! \brief Set a scalar local variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    //! \param val The value to set
+    void set_scalar_chi_prev(int i, double const& val);
+
+    //! \brief Set a vector local variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    //! \param val The value to set
+    void set_vector_chi_prev(int i, Vector<double> const& val);
+
+    //! \brief Set a symmetric tensor local variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    //! \param val The value to set
+    void set_sym_tensor_chi_prev(int i, Tensor<double> const& val);
+
+    //! \brief Set a full tensor local variable at the current integration point
+    //! \param i The auxiliary variable index of interest
+    //! \param val The value to set
+    void set_tensor_chi_prev(int i, Tensor<double> const& val);
 
   protected:
 
@@ -456,8 +533,8 @@ class LocalResidual {
     Array2D<T> m_xi_prev;
     Array2D<T> m_R;
 
-    Array2D<T> m_chi;
-    Array2D<T> m_chi_prev;
+    Array2D<double> m_chi;
+    Array2D<double> m_chi_prev;
 
     //! \endcond
 

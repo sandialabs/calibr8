@@ -55,6 +55,15 @@ Array1D<double> get_components(
     int ndims,
     int type);
 
+//! \brief Get the components of a variable in APF form
+//! \param chi The compact (calibr8) 1D representation of our variable
+//! \param ndims The number of spatial dimensions
+//! \param type The variable type
+Array1D<double> get_components(
+    Array1D<double> const& chi,
+    int ndims,
+    int type);
+
 //! \brief Enrich a nodal field
 //! \param z_H The coarse nodal field to enrich
 //! \returns An enriched nodal field

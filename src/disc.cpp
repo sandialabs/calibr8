@@ -631,6 +631,13 @@ void Disc::create_aux_fields(RCP<Residuals<double>> R) {
   }
 }
 
+void Disc::advance_aux_fields() {
+  int const num_aux_vars = m_aux_fields[PAST].size();
+  for (int v = 0; v < num_aux_vars; ++v) {
+    apf::copyData(m_aux_fields[PAST][v], m_aux_fields[PRESENT][v]);
+  }
+}
+
 static Array1D<std::string> get_vf_expressions(
     ParameterList const& vf_list) {
   Array1D<std::string> vf_expressions;
