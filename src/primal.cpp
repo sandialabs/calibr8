@@ -19,6 +19,7 @@ Primal::Primal(
   m_disc = disc_in;
   if (m_disc->type() == COARSE) {
     m_disc->create_primal(m_state->residuals, 0);
+    m_disc->create_aux_fields(m_state->residuals);
     int const model_form = m_state->model_form;
     m_state->residuals->local[model_form]->init_variables(m_state, false);
     m_state->d_residuals->local[model_form]->init_variables(m_state);

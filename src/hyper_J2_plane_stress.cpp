@@ -59,10 +59,11 @@ HyperJ2PlaneStress<T>::HyperJ2PlaneStress(ParameterList const& inputs, int ndims
   this->m_var_types[3] = SCALAR;
   this->m_num_eqs[3] = get_num_eqs(SCALAR, ndims);
 
+  this->m_num_aux_vars = 0;
+
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
   m_rel_tol = inputs.get<double>("nonlinear relative tol");
-
 }
 
 template <typename T>

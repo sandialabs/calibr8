@@ -215,7 +215,7 @@ LTVE<T>::LTVE(ParameterList const& inputs, int ndims) {
 
   int const num_aux_variables = num_vol_prony_terms + num_shear_prony_terms;
   this->m_num_aux_vars = num_aux_variables;
-  this->m_num_aux_var_eqs.resize(num_aux_variables);
+  this->m_aux_var_num_eqs.resize(num_aux_variables);
   this->m_aux_var_types.resize(num_aux_variables);
   this->m_aux_var_names.resize(num_aux_variables);
 
@@ -224,14 +224,14 @@ LTVE<T>::LTVE(ParameterList const& inputs, int ndims) {
   for (int k = 0; k < num_vol_prony_terms; ++k) {
     this->m_aux_var_names[v] = "Jvol" + std::to_string(k);
     this->m_aux_var_types[v] = SCALAR;
-    this->m_num_aux_var_eqs[v] = num_scalar_eqs;
+    this->m_aux_var_num_eqs[v] = num_scalar_eqs;
     v++;
   }
 
   for (int k = 0; k < num_shear_prony_terms; ++k) {
     this->m_aux_var_names[v] = "Jshear" + std::to_string(k);
     this->m_aux_var_types[v] = SYM_TENSOR;
-    this->m_num_aux_var_eqs[v] = num_sym_tensor_eqs;
+    this->m_aux_var_num_eqs[v] = num_sym_tensor_eqs;
     v++;
   }
 }

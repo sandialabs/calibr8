@@ -113,6 +113,7 @@ Disc::~Disc() {
   destroy_primal(false);
   destroy_adjoint();
   destroy_virtual();
+  destroy_aux_fields();
   m_mesh->destroyNative();
   apf::destroyMesh(m_mesh);
   if (m_is_base) delete m_sets;
@@ -611,6 +612,25 @@ void Disc::create_primal_fine_model(
   }
 }
 
+void Disc::create_aux_fields(RCP<Residuals<double>> R) {
+  int const model_form = BASE_MODEL;
+  int const num_aux_vars = R->local[model_form]->num_aux_vars();
+  m_aux_fields[PAST].resize(num_aux_vars);
+  m_aux_fields[PRESENT].resize(num_aux_vars);
+  for (int v = 0; v < num_aux_vars; ++v) {
+    std::string const name = R->local[model_form]->aux_var_name(v);
+    std::string const fname_past = name + "_past";
+    std::string const fname_present = name + "_present";
+    int const vtype = get_value_type(R->local[model_form]->aux_var_num_eqs(v), m_num_dims);
+    m_aux_fields[PAST][v] =
+        apf::createField(m_mesh, fname_past.c_str(), vtype, m_lv_shape);
+    apf::zeroField(m_aux_fields[PAST][v]);
+    m_aux_fields[PRESENT][v] =
+        apf::createField(m_mesh, fname_present.c_str(), vtype, m_lv_shape);
+    apf::zeroField(m_aux_fields[PRESENT][v]);
+  }
+}
+
 static Array1D<std::string> get_vf_expressions(
     ParameterList const& vf_list) {
   Array1D<std::string> vf_expressions;
@@ -705,6 +725,14 @@ void Disc::destroy_primal(bool keep_ic) {
     m_primal_fine.resize(1);
   } else {
     m_primal_fine.resize(0);
+  }
+}
+
+void Disc::destroy_aux_fields() {
+  int const num_aux_fields = m_aux_fields[PAST].size();
+  for (size_t i = 0; i < num_aux_fields; ++i) {
+    apf::destroyField(m_aux_fields[PAST][i]);
+    apf::destroyField(m_aux_fields[PRESENT][i]);
   }
 }
 

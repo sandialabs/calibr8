@@ -40,6 +40,9 @@ class LocalResidual {
     //! \brief The number of local residual equations
     int num_residuals() const { return m_num_residuals; }
 
+    //! \brief The number of auxiliary variables
+    int num_aux_vars() const { return m_num_aux_vars; }
+
     //! \brief The variable type associated with a single local residual
     //! \param residual The residual index of interest
     int var_type(int residual) const { return m_var_types[residual]; }
@@ -51,6 +54,18 @@ class LocalResidual {
     //! \brief The name of a given residual / local variable
     //! \param i The index into the residual of interest
     std::string const& resid_name(int i) const { return m_resid_names[i]; }
+
+    //! \brief The variable type associated with a single auxiliary variable
+    //! \param variable The auxiliary variable index of interest
+    int aux_var_type(int variable) const { return m_aux_var_types[variable]; }
+
+    //! \brief The number of components associated with a single local residual
+    //! \param residual The residual index of interest
+    int aux_var_num_eqs(int variable) const { return m_aux_var_num_eqs[variable]; }
+
+    //! \brief The name of a given residual / local variable
+    //! \param i The index into the auxiliary variable of interest
+    std::string const& aux_var_name(int i) const { return m_aux_var_names[i]; }
 
     //! \brief Initialize the local state variables to correct values
     //! \details This will call init_variables at the integration point level
@@ -408,7 +423,7 @@ class LocalResidual {
     Array1D<std::string> m_resid_names;
 
     int m_num_aux_vars = -1;
-    Array1D<int> m_num_aux_var_eqs;
+    Array1D<int> m_aux_var_num_eqs;
     Array1D<int> m_aux_var_types;
     Array1D<std::string> m_aux_var_names;
 
@@ -432,7 +447,7 @@ class LocalResidual {
     int m_z_stretch_idx = -1;
 
     Array1D<int> m_dxi_offsets;
-    Array1D<int> m_aux_offsets;
+    Array1D<int> m_chi_offsets;
 
     apf::FieldShape* m_shape = nullptr;
     apf::MeshElement* m_mesh_elem = nullptr;
@@ -441,8 +456,8 @@ class LocalResidual {
     Array2D<T> m_xi_prev;
     Array2D<T> m_R;
 
-    Array2D<T> m_aux;
-    Array2D<T> m_aux_prev;
+    Array2D<T> m_chi;
+    Array2D<T> m_chi_prev;
 
     //! \endcond
 

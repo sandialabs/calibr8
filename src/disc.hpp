@@ -26,6 +26,9 @@ enum { OWNED, GHOST, NUM_DISTRIB };
 //! \brief Discretization type
 enum { COARSE, NESTED, VERIFICATION, TRUTH };
 
+//! \brief Auxiliary variables time steps
+enum { PAST, PRESENT };
+
 //! \brief Element set definition
 using ElemSet = Array1D<apf::MeshEntity*>;
 
@@ -247,6 +250,10 @@ class Disc {
         RCP<Residuals<double>> R,
         ParameterList const& vf_list);
 
+    //! \brief Create the auxiliary fields
+    //! \param R The global/local residuals defining the problem
+    void create_aux_fields(RCP<Residuals<double>> R);
+
     //! \brief Destroy the primal fields
     //! \param keep_ic Keep the initial condition?
     void destroy_primal(bool keep_ic = true);
@@ -264,6 +271,9 @@ class Disc {
 
     //! \brief Destroy the virtual fields
     void destroy_virtual();
+
+    //! \brief Destroy the auxiliary fields
+    void destroy_aux_fields();
 
     //! \brief Get the primal fields stored on this discretization
     Array1D<Fields>& primal() { return m_primal; }
@@ -400,6 +410,8 @@ class Disc {
     Array1D<Fields> m_primal;
     Array1D<Fields> m_adjoint;
     Array1D<Fields> m_virtual;
+
+    Array1D<apf::Field*> m_aux_fields[2]; // previous, current steps
 
     bool m_is_base = true;
     int m_disc_type = COARSE;

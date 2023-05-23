@@ -67,10 +67,11 @@ HypoHillPlaneStrain<T>::HypoHillPlaneStrain(ParameterList const& inputs, int ndi
   this->m_num_eqs[2] = get_num_eqs(SCALAR, ndims);
   this->m_z_stress_idx = 2;
 
+  this->m_num_aux_vars = 0;
+
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
   m_rel_tol = inputs.get<double>("nonlinear relative tol");
-
 }
 
 template <typename T>

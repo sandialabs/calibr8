@@ -53,6 +53,8 @@ IsotropicElastic<T>::IsotropicElastic(ParameterList const& inputs, int ndims) {
   this->m_resid_names[0] = "cauchy";
   this->m_var_types[0] = SYM_TENSOR;
   this->m_num_eqs[0] = get_num_eqs(SYM_TENSOR, ndims);
+
+  this->m_num_aux_vars = 0;
 }
 
 template <typename T>

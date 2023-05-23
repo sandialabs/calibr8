@@ -36,6 +36,7 @@ Elastic<T>::Elastic(ParameterList const& inputs, int ndims) {
   this->m_resid_names[0] = "dummy";
   this->m_var_types[0] = SCALAR;
   this->m_num_eqs[0] = 1;
+  this->m_num_aux_vars = 0;
 }
 
 template <typename T>
