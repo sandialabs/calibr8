@@ -26,6 +26,9 @@ class LTVE : public LocalResidual<T> {
     T hydro_cauchy(RCP<GlobalResidual<T>> global);
     T pressure_scale_factor();
 
+    // make virtual with a default to do nothing
+    void compute_past_aux_variables(RCP<GlobalResidual<T>> global, int step);
+
   private:
     void read_prony_series(ParameterList const& prony_files);
     void compute_temperature(ParameterList const& inputs);
@@ -39,7 +42,6 @@ class LTVE : public LocalResidual<T> {
         double const temp, double const tol = 1e-10, int const max_iters = 10);
 
     void compute_present_aux_variables(RCP<GlobalResidual<T>> global, int step);
-    void compute_past_aux_variables(RCP<GlobalResidual<T>> global, int step);
 
     double m_delta_t = 0.;
     double m_delta_temp = 0.;

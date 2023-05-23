@@ -225,14 +225,14 @@ LTVE<T>::LTVE(ParameterList const& inputs, int ndims) {
     this->m_aux_var_names[v] = "J_vol_" + std::to_string(k);
     this->m_aux_var_types[v] = SCALAR;
     this->m_aux_var_num_eqs[v] = num_scalar_eqs;
-    v++;
+    ++v;
   }
 
   for (int k = 0; k < num_shear_prony_terms; ++k) {
     this->m_aux_var_names[v] = "J_shear_" + std::to_string(k);
     this->m_aux_var_types[v] = SYM_TENSOR;
     this->m_aux_var_num_eqs[v] = num_sym_tensor_eqs;
-    v++;
+    ++v;
   }
 }
 
@@ -291,12 +291,11 @@ void LTVE<T>::compute_present_aux_variables(
   T const vol_eps_prev = trace(eps_prev);
   Tensor<T> const dev_eps_prev = dev(eps_prev);
 
-  T const delta_vol_eps = m_delta_t * (vol_eps - vol_eps_prev);
-  Tensor<T> const delta_dev_eps = m_delta_t * (dev_eps - dev_eps_prev);
+  T const delta_vol_eps = vol_eps - vol_eps_prev;
+  Tensor<T> const delta_dev_eps = dev_eps - dev_eps_prev;
 
   double const a = std::pow(10., m_log10_shift_factor[step]);
 
-  // counter for auxiliary variables
   int v = 0;
 
   int const num_vol_prony_terms = m_vol_prony.size();
@@ -305,9 +304,8 @@ void LTVE<T>::compute_present_aux_variables(
     T const J_vol_k_prev = this->scalar_chi_prev(v);
     T const J_vol_k = a_tau / (a_tau + m_delta_t)
         * (J_vol_k_prev + delta_vol_eps);
-    //print("J_vol_%d = %e", k, val(J_vol_k));
     this->set_scalar_chi(v, J_vol_k);
-    v++;
+    ++v;
   }
 
   int const num_shear_prony_terms = m_shear_prony.size();
@@ -316,15 +314,8 @@ void LTVE<T>::compute_present_aux_variables(
     Tensor<T> const J_shear_k_prev = this->sym_tensor_chi_prev(v);
     Tensor<T> const J_shear_k = a_tau / (a_tau + m_delta_t)
         * (J_shear_k_prev + delta_dev_eps);
-#if 0
-    for (int i = 0; i < 3; ++i) {
-      for (int j = i; j < 3; ++j ) {
-        print("J_shear_%d(%d, %d) = %e", k, i, j, val(J_shear_k(i, j)));
-      }
-    }
-#endif
     this->set_sym_tensor_chi(v, J_shear_k);
-    v++;
+    ++v;
   }
 }
 
@@ -352,11 +343,27 @@ int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
     FADT const mu = compute_mu(E, nu);
     FADT const kappa = compute_kappa(E, nu);
     Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
+
     Tensor<FADT> const grad_u = global->grad_vector_x(0);
     Tensor<FADT> const grad_u_T = transpose(grad_u);
     Tensor<FADT> const eps = 0.5 * (grad_u + grad_u_T);
-    Tensor<FADT> const cauchy = kappa * (trace(eps) - 3. * cte * m_delta_temp)
-      * I + 2. * mu * dev(eps);
+    FADT const vol_eps = trace(eps);
+    Tensor<FADT> dev_eps = dev(eps);
+
+    Tensor<FADT> const grad_u_prev = global->grad_vector_x_prev(0);
+    Tensor<FADT> const grad_u_prev_T = transpose(grad_u_prev);
+    Tensor<FADT> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
+    FADT const vol_eps_prev = trace(eps_prev);
+    Tensor<FADT> dev_eps_prev = dev(eps_prev);
+
+    Tensor<FADT> cauchy_prev = this->sym_tensor_xi_prev(0);
+
+    FADT delta_vol_eps = vol_eps - vol_eps_prev;
+    Tensor<FADT> delta_dev_eps = dev_eps - dev_eps_prev;
+
+    Tensor<FADT> const cauchy = cauchy_prev
+      + kappa * (delta_vol_eps - 3. * cte * m_delta_temp) * I
+      + 2. * mu * delta_dev_eps;
     this->set_sym_tensor_xi(0, cauchy);
   }
 
@@ -392,14 +399,30 @@ int LTVE<T>::evaluate(
   T const kappa = compute_kappa(E, nu);
 
   Tensor<T> const cauchy = this->sym_tensor_xi(0);
+  Tensor<T> const cauchy_prev = this->sym_tensor_xi_prev(0);
 
   int const ndims = this->m_num_dims;
   Tensor<T> const I = minitensor::eye<T>(ndims);
+
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const grad_u_T = transpose(grad_u);
   Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-  Tensor<T> R_cauchy = cauchy - kappa * (trace(eps) - 3. * cte * m_delta_temp)
-    * I - 2. * mu * dev(eps);
+
+  T const vol_eps = trace(eps);
+  Tensor<T> dev_eps = dev(eps);
+
+  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
+  Tensor<T> const grad_u_prev_T = transpose(grad_u_prev);
+  Tensor<T> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
+  T const vol_eps_prev = trace(eps_prev);
+  Tensor<T> dev_eps_prev = dev(eps_prev);
+
+  T delta_vol_eps = vol_eps - vol_eps_prev;
+  Tensor<T> delta_dev_eps = dev_eps - dev_eps_prev;
+
+  Tensor<T> R_cauchy = cauchy - cauchy_prev
+    - kappa * (delta_vol_eps - 3. * cte * m_delta_temp) * I
+    - 2. * mu * delta_dev_eps;
 
   this->set_sym_tensor_R(0, R_cauchy);
 
