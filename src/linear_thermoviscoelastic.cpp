@@ -6,6 +6,7 @@
 #include "fad.hpp"
 #include "global_residual.hpp"
 #include "linear_thermoviscoelastic.hpp"
+#include "macros.hpp"
 #include "material_params.hpp"
 
 // read in prony files to populate tau/weight for volume and shear
@@ -39,9 +40,12 @@ static ParameterList get_valid_local_residual_params() {
 
 static ParameterList get_valid_material_params() {
   ParameterList p;
-  p.set<double>("E", 0.);
-  p.set<double>("nu", 0.);
-  p.set<double>("cte", 0.);
+  p.set<double>("K_g", 0.);
+  p.set<double>("mu_g", 0.);
+  p.set<double>("alpha_g", 0.);
+  p.set<double>("K_inf", 0.);
+  p.set<double>("mu_inf", 0.);
+  p.set<double>("alpha_inf", 0.);
   return p;
 }
 
@@ -68,7 +72,6 @@ void LTVE<T>::read_prony_series(ParameterList const& prony_files) {
     }
   }
 }
-
 
 template <typename T>
 void LTVE<T>::compute_temperature(ParameterList const& inputs) {
@@ -242,12 +245,15 @@ LTVE<T>::~LTVE() {
 
 template <typename T>
 void LTVE<T>::init_params() {
-  int const num_params = 3;
+  int const num_params = 6;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
-  this->m_param_names[0] = "E";
-  this->m_param_names[1] = "nu";
-  this->m_param_names[2] = "cte";
+  this->m_param_names[0] = "K_g";
+  this->m_param_names[1] = "mu_g";
+  this->m_param_names[2] = "alpha_g";
+  this->m_param_names[3] = "K_inf";
+  this->m_param_names[4] = "mu_inf";
+  this->m_param_names[5] = "alpha_inf";
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
   ParameterList& all_material_params = this->m_params_list.sublist("materials", true);
@@ -255,9 +261,12 @@ void LTVE<T>::init_params() {
     std::string const& elem_set_name = this->m_elem_set_names[es];
     ParameterList& material_params = all_material_params.sublist(elem_set_name, true);
     material_params.validateParameters(get_valid_material_params(), 0);
-    this->m_param_values[es][0] = material_params.get<double>("E");
-    this->m_param_values[es][1] = material_params.get<double>("nu");
-    this->m_param_values[es][2] = material_params.get<double>("cte");
+    this->m_param_values[es][0] = material_params.get<double>("K_g");
+    this->m_param_values[es][1] = material_params.get<double>("mu_g");
+    this->m_param_values[es][2] = material_params.get<double>("alpha_g");
+    this->m_param_values[es][3] = material_params.get<double>("K_inf");
+    this->m_param_values[es][4] = material_params.get<double>("mu_inf");
+    this->m_param_values[es][5] = material_params.get<double>("alpha_inf");
   }
   this->m_active_indices.resize(1);
   this->m_active_indices[0].resize(1);
@@ -269,6 +278,7 @@ void LTVE<T>::init_params() {
 template <typename T>
 void LTVE<T>::init_variables_impl() {
   int const ndims = this->m_num_dims;
+  ALWAYS_ASSERT(ndims == 3); // not implemented for 2D yet
   int const cauchy_idx = 0;
   Tensor<T> const cauchy = minitensor::zero<T>(ndims);
   this->set_sym_tensor_xi(cauchy_idx, cauchy);
@@ -337,34 +347,93 @@ int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
   // pick an initial guess for the local variables
   {
     int const ndims = global->num_dims();
-    FADT const E = this->m_params[0];
-    FADT const nu = this->m_params[1];
-    FADT const cte = this->m_params[2];
-    FADT const mu = compute_mu(E, nu);
-    FADT const kappa = compute_kappa(E, nu);
+
+    FADT const K_g = this->m_params[0];
+    FADT const mu_g = this->m_params[1];
+    FADT const alpha_g = this->m_params[2];
+    FADT const K_inf = this->m_params[3];
+    FADT const mu_inf = this->m_params[4];
+    FADT const alpha_inf = this->m_params[5];
+
+    FADT const delta_K = K_g - K_inf;
+    FADT const delta_mu = mu_g - mu_inf;
+    FADT const delta_alpha_K = alpha_g * K_g - alpha_inf * K_inf;
+
     Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
 
     Tensor<FADT> const grad_u = global->grad_vector_x(0);
     Tensor<FADT> const grad_u_T = transpose(grad_u);
     Tensor<FADT> const eps = 0.5 * (grad_u + grad_u_T);
     FADT const vol_eps = trace(eps);
-    Tensor<FADT> dev_eps = dev(eps);
+    Tensor<FADT> const dev_eps = dev(eps);
 
     Tensor<FADT> const grad_u_prev = global->grad_vector_x_prev(0);
     Tensor<FADT> const grad_u_prev_T = transpose(grad_u_prev);
     Tensor<FADT> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
     FADT const vol_eps_prev = trace(eps_prev);
-    Tensor<FADT> dev_eps_prev = dev(eps_prev);
+    Tensor<FADT> const dev_eps_prev = dev(eps_prev);
 
     Tensor<FADT> cauchy_prev = this->sym_tensor_xi_prev(0);
 
-    FADT delta_vol_eps = vol_eps - vol_eps_prev;
-    Tensor<FADT> delta_dev_eps = dev_eps - dev_eps_prev;
+    FADT const delta_vol_eps = vol_eps - vol_eps_prev;
+    Tensor<FADT> const delta_dev_eps = dev_eps - dev_eps_prev;
+
+    double const a = std::pow(10., m_log10_shift_factor[step]);
+
+    FADT bar_K = K_inf;
+    FADT bar_mu = mu_inf;
+    FADT bar_alpha_K = alpha_inf * K_inf;
+    FADT visco_vol = 0.;
+    Tensor<FADT> visco_shear = minitensor::zero<FADT>(ndims);
+
+    int v = 0;
+
+    int const num_vol_prony_terms = m_vol_prony.size();
+    for (int k = 0; k < num_vol_prony_terms; ++k) {
+      double const vol_weight_k = m_vol_prony[k][1];
+      bar_K += vol_weight_k * delta_K;
+      bar_alpha_K += vol_weight_k * delta_alpha_K;
+      double const a_tau = a * m_vol_prony[k][0];
+      FADT const J_vol_k_prev = this->scalar_chi_prev(v);
+      visco_vol += vol_weight_k / (a_tau + m_delta_t)
+          * (J_vol_k_prev + delta_vol_eps);
+      ++v;
+    }
+
+    int const num_shear_prony_terms = m_shear_prony.size();
+    for (int k = 0; k < num_shear_prony_terms; ++k) {
+      double const shear_weight_k = m_shear_prony[k][1];
+      bar_mu += shear_weight_k * delta_mu;
+      double const a_tau = a * m_shear_prony[k][0];
+      Tensor<FADT> const J_shear_k_prev = this->sym_tensor_chi_prev(v);
+      visco_shear += shear_weight_k / (a_tau + m_delta_t)
+          * (J_shear_k_prev + delta_dev_eps);
+      ++v;
+    }
+
+    //print("K_inf = %e", val(K_inf));
+    //print("alpha_inf= %e", val(alpha_inf));
+    //print("m_delta_temp= %e", m_delta_temp);
 
     Tensor<FADT> const cauchy = cauchy_prev
-      + kappa * (delta_vol_eps - 3. * cte * m_delta_temp) * I
-      + 2. * mu * delta_dev_eps;
+        + bar_K * delta_vol_eps * I
+        + 2. * bar_mu * delta_dev_eps
+        - 3. * K_inf * alpha_inf * m_delta_temp * I;
+        /*
+        - 3. * m_delta_t * delta_alpha_K * (m_J3[step] - m_J3[step - 1]) * I
+        - m_delta_t * delta_K * visco_vol * I
+        - 2. * m_delta_t * delta_mu * visco_shear;
+        */
+
     this->set_sym_tensor_xi(0, cauchy);
+
+    /*
+    for (int i = 0; i < 3; ++i) {
+      for (int j = i; j < 3; ++j) {
+        std::cout << "sigma(" << i << "," << j << ") = " << cauchy(i, j) << "\n";
+      }
+    }
+    */
   }
 
   path = this->evaluate(global);
@@ -388,15 +457,8 @@ int LTVE<T>::evaluate(
     int path_in,
     int step) {
 
-  (void) step;
   // always elastic
   int const path = 0;
-
-  T const E = this->m_params[0];
-  T const nu = this->m_params[1];
-  T const cte = this->m_params[2];
-  T const mu = compute_mu(E, nu);
-  T const kappa = compute_kappa(E, nu);
 
   Tensor<T> const cauchy = this->sym_tensor_xi(0);
   Tensor<T> const cauchy_prev = this->sym_tensor_xi_prev(0);
@@ -404,25 +466,69 @@ int LTVE<T>::evaluate(
   int const ndims = this->m_num_dims;
   Tensor<T> const I = minitensor::eye<T>(ndims);
 
+  T const K_g = this->m_params[0];
+  T const mu_g = this->m_params[1];
+  T const alpha_g = this->m_params[2];
+  T const K_inf = this->m_params[3];
+  T const mu_inf = this->m_params[4];
+  T const alpha_inf = this->m_params[5];
+
+  T const delta_K = K_g - K_inf;
+  T const delta_mu = mu_g - mu_inf;
+  T const delta_alpha_K = alpha_g * K_g - alpha_inf * K_inf;
+
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const grad_u_T = transpose(grad_u);
   Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-
   T const vol_eps = trace(eps);
-  Tensor<T> dev_eps = dev(eps);
+  Tensor<T> const dev_eps = dev(eps);
 
   Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
   Tensor<T> const grad_u_prev_T = transpose(grad_u_prev);
   Tensor<T> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
   T const vol_eps_prev = trace(eps_prev);
-  Tensor<T> dev_eps_prev = dev(eps_prev);
+  Tensor<T> const dev_eps_prev = dev(eps_prev);
 
-  T delta_vol_eps = vol_eps - vol_eps_prev;
-  Tensor<T> delta_dev_eps = dev_eps - dev_eps_prev;
+  T const delta_vol_eps = vol_eps - vol_eps_prev;
+  Tensor<T> const delta_dev_eps = dev_eps - dev_eps_prev;
+
+  double const a = std::pow(10., m_log10_shift_factor[step]);
+
+  T bar_K = K_inf;
+  T bar_mu = mu_inf;
+  T bar_alpha_K = alpha_inf * K_inf;
+  T visco_vol = 0.;
+  Tensor<T> visco_shear = minitensor::zero<T>(ndims);
+
+  int v = 0;
+
+  int const num_vol_prony_terms = m_vol_prony.size();
+  for (int k = 0; k < num_vol_prony_terms; ++k) {
+    double const vol_weight_k = m_vol_prony[k][1];
+    bar_K += vol_weight_k * delta_K;
+    bar_alpha_K += vol_weight_k * delta_alpha_K;
+    double const a_tau = a * m_vol_prony[k][0];
+    T const J_vol_k_prev = this->scalar_chi_prev(v);
+    visco_vol += vol_weight_k / (a_tau + m_delta_t)
+        * (J_vol_k_prev + delta_vol_eps);
+    ++v;
+  }
+
+  int const num_shear_prony_terms = m_shear_prony.size();
+  for (int k = 0; k < num_shear_prony_terms; ++k) {
+    double const shear_weight_k = m_shear_prony[k][1];
+    bar_mu += shear_weight_k * delta_mu;
+    double const a_tau = a * m_shear_prony[k][0];
+    Tensor<T> const J_shear_k_prev = this->sym_tensor_chi_prev(v);
+    visco_shear += shear_weight_k / (a_tau + m_delta_t)
+        * (J_shear_k_prev + delta_dev_eps);
+    ++v;
+  }
 
   Tensor<T> R_cauchy = cauchy - cauchy_prev
-    - kappa * (delta_vol_eps - 3. * cte * m_delta_temp) * I
-    - 2. * mu * delta_dev_eps;
+      - bar_K * delta_vol_eps * I
+      - 2. * bar_mu * delta_dev_eps
+      + 3. * K_inf * alpha_inf * m_delta_temp * I;
 
   this->set_sym_tensor_R(0, R_cauchy);
 
