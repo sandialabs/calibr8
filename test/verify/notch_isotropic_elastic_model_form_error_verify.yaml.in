@@ -25,6 +25,8 @@ notch elastic mfe verify:
         body:
           E: 200e3
           nu: 0.3
+          cte: 0.
+          delta_T: 0.
 
     fine local residual:
       type: 'isotropic_elastic'
@@ -32,6 +34,8 @@ notch elastic mfe verify:
         body:
           E: 180e3
           nu: 0.35
+          cte: 0.
+          delta_T: 0.
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:

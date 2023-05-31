@@ -9,12 +9,6 @@
 #include "macros.hpp"
 #include "material_params.hpp"
 
-// read in prony files to populate tau/weight for volume and shear
-// compute J_3 and shift factor
-// compute rate form of linear elastic problem
-// add in viscoelastic parts
-// compare with sierra simple seal
-
 namespace calibr8 {
 
 using minitensor::det;
@@ -186,9 +180,7 @@ void LTVE<T>::compute_shift_factors() {
         m_temperature[i]);
     J3_k = compute_J3_k(psi, J3_k);
     m_log10_shift_factor[i] = psi;
-    print("log10 shift factor at step %d = %e", i, m_log10_shift_factor[i]);
     m_J3[i] = compute_J3(J3_k);
-    print("J3 at step %d = %e", i, m_J3[i]);
   }
 }
 
@@ -421,10 +413,6 @@ int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
       ++v;
     }
 
-    //print("K_inf = %e", val(K_inf));
-    //print("alpha_inf= %e", val(alpha_inf));
-    //print("m_delta_temp= %e", m_delta_temp);
-
     Tensor<FADT> const cauchy = cauchy_prev
         + bar_K * delta_vol_eps * I
         + 2. * bar_mu * delta_dev_eps
@@ -435,13 +423,6 @@ int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
 
     this->set_sym_tensor_xi(0, cauchy);
 
-    /*
-    for (int i = 0; i < 3; ++i) {
-      for (int j = i; j < 3; ++j) {
-        std::cout << "sigma(" << i << "," << j << ") = " << cauchy(i, j) << "\n";
-      }
-    }
-    */
   }
 
   path = this->evaluate(global, false, 0, step);
@@ -540,19 +521,6 @@ int LTVE<T>::evaluate(
       + 3. * delta_alpha_K * (m_J3[step] - m_J3[step - 1]) * I
       + m_delta_t * delta_K * visco_vol * I
       + 2. * m_delta_t * delta_mu * visco_shear;
-
-  /*
-  double const diff_tol = 1e1;
-  for (int i = 0; i < 3; ++i) {
-    for (int j = i; j < 3; ++j) {
-      T const R_cauchy_val = R_cauchy(i, j);
-      double const dval = val(R_cauchy_val);
-      if (std::abs(dval) > diff_tol) {
-        std::cout << "R(" << i << "," << j << ") = " << R_cauchy(i, j) << "\n";
-      }
-    }
-  }
-  */
 
   this->set_sym_tensor_R(0, R_cauchy);
 
