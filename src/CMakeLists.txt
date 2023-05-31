@@ -1,5 +1,6 @@
 set(CALIBR8_SOURCES
   adjoint.cpp
+  adjoint_aux.cpp
   adjoint_objective.cpp
   avg_disp.cpp
   avg_stress.cpp
@@ -97,6 +98,11 @@ add_executable(model_form_error main_model_form_error.cpp)
 target_link_libraries(model_form_error PRIVATE calibr8)
 set_code_standards(model_form_error)
 install(TARGETS model_form_error)
+
+add_executable(model_form_error_aux main_model_form_error_aux.cpp)
+target_link_libraries(model_form_error_aux PRIVATE calibr8)
+set_code_standards(model_form_error_aux)
+install(TARGETS model_form_error_aux)
 
 add_executable(model_form_error_verify main_model_form_error_verify.cpp)
 target_link_libraries(model_form_error_verify PRIVATE calibr8)

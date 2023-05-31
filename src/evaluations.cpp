@@ -541,14 +541,194 @@ void eval_adjoint_jacobian(
             global->interpolate(iota);
             local->gather(pt, xi, xi_prev);
             nderivs = local->seed_wrt_xi();
-            local->evaluate(global, force_path, path);
+            local->evaluate(global, force_path, path, step);
             EMatrix const dC_dxi = local->eigen_jacobian(nderivs);
 
             // re-evaluate the constitutive equations to obtain dC_dx
             local->unseed_wrt_xi();
             nderivs = global->seed_wrt_x();
             global->interpolate(iota);
-            local->evaluate(global, force_path, path);
+            local->evaluate(global, force_path, path, step);
+            EMatrix const dC_dx = local->eigen_jacobian(nderivs);
+
+            // solve the forward sensitivty system to obtain dxi_dx
+            EMatrix const dxi_dx = dC_dxi.fullPivLu().solve(-dC_dx);
+
+            // evaluate and scatter point contributions to the global LHS
+            local->seed_wrt_x(dxi_dx);
+
+            global->zero_residual();
+            global->evaluate(local, iota, w, dv, ip_set);
+            EMatrix const dtotal = global->eigen_jacobian(nderivs);
+            EMatrix const dtotalT = dtotal.transpose();
+            global->scatter_lhs(disc, dtotalT, LHS);
+            local->unseed_wrt_xi();
+
+            // evaluate the QoI derivatives to obtain dJ_dx
+            qoi->evaluate(es, elem, global, local, iota, w, dv);
+            EVector const dJ_dx = qoi->eigen_dvector(nderivs);
+            global->unseed_wrt_x();
+
+            // evaluate the QoI derivatives to obtain dJ_dxi
+            nderivs = local->seed_wrt_xi();
+            global->interpolate(iota);
+            qoi->evaluate(es, elem, global, local, iota, w, dv);
+            EVector const dJ_dxi = qoi->eigen_dvector(nderivs);
+            local->unseed_wrt_xi();
+
+            // update the local history variable
+            g[es][elem][pt] -= dJ_dxi;
+            EVector const g_pt = g[es][elem][pt];
+            EVector const f_pt = f[es][elem][pt];
+
+            // evaluate and scatter point contributions to the global RHS
+            EMatrix const dxi_dxT = dxi_dx.transpose();
+            EVector const rhs = -dJ_dx + f_pt + dxi_dxT * g_pt;
+            global->scatter_rhs(disc, rhs, RHS);
+
+          }
+
+          else {
+
+            nderivs = global->seed_wrt_x();
+            global->interpolate(iota);
+            global->zero_residual();
+            global->evaluate(local, iota, w, dv, ip_set);
+            EMatrix const dtotal = global->eigen_jacobian(nderivs);
+            EMatrix const dtotalT = dtotal.transpose();
+            global->scatter_lhs(disc, dtotalT, LHS);
+
+          }
+
+        }
+
+      }
+
+      // perform operations on element output
+      apf::destroyMeshElement(me);
+      global->unset_elem();
+      local->unset_elem();
+      qoi->unset_elem();
+
+    }
+
+  }
+
+  qoi->modify_state(state);
+
+  // perform clean-ups of the residual objects
+  local->after_elems();
+  global->after_elems();
+  qoi->after_elems();
+
+}
+
+void eval_adjoint_aux_jacobian(
+    RCP<State> state,
+    RCP<Disc> disc,
+    Array3D<EVector>& h,
+    Array3D<EVector>& g,
+    Array3D<EVector>& f,
+    int step) {
+
+  // gather discretization information
+  apf::Mesh* mesh = disc->apf_mesh();
+
+  // preprocess the QoI
+  int const model_form = state->model_form;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
+  RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  RCP<QoI<FADT>> qoi = state->d_qoi;
+  preprocess_qoi(qoi, local, global, state, disc, step);
+
+  // gather information from the state object
+  Array2D<RCP<MatrixT>>& LHS = state->la->A[GHOST];
+  Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
+  Array1D<apf::Field*> x = disc->primal(step).global;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
+  Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
+  Array1D<apf::Field*> chi = disc->aux_fields_present();
+  Array1D<apf::Field*> chi_prev = disc->aux_fields_past();
+
+  // determine if we are doing verification
+  bool force_path = false;
+  int path = 0;
+  if (disc->type() == VERIFICATION) {
+    force_path = true;
+  }
+
+  // perform initializations of the residual objects
+  global->before_elems(disc);
+  qoi->before_elems(disc, step);
+
+  // variable telling us the current number of derivatives
+  int nderivs = -1;
+
+  // loop over all element sets in the discretization
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
+
+    // gather the elements in the current element set
+    std::string const& es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+
+    // loop over all elements in the element set
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+
+      // get the current mesh element
+      apf::MeshEntity* e = elems[elem];
+      apf::MeshElement* me = apf::createMeshElement(mesh, e);
+
+      // peform operations on element input
+      global->set_elem(me);
+      local->set_elem(me);
+      qoi->set_elem(me);
+      global->gather(x, x_prev);
+
+      // grab the forced path if required
+      if (force_path) {
+        path = disc->branch_paths()[step][es][elem];
+      }
+
+      // loop over domain ip sets
+      // ip_set = 0 -> coupled
+      // ip_set > 0 -> global only
+      Array1D<int> ip_sets = global->ip_sets();
+      int const num_ip_sets = ip_sets.size();
+
+      for (int ip_set = 0; ip_set < num_ip_sets; ++ip_set) {
+
+        // get the quadrature order for the ip set
+        int const q_order = ip_sets[ip_set];
+        // loop over all integration points in the current element
+        int const npts = apf::countIntPoints(me, q_order);
+
+        for (int pt = 0; pt < npts; ++pt) {
+
+          // get integration point specific information
+          apf::Vector3 iota;
+          apf::getIntPoint(me, q_order, pt, iota);
+          double const w = apf::getIntWeight(me, q_order, pt);
+          double const dv = apf::getDV(me, iota);
+
+          if (ip_set == 0) {
+
+            // solve the local constitutive equations at the integration point
+            // and store the resultant local residual and its derivatives (dC_dxi)
+            global->interpolate(iota);
+            local->gather(pt, xi, xi_prev);
+            local->gather_aux(pt, chi, chi_prev);
+            nderivs = local->seed_wrt_xi();
+            local->evaluate(global, force_path, path, step);
+            EMatrix const dC_dxi = local->eigen_jacobian(nderivs);
+
+            // re-evaluate the constitutive equations to obtain dC_dx
+            local->unseed_wrt_xi();
+            nderivs = global->seed_wrt_x();
+            global->interpolate(iota);
+            local->evaluate(global, force_path, path, step);
             EMatrix const dC_dx = local->eigen_jacobian(nderivs);
 
             // solve the forward sensitivty system to obtain dxi_dx
@@ -628,6 +808,141 @@ void solve_adjoint_local(
     RCP<Disc> disc,
     Array3D<EVector>& g,
     Array3D<EVector>& f,
+    int step) {
+
+  // gather discretization information
+  apf::Mesh* mesh = disc->apf_mesh();
+  int const q_order = disc->lv_shape()->getOrder();
+
+  // gather information from the state object
+  int const model_form = state->model_form;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
+  RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  Array1D<apf::Field*> x = disc->primal(step).global;
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
+  Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
+  Array1D<apf::Field*> z = disc->adjoint(step).global;
+  Array1D<apf::Field*> phi = disc->adjoint(step).local[model_form];
+
+  // modify the fields if we are doing a nested
+  bool const is_nested = (disc->type() == NESTED);
+  if (is_nested) {
+    z = disc->adjoint_fine(step).global;
+    phi = disc->adjoint_fine(step).local[model_form];
+  }
+
+  // determine if we are doing verification
+  bool force_path = false;
+  int path = 0;
+  if (disc->type() == VERIFICATION) {
+    force_path = true;
+  }
+
+  // perform initializations of the residual objects
+  global->before_elems(disc);
+
+  // variable telling us the current number of derivatives
+  int nderivs = -1;
+
+  // loop over all element sets in the discretization
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
+
+    // gather the elements in the current element set
+    std::string const& es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+
+    // loop over all elements in the element set
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+
+      // get the current mesh element
+      apf::MeshEntity* e = elems[elem];
+      apf::MeshElement* me = apf::createMeshElement(mesh, e);
+
+      // peform operations on element input
+      global->set_elem(me);
+      local->set_elem(me);
+      global->gather(x, x_prev);
+
+      // grab the forced path if required
+      if (force_path) {
+        path = disc->branch_paths()[step][es][elem];
+      }
+
+      // grab the adjoint nodal solution at the element
+      EVector const z_nodes = global->gather_adjoint(z);
+
+      // loop over all integration points in the current element
+      int const npts = apf::countIntPoints(me, q_order);
+
+      for (int pt = 0; pt < npts; ++pt) {
+
+        // get integration point specific information
+        apf::Vector3 iota;
+        apf::getIntPoint(me, q_order, pt, iota);
+        double const w = apf::getIntWeight(me, q_order, pt);
+        double const dv = apf::getDV(me, iota);
+
+        // evaluate local/global residuals and their derivatives, store
+        // their transpose Jacobians, and grab g at the integration point
+        global->interpolate(iota);
+        local->gather(pt, xi, xi_prev);
+        nderivs = local->seed_wrt_xi();
+        global->zero_residual();
+        global->evaluate(local, iota, w, dv, 0);
+        local->evaluate(global, force_path, path);
+        EMatrix const dC_dxiT = local->eigen_jacobian(nderivs).transpose();
+        EMatrix const dR_dxiT = global->eigen_jacobian(nderivs).transpose();
+        EVector const g_pt = g[es][elem][pt];
+
+        // Solve for the local adjoint variables and scatter them into fields
+        EVector const phi_pt = dC_dxiT.fullPivLu().solve(g_pt - dR_dxiT * z_nodes);
+        local->scatter_adjoint(pt, phi_pt, phi);
+
+        // Solve for the global history vector
+        local->unseed_wrt_xi();
+        nderivs = global->seed_wrt_x_prev();
+        global->interpolate(iota);
+        local->evaluate(global, force_path, path);
+        EMatrix const dC_dx_prevT = local->eigen_jacobian(nderivs).transpose();
+        f[es][elem][pt] = -dC_dx_prevT * phi_pt;
+
+        // Solve for the local history vector
+        global->unseed_wrt_x_prev();
+        global->interpolate(iota);
+        nderivs = local->seed_wrt_xi_prev();
+        local->evaluate(global, force_path, path);
+        EMatrix const dC_dxi_prevT = local->eigen_jacobian(nderivs).transpose();
+        g[es][elem][pt] = -dC_dxi_prevT * phi_pt;
+        local->unseed_wrt_xi_prev();
+
+      }
+
+      // perform operations on element output
+      apf::destroyMeshElement(me);
+      global->unset_elem();
+      local->unset_elem();
+
+    }
+
+  }
+
+  // perform clean-ups of the residual objects
+  local->after_elems();
+  global->after_elems();
+
+}
+
+void solve_adjoint_aux_local_and_estimate_error(
+    RCP<State> state,
+    RCP<Disc> disc,
+    Array3D<EVector>& h,
+    Array3D<EVector>& g,
+    Array3D<EVector>& f,
+    apf::Field* C_error,
+    apf::Field* D_error,
     int step) {
 
   // gather discretization information
