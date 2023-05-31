@@ -420,7 +420,7 @@ class Disc {
     Array1D<Fields> m_adjoint;
     Array1D<Fields> m_virtual;
 
-    Array1D<apf::Field*> m_aux_fields[2]; // previous, current steps
+    Array1D<apf::Field*> m_aux_fields[2]; // past, PRESENT steps
 
     bool m_is_base = true;
     int m_disc_type = COARSE;

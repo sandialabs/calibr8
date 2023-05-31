@@ -26,6 +26,7 @@ using minitensor::transpose;
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
   p.set<std::string>("type", "linear_thermoviscoelastic");
+  p.set<bool>("mixed formulation", true);
   p.sublist("materials");
   p.set<int>("num steps", 1);
   p.set<double>("temperature increment", 1.);
@@ -185,7 +186,9 @@ void LTVE<T>::compute_shift_factors() {
         m_temperature[i]);
     J3_k = compute_J3_k(psi, J3_k);
     m_log10_shift_factor[i] = psi;
+    print("log10 shift factor at step %d = %e", i, m_log10_shift_factor[i]);
     m_J3[i] = compute_J3(J3_k);
+    print("J3 at step %d = %e", i, m_J3[i]);
   }
 }
 
@@ -194,6 +197,13 @@ LTVE<T>::LTVE(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
+
+  bool is_mixed = inputs.get<bool>("mixed formulation");
+  if (is_mixed) {
+    m_mode = MIXED;
+  } else {
+    m_mode = DISPLACEMENT;
+  }
 
   ParameterList const& prony_params = inputs.sublist("prony files");
   this->read_prony_series(prony_params);
@@ -418,12 +428,10 @@ int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
     Tensor<FADT> const cauchy = cauchy_prev
         + bar_K * delta_vol_eps * I
         + 2. * bar_mu * delta_dev_eps
-        - 3. * K_inf * alpha_inf * m_delta_temp * I;
-        /*
-        - 3. * m_delta_t * delta_alpha_K * (m_J3[step] - m_J3[step - 1]) * I
+        - 3. * K_inf * alpha_inf * m_delta_temp * I
+        - 3. * delta_alpha_K * (m_J3[step] - m_J3[step - 1]) * I
         - m_delta_t * delta_K * visco_vol * I
         - 2. * m_delta_t * delta_mu * visco_shear;
-        */
 
     this->set_sym_tensor_xi(0, cauchy);
 
@@ -436,7 +444,7 @@ int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
     */
   }
 
-  path = this->evaluate(global);
+  path = this->evaluate(global, false, 0, step);
 
   EMatrix const J = this->eigen_jacobian(this->m_num_dofs);
   EVector const R = this->eigen_residual();
@@ -525,10 +533,26 @@ int LTVE<T>::evaluate(
     ++v;
   }
 
-  Tensor<T> R_cauchy = cauchy - cauchy_prev
+  Tensor<T> const R_cauchy = cauchy - cauchy_prev
       - bar_K * delta_vol_eps * I
       - 2. * bar_mu * delta_dev_eps
-      + 3. * K_inf * alpha_inf * m_delta_temp * I;
+      + 3. * K_inf * alpha_inf * m_delta_temp * I
+      + 3. * delta_alpha_K * (m_J3[step] - m_J3[step - 1]) * I
+      + m_delta_t * delta_K * visco_vol * I
+      + 2. * m_delta_t * delta_mu * visco_shear;
+
+  /*
+  double const diff_tol = 1e1;
+  for (int i = 0; i < 3; ++i) {
+    for (int j = i; j < 3; ++j) {
+      T const R_cauchy_val = R_cauchy(i, j);
+      double const dval = val(R_cauchy_val);
+      if (std::abs(dval) > diff_tol) {
+        std::cout << "R(" << i << "," << j << ") = " << R_cauchy(i, j) << "\n";
+      }
+    }
+  }
+  */
 
   this->set_sym_tensor_R(0, R_cauchy);
 
@@ -537,41 +561,47 @@ int LTVE<T>::evaluate(
 
 template <typename T>
 Tensor<T> LTVE<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
-  Tensor<T> const cauchy = this->sym_tensor_xi(0);
+  Tensor<T> const local_cauchy = this->sym_tensor_xi(0);
   int const ndims = this->m_num_dims;
   Tensor<T> const I = minitensor::eye<T>(ndims);
-  return cauchy - this->hydro_cauchy(global) * I;
+  return local_cauchy - this->hydro_cauchy(global) * I;
 }
-
 
 template <typename T>
 T LTVE<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
-  Tensor<T> const cauchy = this->sym_tensor_xi(0);
+  Tensor<T> const local_cauchy = this->sym_tensor_xi(0);
   int const ndims = this->m_num_dims;
   Tensor<T> const I = minitensor::eye<T>(ndims);
   if (ndims == 3) {
-    return trace(cauchy) / 3.;
+    return trace(local_cauchy) / 3.;
   } else {
     T const nu = this->m_params[1];
-    return (1. + nu) * trace(cauchy) / 3.;
+    return (1. + nu) * trace(local_cauchy) / 3.;
   }
 }
 
 template <typename T>
 T LTVE<T>::pressure_scale_factor() {
-  T const E = this->m_params[0];
-  T const nu = this->m_params[1];
-  T const kappa = compute_kappa(E, nu);
-  return kappa;
+  return this->m_params[0];
 }
 
 template <typename T>
 Tensor<T> LTVE<T>::cauchy(RCP<GlobalResidual<T>> global) {
+  if (m_mode == MIXED) {
+    return cauchy_mixed(global);
+  } else {
+    return this->sym_tensor_xi(0);
+  }
+}
+
+template <typename T>
+Tensor<T> LTVE<T>::cauchy_mixed(RCP<GlobalResidual<T>> global) {
   int const pressure_idx = 1;
   T const p = global->scalar_x(pressure_idx);
   Tensor<T> const I = minitensor::eye<T>(this->m_num_dims);
   return this->dev_cauchy(global) - p * I;
 }
+
 
 template class LTVE<double>;
 template class LTVE<FADT>;

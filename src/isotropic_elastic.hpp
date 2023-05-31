@@ -7,8 +7,6 @@
 
 namespace calibr8 {
 
-enum {DISPLACEMENT = 0, MIXED = 1};
-
 template <typename T>
 class IsotropicElastic : public LocalResidual<T> {
   public:

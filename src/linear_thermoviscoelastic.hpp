@@ -43,6 +43,8 @@ class LTVE : public LocalResidual<T> {
 
     void compute_present_aux_variables(RCP<GlobalResidual<T>> global, int step);
 
+    Tensor<T> cauchy_mixed(RCP<GlobalResidual<T>> global);
+
     double m_delta_t = 0.;
     double m_delta_temp = 0.;
     double m_temp_ref = 0.;
@@ -54,6 +56,8 @@ class LTVE : public LocalResidual<T> {
     Array1D<double> m_temperature;
     Array1D<double> m_log10_shift_factor;
     Array1D<double> m_J3;
+
+    int m_mode = -1;
 };
 
 }

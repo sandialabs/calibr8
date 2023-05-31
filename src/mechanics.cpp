@@ -129,6 +129,7 @@ void Mechanics<T>::evaluate_mixed(
   T const E = local->params(0);
   T const nu = local->params(1);
   T const mu = compute_mu(E, nu);
+  //T const mu = local->params(1); // kludge for LTVE
 
   T const p = this->scalar_x(pressure_idx);
   T pressure_scale_factor = local->pressure_scale_factor();

@@ -201,7 +201,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
             local->unseed_wrt_xi();
             nderivs = global->seed_wrt_x();
             global->interpolate(iota);
-            local->evaluate(global);
+            local->evaluate(global, true, path, step);
             EMatrix const dC_dx = local->eigen_jacobian(nderivs);
 
             // solve the forward sensitivty system to obtain dxi_dx

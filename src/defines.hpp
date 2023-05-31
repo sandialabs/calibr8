@@ -80,4 +80,7 @@ using Comm = Teuchos::Comm<int>;
 //! \brief Local residual index
 enum { BASE_MODEL = 0, FINE_MODEL = 1 };
 
+//! \brief Displacement or mixed formulation
+enum { DISPLACEMENT = 0, MIXED = 1 };
+
 }

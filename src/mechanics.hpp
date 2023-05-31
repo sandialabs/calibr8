@@ -7,8 +7,6 @@
 
 namespace calibr8 {
 
-enum {DISPLACEMENT = 0, MIXED = 1};
-
 //! \brief The global residual for mechanics problems
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the GlobalResidual
