@@ -184,10 +184,40 @@ void LTVE<T>::compute_shift_factors() {
   }
 }
 
+// implement
 template <>
-EVector LTVE<double>::compute_daux_dchi_diag(int step) {
+EMatrix LTVE<double>::daux_dxT(RCP<GlobalResidual<double>> global, int step) {
+  int const num_global_dofs = global->num_dofs();
+  EMatrix const daux_dxT = EMatrix::Zero(num_global_dofs, m_num_aux_dofs);
+  return daux_dxT;
+}
 
-  EVector daux_dchi_diag(m_num_aux_dofs);
+template <>
+EMatrix LTVE<FADT>::daux_dxT(RCP<GlobalResidual<FADT>> global, int step) {
+  int const num_global_dofs = global->num_dofs();
+  EMatrix const daux_dxT = EMatrix::Zero(num_global_dofs, m_num_aux_dofs);
+  return daux_dxT;
+}
+
+// implement
+template <>
+EMatrix LTVE<double>::daux_dx_prevT(RCP<GlobalResidual<double>> global, int step) {
+  int const num_global_dofs = global->num_dofs();
+  EMatrix const daux_dx_prevT = EMatrix::Zero(num_global_dofs, m_num_aux_dofs);
+  return daux_dx_prevT;
+}
+
+template <>
+EMatrix LTVE<FADT>::daux_dx_prevT(RCP<GlobalResidual<FADT>> global, int step) {
+  int const num_global_dofs = global->num_dofs();
+  EMatrix const daux_dx_prevT = EMatrix::Zero(num_global_dofs, m_num_aux_dofs);
+  return daux_dx_prevT;
+}
+
+template <>
+EVector LTVE<double>::daux_dchi_prev_diag(int step) {
+
+  EVector daux_dchi_prev_diag(m_num_aux_dofs);
 
   int const num_vol_prony_terms = m_vol_prony.size();
   int const num_shear_prony_terms = m_shear_prony.size();
@@ -200,36 +230,36 @@ EVector LTVE<double>::compute_daux_dchi_diag(int step) {
 
   for (int k = 0; k < num_vol_prony_terms; ++k) {
     double const a_tau = a * m_vol_prony[k][0];
-    daux_dchi_diag[m] = (a_tau + m_delta_t) / a_tau;
+    daux_dchi_prev_diag(m) = a_tau / (a_tau + m_delta_t);
     ++m;
   }
 
   for (int k = 0; k < num_shear_prony_terms; ++k) {
     double const a_tau = a * m_shear_prony[k][0];
     for (int i = 0; i < num_sym_tensor_eqs; ++i) {
-      daux_dchi_diag[m] = (a_tau + m_delta_t) / a_tau;
+      daux_dchi_prev_diag(m) = a_tau / (a_tau + m_delta_t);
       ++m;
     }
   }
 
-  return daux_dchi_diag;
+  return daux_dchi_prev_diag;
 }
 
 template <>
-EVector LTVE<FADT>::compute_daux_dchi_diag(int step) {
-  EVector daux_dchi_diag = EVector::Zero(m_num_aux_dofs);
-  return daux_dchi_diag;
+EVector LTVE<FADT>::daux_dchi_prev_diag(int step) {
+  EVector daux_dchi_prev_diag = EVector::Zero(m_num_aux_dofs);
+  return daux_dchi_prev_diag;
 }
 
 template <>
-EVector LTVE<double>::compute_dlocal_dchi_prev_diag(int step) {
+EVector LTVE<double>::dlocal_dchi_prev_diag(int step) {
 
   EVector dlocal_dchi_prev_diag(m_num_aux_dofs);
 
-  double const K_g = this->m_params[0];
-  double const mu_g = this->m_params[1];
-  double const K_inf = this->m_params[3];
-  double const mu_inf = this->m_params[4];
+  double const K_g = m_params[0];
+  double const mu_g = m_params[1];
+  double const K_inf = m_params[3];
+  double const mu_inf = m_params[4];
 
   double const delta_K = K_g - K_inf;
   double const delta_mu = mu_g - mu_inf;
@@ -263,9 +293,22 @@ EVector LTVE<double>::compute_dlocal_dchi_prev_diag(int step) {
 }
 
 template <>
-EVector LTVE<FADT>::compute_dlocal_dchi_prev_diag(int step) {
+EVector LTVE<FADT>::dlocal_dchi_prev_diag(int step) {
   EVector dlocal_dchi_prev_diag = EVector::Zero(m_num_aux_dofs);
   return dlocal_dchi_prev_diag;
+}
+
+// implement
+template <>
+EVector LTVE<double>::eigen_aux_residual(RCP<GlobalResidual<double>> global, int step) {
+  EVector const aux_residual = EVector::Zero(m_num_aux_dofs);
+  return aux_residual;
+}
+
+template <>
+EVector LTVE<FADT>::eigen_aux_residual(RCP<GlobalResidual<FADT>> global, int step) {
+  EVector const aux_residual = EVector::Zero(m_num_aux_dofs);
+  return aux_residual;
 }
 
 template <typename T>

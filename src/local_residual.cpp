@@ -730,15 +730,35 @@ void LocalResidual<T>::gather_aux(
 }
 
 template <typename T>
-EVector LocalResidual<T>::compute_daux_dchi_diag(int step) {
-  EVector daux_dchi_diag = EVector::Zero(1);
-  return daux_dchi_diag;
+EMatrix LocalResidual<T>::daux_dxT(RCP<GlobalResidual<T>> global, int step) {
+  // wrong size, but should never be called
+  EMatrix const daux_dxT = EMatrix::Zero(m_num_aux_dofs, m_num_aux_dofs);
+  return daux_dxT;
 }
 
 template <typename T>
-EVector LocalResidual<T>::compute_dlocal_dchi_prev_diag(int step) {
-  EVector dlocal_dchi_prev_diag = EVector::Zero(1);
+EMatrix LocalResidual<T>::daux_dx_prevT(RCP<GlobalResidual<T>> global, int step) {
+  // wrong size, but should never be called
+  EMatrix const daux_dx_prevT = EMatrix::Zero(m_num_aux_dofs, m_num_aux_dofs);
+  return daux_dx_prevT;
+}
+
+template <typename T>
+EVector LocalResidual<T>::daux_dchi_prev_diag(int step) {
+  EVector const daux_dchi_prev_diag = EVector::Zero(m_num_aux_dofs);
+  return daux_dchi_prev_diag;
+}
+
+template <typename T>
+EVector LocalResidual<T>::dlocal_dchi_prev_diag(int step) {
+  EVector const dlocal_dchi_prev_diag = EVector::Zero(m_num_aux_dofs);
   return dlocal_dchi_prev_diag;
+}
+
+template <typename T>
+EVector LocalResidual<T>::eigen_aux_residual(RCP<GlobalResidual<T>> global, int step) {
+  EVector const aux_residual = EVector::Zero(m_num_aux_dofs);
+  return aux_residual;
 }
 
 template <>

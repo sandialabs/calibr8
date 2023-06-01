@@ -271,6 +271,8 @@ class GlobalResidual {
         Array1D<apf::Field*> const& x_fine,
         Array1D<apf::Field*> const& x) const;
 
+    int num_dofs() const {return m_num_dofs;}
+
     Array1D<int> ip_sets() const;
 
     void set_stabilization_h(int stabilization_h);

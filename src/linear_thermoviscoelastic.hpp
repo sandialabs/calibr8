@@ -29,8 +29,11 @@ class LTVE : public LocalResidual<T> {
     // make virtual with a default to do nothing
     void compute_past_aux_variables(RCP<GlobalResidual<T>> global, int step);
 
-    EVector compute_daux_dchi_diag(int step);
-    EVector compute_dlocal_dchi_prev_diag(int step);
+    EMatrix daux_dxT(RCP<GlobalResidual<T>> global, int step);
+    EMatrix daux_dx_prevT(RCP<GlobalResidual<T>> global, int step);
+    EVector daux_dchi_prev_diag(int step);
+    EVector dlocal_dchi_prev_diag(int step);
+    EVector eigen_aux_residual(RCP<GlobalResidual<T>> global, int step);
 
   private:
     void read_prony_series(ParameterList const& prony_files);

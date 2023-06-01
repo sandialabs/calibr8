@@ -762,12 +762,14 @@ void eval_adjoint_aux_jacobian(
 
             // update the local history variable
             g[es][elem][pt] -= dJ_dxi;
+            EVector const h_pt = h[es][elem][pt];
             EVector const g_pt = g[es][elem][pt];
             EVector const f_pt = f[es][elem][pt];
 
             // evaluate and scatter point contributions to the global RHS
+            EMatrix const dD_dxT = local->daux_dxT(global, step);
             EMatrix const dxi_dxT = dxi_dx.transpose();
-            EVector const rhs = -dJ_dx + f_pt + dxi_dxT * g_pt;
+            EVector const rhs = -dJ_dx + f_pt + dxi_dxT * g_pt - dD_dxT * h_pt;
             global->scatter_rhs(disc, rhs, RHS);
 
           }
