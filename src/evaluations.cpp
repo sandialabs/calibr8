@@ -950,7 +950,7 @@ void solve_adjoint_aux_local_and_estimate_error(
     Array3D<EVector>& g,
     Array3D<EVector>& f,
     apf::Field* C_error_field,
-    apf::Field* D_error,
+    apf::Field* D_error_field,
     int step) {
 
   // gather discretization information
@@ -1047,6 +1047,10 @@ void solve_adjoint_aux_local_and_estimate_error(
         EVector const phi_pt = dC_dxiT.fullPivLu().solve(g_pt - dR_dxiT * z_nodes);
         local->scatter_adjoint(pt, phi_pt, phi);
 
+        // Solve for the local auxiliary adjoint variables
+        EVector const h_pt = h[es][elem][pt];
+        EVector const omega_pt = -h_pt; // remove this copy later?
+
         // Solve for the global history vector
         local->unseed_wrt_xi();
         nderivs = global->seed_wrt_x_prev();
@@ -1054,6 +1058,8 @@ void solve_adjoint_aux_local_and_estimate_error(
         local->evaluate(global, force_path, path, step);
         EMatrix const dC_dx_prevT = local->eigen_jacobian(nderivs).transpose();
         f[es][elem][pt] = -dC_dx_prevT * phi_pt;
+        EMatrix const dD_dx_prevT = local->daux_dxT(global, step);
+        f[es][elem][pt] = -dC_dx_prevT * phi_pt - dD_dx_prevT * omega_pt;
 
         // Solve for the local history vector
         global->unseed_wrt_x_prev();
@@ -1064,12 +1070,26 @@ void solve_adjoint_aux_local_and_estimate_error(
         g[es][elem][pt] = -dC_dxi_prevT * phi_pt;
         local->unseed_wrt_xi_prev();
 
+        // Solve for the aux history vector
+        EMatrix const dC_dchi_prevT = local->dlocal_dchi_prevT(step);
+        //h[es][elem][pt] = -dC_dchi_prevT * phi_pt;
+        EVector const dD_dchi_prev_diag = local->daux_dchi_prev_diag(step);
+        //h[es][elem][pt] = -dD_dchi_prev_diag.cwiseProduct(omega_pt);
+        h[es][elem][pt] = -dC_dchi_prevT * phi_pt
+            - dD_dchi_prev_diag.cwiseProduct(omega_pt);
+
         // evaluate the local residual error contributions
         local->evaluate(global, force_path, path, step);
         EVector const C = local->eigen_residual();
         double const E_C_elem = phi_pt.dot(C);
         double E_C = apf::getScalar(C_error_field, e, 0);
         apf::setScalar(C_error_field, e, 0, E_C + E_C_elem);
+
+        // evaluate the auxiliary local residual error contributions
+        EVector const D = local->eigen_aux_residual(global, step);
+        double const E_D_elem = omega_pt.dot(D);
+        double E_D = apf::getScalar(D_error_field, e, 0);
+        apf::setScalar(D_error_field, e, 0, E_D + E_D_elem);
 
       }
 

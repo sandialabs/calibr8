@@ -193,7 +193,7 @@ class LocalResidual {
 
     //! \brief Compute the auxiliary adjoint diagonal matrix
     //! \param step The current step index
-    virtual EVector dlocal_dchi_prev_diag(int step);
+    virtual EMatrix dlocal_dchi_prevT(int step);
 
     //! \brief Compute the auxiliary residual
     //! \param step The current step index

@@ -98,6 +98,8 @@ void AdjointAux::solve_and_compute_error_at_step(
   // set the history vectors to zero
   if (step == nsteps) {
     initialize_history_vectors();
+  } else {
+    m_disc->advance_aux_fields(false);
   }
 
   // print the step information

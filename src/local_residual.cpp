@@ -743,9 +743,9 @@ EVector LocalResidual<T>::daux_dchi_prev_diag(int step) {
 }
 
 template <typename T>
-EVector LocalResidual<T>::dlocal_dchi_prev_diag(int step) {
-  EVector const dlocal_dchi_prev_diag = EVector::Zero(m_num_aux_dofs);
-  return dlocal_dchi_prev_diag;
+EMatrix LocalResidual<T>::dlocal_dchi_prevT(int step) {
+  EMatrix const dlocal_dchi_prevT = EVector::Zero(m_num_aux_dofs, m_num_dofs);
+  return dlocal_dchi_prevT;
 }
 
 template <typename T>

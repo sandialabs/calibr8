@@ -32,7 +32,7 @@ class LTVE : public LocalResidual<T> {
     EMatrix daux_dxT(RCP<GlobalResidual<T>> global, int step);
     EMatrix daux_dx_prevT(RCP<GlobalResidual<T>> global, int step);
     EVector daux_dchi_prev_diag(int step);
-    EVector dlocal_dchi_prev_diag(int step);
+    EMatrix dlocal_dchi_prevT(int step);
     EVector eigen_aux_residual(RCP<GlobalResidual<T>> global, int step);
 
   private:

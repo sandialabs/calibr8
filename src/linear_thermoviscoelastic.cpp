@@ -285,9 +285,11 @@ EVector LTVE<T>::daux_dchi_prev_diag(int step) {
 }
 
 template <typename T>
-EVector LTVE<T>::dlocal_dchi_prev_diag(int step) {
+EMatrix LTVE<T>::dlocal_dchi_prevT(int step) {
 
-  EVector dlocal_dchi_prev_diag(this->m_num_aux_dofs);
+  EMatrix dlocal_dchi_prevT = EMatrix::Zero(this->m_num_aux_dofs, this->m_num_dofs);
+  EVector diag_aux_derivs = EVector::Zero(this->m_num_aux_dofs);
+  EVector off_diag_aux_derivs = EVector::Zero(this->m_num_aux_dofs);
 
   double const K_g = val(this->m_params[0]);
   double const mu_g = val(this->m_params[1]);
@@ -308,7 +310,7 @@ EVector LTVE<T>::dlocal_dchi_prev_diag(int step) {
 
   for (int k = 0; k < num_vol_prony_terms; ++k) {
     double const a_tau = a * m_vol_prony[k][0];
-    dlocal_dchi_prev_diag(m) = -delta_K * m_delta_t * m_vol_prony[k][1]
+    diag_aux_derivs(m) = -delta_K * m_delta_t * m_vol_prony[k][1]
         / (a_tau + m_delta_t);
     ++m;
   }
@@ -316,13 +318,27 @@ EVector LTVE<T>::dlocal_dchi_prev_diag(int step) {
   for (int k = 0; k < num_shear_prony_terms; ++k) {
     double const a_tau = a * m_shear_prony[k][0];
     for (int i = 0; i < num_sym_tensor_eqs; ++i) {
-      dlocal_dchi_prev_diag(m) = -2. * val(delta_mu) * m_delta_t * m_shear_prony[k][1]
+      const double value = -2. * val(delta_mu) * m_delta_t * m_shear_prony[k][1]
           / (a_tau + m_delta_t);
+      diag_aux_derivs(m) = value;
+      off_diag_aux_derivs(m) = value;
       ++m;
     }
   }
 
-  return dlocal_dchi_prev_diag;
+  int sym_comp = 0;
+  for (int i = 0; i < ndims; ++i) {
+    for (int j = i; j < ndims; ++j) {
+      if (i == j) {
+        dlocal_dchi_prevT.col(sym_comp) = diag_aux_derivs;
+      } else {
+        dlocal_dchi_prevT.col(sym_comp) = off_diag_aux_derivs;
+      }
+      ++sym_comp;
+    }
+  }
+
+  return dlocal_dchi_prevT;
 }
 
 template <typename T>
@@ -376,8 +392,8 @@ EVector LTVE<T>::eigen_aux_residual(RCP<GlobalResidual<T>> global, int step) {
     double const a_tau = a * m_shear_prony[k][0];
     Tensor<T> const J_shear_k = this->sym_tensor_chi(v);
     Tensor<T> const J_shear_k_prev = this->sym_tensor_chi_prev(v);
-    for (int i = 0; i < num_sym_tensor_eqs; ++i) {
-      for (int j = i; j < num_sym_tensor_eqs; ++j) {
+    for (int i = 0; i < ndims; ++i) {
+      for (int j = i; j < ndims; ++j) {
         aux_residual(m) = val(J_shear_k(i, j)) - a_tau / (a_tau + m_delta_t)
             * (val(J_shear_k_prev(i, j)) + val(delta_dev_eps(i, j)));
         ++m;
