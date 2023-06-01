@@ -945,7 +945,7 @@ void solve_adjoint_aux_local_and_estimate_error(
     Array3D<EVector>& h,
     Array3D<EVector>& g,
     Array3D<EVector>& f,
-    apf::Field* C_error,
+    apf::Field* C_error_field,
     apf::Field* D_error,
     int step) {
 
@@ -961,6 +961,8 @@ void solve_adjoint_aux_local_and_estimate_error(
   Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
   Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
+  Array1D<apf::Field*> chi = disc->aux_fields_present();
+  Array1D<apf::Field*> chi_prev = disc->aux_fields_past();
   Array1D<apf::Field*> z = disc->adjoint(step).global;
   Array1D<apf::Field*> phi = disc->adjoint(step).local[model_form];
 
@@ -1031,7 +1033,7 @@ void solve_adjoint_aux_local_and_estimate_error(
         nderivs = local->seed_wrt_xi();
         global->zero_residual();
         global->evaluate(local, iota, w, dv, 0);
-        local->evaluate(global, force_path, path);
+        local->evaluate(global, force_path, path, step);
         EMatrix const dC_dxiT = local->eigen_jacobian(nderivs).transpose();
         EMatrix const dR_dxiT = global->eigen_jacobian(nderivs).transpose();
         EVector const g_pt = g[es][elem][pt];
@@ -1044,7 +1046,7 @@ void solve_adjoint_aux_local_and_estimate_error(
         local->unseed_wrt_xi();
         nderivs = global->seed_wrt_x_prev();
         global->interpolate(iota);
-        local->evaluate(global, force_path, path);
+        local->evaluate(global, force_path, path, step);
         EMatrix const dC_dx_prevT = local->eigen_jacobian(nderivs).transpose();
         f[es][elem][pt] = -dC_dx_prevT * phi_pt;
 
@@ -1052,10 +1054,17 @@ void solve_adjoint_aux_local_and_estimate_error(
         global->unseed_wrt_x_prev();
         global->interpolate(iota);
         nderivs = local->seed_wrt_xi_prev();
-        local->evaluate(global, force_path, path);
+        local->evaluate(global, force_path, path, step);
         EMatrix const dC_dxi_prevT = local->eigen_jacobian(nderivs).transpose();
         g[es][elem][pt] = -dC_dxi_prevT * phi_pt;
         local->unseed_wrt_xi_prev();
+
+        // evaluate the local residual error contributions
+        local->evaluate(global, force_path, path, step);
+        EVector const C = local->eigen_residual();
+        double const E_C_elem = phi_pt.dot(C);
+        double E_C = apf::getScalar(C_error_field, e, 0);
+        apf::setScalar(C_error_field, e, 0, E_C + E_C_elem);
 
       }
 
