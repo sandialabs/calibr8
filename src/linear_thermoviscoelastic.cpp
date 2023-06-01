@@ -184,40 +184,79 @@ void LTVE<T>::compute_shift_factors() {
   }
 }
 
-// implement
 template <>
 EMatrix LTVE<double>::daux_dxT(RCP<GlobalResidual<double>> global, int step) {
   int const num_global_dofs = global->num_dofs();
-  EMatrix const daux_dxT = EMatrix::Zero(num_global_dofs, m_num_aux_dofs);
+  EMatrix daux_dxT = EMatrix::Zero(num_global_dofs, this->m_num_aux_dofs);
   return daux_dxT;
 }
 
 template <>
 EMatrix LTVE<FADT>::daux_dxT(RCP<GlobalResidual<FADT>> global, int step) {
   int const num_global_dofs = global->num_dofs();
-  EMatrix const daux_dxT = EMatrix::Zero(num_global_dofs, m_num_aux_dofs);
+  EMatrix daux_dxT = EMatrix::Zero(num_global_dofs, this->m_num_aux_dofs);
+
+  EVector const scale_factor = this->daux_dchi_prev_diag(step);
+
+  int const num_vol_prony_terms = m_vol_prony.size();
+  int const num_shear_prony_terms = m_shear_prony.size();
+
+  int const ndims = this->m_num_dims;
+  int const num_sym_tensor_eqs = get_num_eqs(SYM_TENSOR, ndims);
+
+  Tensor<FADT> const grad_u = global->grad_vector_x(0);
+  Tensor<FADT> const grad_u_T = transpose(grad_u);
+  Tensor<FADT> const eps = 0.5 * (grad_u + grad_u_T);
+  FADT const vol_eps = trace(eps);
+  Tensor<FADT> const dev_eps = dev(eps);
+
+  Tensor<FADT> const grad_u_prev = global->grad_vector_x_prev(0);
+  Tensor<FADT> const grad_u_prev_T = transpose(grad_u_prev);
+  Tensor<FADT> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
+  FADT const vol_eps_prev = trace(eps_prev);
+  Tensor<FADT> const dev_eps_prev = dev(eps_prev);
+
+  FADT const delta_vol_eps = vol_eps - vol_eps_prev;
+  Tensor<FADT> const delta_dev_eps = dev_eps - dev_eps_prev;
+
+  EVector delta_vol_eps_derivs = EVector::Zero(num_global_dofs);
+  for (int d = 0; d < num_global_dofs; ++d) {
+    delta_vol_eps_derivs(d) = delta_vol_eps.fastAccessDx(d);
+  }
+
+  EMatrix delta_dev_eps_derivs = EMatrix::Zero(num_global_dofs, num_sym_tensor_eqs);
+  int sym_comp = 0;
+  for (int i = 0; i < ndims; ++i) {
+    for (int j = i; j < ndims; ++j) {
+      for (int d = 0; d < num_global_dofs; ++d) {
+        delta_dev_eps_derivs(d, sym_comp) = delta_dev_eps(i, j).fastAccessDx(d);
+      }
+      ++sym_comp;
+    }
+  }
+
+  double const a = std::pow(10., m_log10_shift_factor[step]);
+  int m = 0;
+
+  for (int k = 0; k < num_vol_prony_terms; ++k) {
+    daux_dxT.col(m) = scale_factor(m) * delta_vol_eps_derivs;
+    ++m;
+  }
+
+  for (int k = 0; k < num_shear_prony_terms; ++k) {
+    for (int i = 0; i < num_sym_tensor_eqs; ++i) {
+      daux_dxT.col(m) = scale_factor(m) * delta_dev_eps_derivs.col(i);
+      ++m;
+    }
+  }
+
   return daux_dxT;
 }
 
-// implement
-template <>
-EMatrix LTVE<double>::daux_dx_prevT(RCP<GlobalResidual<double>> global, int step) {
-  int const num_global_dofs = global->num_dofs();
-  EMatrix const daux_dx_prevT = EMatrix::Zero(num_global_dofs, m_num_aux_dofs);
-  return daux_dx_prevT;
-}
+template <typename T>
+EVector LTVE<T>::daux_dchi_prev_diag(int step) {
 
-template <>
-EMatrix LTVE<FADT>::daux_dx_prevT(RCP<GlobalResidual<FADT>> global, int step) {
-  int const num_global_dofs = global->num_dofs();
-  EMatrix const daux_dx_prevT = EMatrix::Zero(num_global_dofs, m_num_aux_dofs);
-  return daux_dx_prevT;
-}
-
-template <>
-EVector LTVE<double>::daux_dchi_prev_diag(int step) {
-
-  EVector daux_dchi_prev_diag(m_num_aux_dofs);
+  EVector daux_dchi_prev_diag(this->m_num_aux_dofs);
 
   int const num_vol_prony_terms = m_vol_prony.size();
   int const num_shear_prony_terms = m_shear_prony.size();
@@ -230,14 +269,14 @@ EVector LTVE<double>::daux_dchi_prev_diag(int step) {
 
   for (int k = 0; k < num_vol_prony_terms; ++k) {
     double const a_tau = a * m_vol_prony[k][0];
-    daux_dchi_prev_diag(m) = a_tau / (a_tau + m_delta_t);
+    daux_dchi_prev_diag(m) = -a_tau / (a_tau + m_delta_t);
     ++m;
   }
 
   for (int k = 0; k < num_shear_prony_terms; ++k) {
     double const a_tau = a * m_shear_prony[k][0];
     for (int i = 0; i < num_sym_tensor_eqs; ++i) {
-      daux_dchi_prev_diag(m) = a_tau / (a_tau + m_delta_t);
+      daux_dchi_prev_diag(m) = -a_tau / (a_tau + m_delta_t);
       ++m;
     }
   }
@@ -245,21 +284,15 @@ EVector LTVE<double>::daux_dchi_prev_diag(int step) {
   return daux_dchi_prev_diag;
 }
 
-template <>
-EVector LTVE<FADT>::daux_dchi_prev_diag(int step) {
-  EVector daux_dchi_prev_diag = EVector::Zero(m_num_aux_dofs);
-  return daux_dchi_prev_diag;
-}
+template <typename T>
+EVector LTVE<T>::dlocal_dchi_prev_diag(int step) {
 
-template <>
-EVector LTVE<double>::dlocal_dchi_prev_diag(int step) {
+  EVector dlocal_dchi_prev_diag(this->m_num_aux_dofs);
 
-  EVector dlocal_dchi_prev_diag(m_num_aux_dofs);
-
-  double const K_g = m_params[0];
-  double const mu_g = m_params[1];
-  double const K_inf = m_params[3];
-  double const mu_inf = m_params[4];
+  double const K_g = val(this->m_params[0]);
+  double const mu_g = val(this->m_params[1]);
+  double const K_inf = val(this->m_params[3]);
+  double const mu_inf = val(this->m_params[4]);
 
   double const delta_K = K_g - K_inf;
   double const delta_mu = mu_g - mu_inf;
@@ -275,7 +308,7 @@ EVector LTVE<double>::dlocal_dchi_prev_diag(int step) {
 
   for (int k = 0; k < num_vol_prony_terms; ++k) {
     double const a_tau = a * m_vol_prony[k][0];
-    dlocal_dchi_prev_diag[m] = -delta_K * m_delta_t * m_vol_prony[k][1]
+    dlocal_dchi_prev_diag(m) = -delta_K * m_delta_t * m_vol_prony[k][1]
         / (a_tau + m_delta_t);
     ++m;
   }
@@ -283,7 +316,7 @@ EVector LTVE<double>::dlocal_dchi_prev_diag(int step) {
   for (int k = 0; k < num_shear_prony_terms; ++k) {
     double const a_tau = a * m_shear_prony[k][0];
     for (int i = 0; i < num_sym_tensor_eqs; ++i) {
-      dlocal_dchi_prev_diag[m] = -2. * delta_mu * m_delta_t * m_shear_prony[k][1]
+      dlocal_dchi_prev_diag(m) = -2. * val(delta_mu) * m_delta_t * m_shear_prony[k][1]
           / (a_tau + m_delta_t);
       ++m;
     }
@@ -292,22 +325,67 @@ EVector LTVE<double>::dlocal_dchi_prev_diag(int step) {
   return dlocal_dchi_prev_diag;
 }
 
-template <>
-EVector LTVE<FADT>::dlocal_dchi_prev_diag(int step) {
-  EVector dlocal_dchi_prev_diag = EVector::Zero(m_num_aux_dofs);
-  return dlocal_dchi_prev_diag;
-}
+template <typename T>
+EVector LTVE<T>::eigen_aux_residual(RCP<GlobalResidual<T>> global, int step) {
+  EVector aux_residual = EVector::Zero(this->m_num_aux_dofs);
 
-// implement
-template <>
-EVector LTVE<double>::eigen_aux_residual(RCP<GlobalResidual<double>> global, int step) {
-  EVector const aux_residual = EVector::Zero(m_num_aux_dofs);
-  return aux_residual;
-}
+  double const K_g = val(this->m_params[0]);
+  double const mu_g = val(this->m_params[1]);
+  double const K_inf = val(this->m_params[3]);
+  double const mu_inf = val(this->m_params[4]);
 
-template <>
-EVector LTVE<FADT>::eigen_aux_residual(RCP<GlobalResidual<FADT>> global, int step) {
-  EVector const aux_residual = EVector::Zero(m_num_aux_dofs);
+  double const delta_K = K_g - K_inf;
+  double const delta_mu = mu_g - mu_inf;
+
+  int const ndims = this->m_num_dims;
+  int const num_sym_tensor_eqs = get_num_eqs(SYM_TENSOR, ndims);
+
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const grad_u_T = transpose(grad_u);
+  Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
+  T const vol_eps = trace(eps);
+  Tensor<T> const dev_eps = dev(eps);
+
+  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
+  Tensor<T> const grad_u_prev_T = transpose(grad_u_prev);
+  Tensor<T> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
+  T const vol_eps_prev = trace(eps_prev);
+  Tensor<T> const dev_eps_prev = dev(eps_prev);
+
+  T const delta_vol_eps = vol_eps - vol_eps_prev;
+  Tensor<T> const delta_dev_eps = dev_eps - dev_eps_prev;
+
+  double const a = std::pow(10., m_log10_shift_factor[step]);
+
+  int v = 0;
+  int m = 0;
+
+  int const num_vol_prony_terms = m_vol_prony.size();
+  for (int k = 0; k < num_vol_prony_terms; ++k) {
+    double const a_tau = a * m_vol_prony[k][0];
+    double const J_vol_k = val(this->scalar_chi(v));
+    double const J_vol_k_prev = val(this->scalar_chi_prev(v));
+    aux_residual(m) = J_vol_k - a_tau / (a_tau + m_delta_t)
+        * (J_vol_k_prev + val(delta_vol_eps));
+    ++v;
+    ++m;
+  }
+
+  int const num_shear_prony_terms = m_shear_prony.size();
+  for (int k = 0; k < num_shear_prony_terms; ++k) {
+    double const a_tau = a * m_shear_prony[k][0];
+    Tensor<T> const J_shear_k = this->sym_tensor_chi(v);
+    Tensor<T> const J_shear_k_prev = this->sym_tensor_chi_prev(v);
+    for (int i = 0; i < num_sym_tensor_eqs; ++i) {
+      for (int j = i; j < num_sym_tensor_eqs; ++j) {
+        aux_residual(m) = val(J_shear_k(i, j)) - a_tau / (a_tau + m_delta_t)
+            * (val(J_shear_k_prev(i, j)) + val(delta_dev_eps(i, j)));
+        ++m;
+      }
+    }
+    ++v;
+  }
+
   return aux_residual;
 }
 

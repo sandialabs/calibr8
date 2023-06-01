@@ -182,14 +182,10 @@ class LocalResidual {
     //! \param step The current step index
     virtual void compute_past_aux_variables(RCP<GlobalResidual<T>> global, int step) {};
 
-    //! \brief Compute the auxiliary adjoint matrix
+    //! \brief Compute the auxiliary adjoint matrix (works for both x and x_prev)
     //! \param global The global residual equations
     //! \param step The current step index
     virtual EMatrix daux_dxT(RCP<GlobalResidual<T>> global, int step);
-
-    //! \brief Compute the auxiliary adjoint matrix
-    //! \param step The current step index
-    virtual EMatrix daux_dx_prevT(RCP<GlobalResidual<T>> global, int step);
 
     //! \brief Compute the auxiliary adjoint diagonal matrix
     //! \param step The current step index

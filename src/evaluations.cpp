@@ -738,6 +738,9 @@ void eval_adjoint_aux_jacobian(
             // solve the forward sensitivty system to obtain dxi_dx
             EMatrix const dxi_dx = dC_dxi.fullPivLu().solve(-dC_dx);
 
+            // compute the derivatives of the auxiliary residual
+            EMatrix const dD_dxT = local->daux_dxT(global, step);
+
             // evaluate and scatter point contributions to the global LHS
             local->seed_wrt_x(dxi_dx);
 
@@ -767,7 +770,6 @@ void eval_adjoint_aux_jacobian(
             EVector const f_pt = f[es][elem][pt];
 
             // evaluate and scatter point contributions to the global RHS
-            EMatrix const dD_dxT = local->daux_dxT(global, step);
             EMatrix const dxi_dxT = dxi_dx.transpose();
             EVector const rhs = -dJ_dx + f_pt + dxi_dxT * g_pt - dD_dxT * h_pt;
             global->scatter_rhs(disc, rhs, RHS);
@@ -1032,6 +1034,7 @@ void solve_adjoint_aux_local_and_estimate_error(
         // their transpose Jacobians, and grab g at the integration point
         global->interpolate(iota);
         local->gather(pt, xi, xi_prev);
+        local->gather_aux(pt, chi, chi_prev);
         nderivs = local->seed_wrt_xi();
         global->zero_residual();
         global->evaluate(local, iota, w, dv, 0);

@@ -737,13 +737,6 @@ EMatrix LocalResidual<T>::daux_dxT(RCP<GlobalResidual<T>> global, int step) {
 }
 
 template <typename T>
-EMatrix LocalResidual<T>::daux_dx_prevT(RCP<GlobalResidual<T>> global, int step) {
-  // wrong size, but should never be called
-  EMatrix const daux_dx_prevT = EMatrix::Zero(m_num_aux_dofs, m_num_aux_dofs);
-  return daux_dx_prevT;
-}
-
-template <typename T>
 EVector LocalResidual<T>::daux_dchi_prev_diag(int step) {
   EVector const daux_dchi_prev_diag = EVector::Zero(m_num_aux_dofs);
   return daux_dchi_prev_diag;
