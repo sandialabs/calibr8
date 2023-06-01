@@ -719,7 +719,11 @@ void eval_adjoint_aux_jacobian(
             // and store the resultant local residual and its derivatives (dC_dxi)
             global->interpolate(iota);
             local->gather(pt, xi, xi_prev);
+
             local->gather_aux(pt, chi, chi_prev);
+            local->compute_past_aux_variables(global, step);
+            local->scatter_aux_prev(pt, chi_prev);
+
             nderivs = local->seed_wrt_xi();
             local->evaluate(global, force_path, path, step);
             EMatrix const dC_dxi = local->eigen_jacobian(nderivs);

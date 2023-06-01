@@ -177,6 +177,19 @@ class LocalResidual {
     //! \param global The global residual equations
     virtual T pressure_scale_factor() = 0;
 
+    //! \brief Compute the auxiliary variables at the previous step
+    //! \param global The global residual equations
+    //! \param step The current step index
+    virtual void compute_past_aux_variables(RCP<GlobalResidual<T>> global, int step) {};
+
+    //! \brief Compute the auxiliary adjoint diagonal matrix
+    //! \param step The current step index
+    virtual EVector compute_daux_dchi_diag(int step);
+
+    //! \brief Compute the auxiliary adjoint diagonal matrix
+    //! \param step The current step index
+    virtual EVector compute_dlocal_dchi_prev_diag(int step);
+
     //! \brief Save the solved local variables to the current integration point
     //! \param pt The integration point index
     //! \param xi The local state variable fields at the current step
@@ -186,6 +199,11 @@ class LocalResidual {
     //! \param pt The integration point index
     //! \param chi The auxiliary state variable fields at the current step
     void scatter_aux(int pt, Array1D<apf::Field*>& chi);
+
+    //! \brief Save the previous auxiliary state variables at the current integration point
+    //! \param pt The integration point index
+    //! \param chi The auxiliary state variable fields at the previous step
+    void scatter_aux_prev(int pt, Array1D<apf::Field*>& chi_prev);
 
     //! \brief Save the solved adjoint local variables to the current point
     //! \param pt The integration point index

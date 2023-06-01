@@ -254,8 +254,8 @@ class Disc {
     //! \param R The global/local residuals defining the problem
     void create_aux_fields(RCP<Residuals<double>> R);
 
-    //! \brief Set PRESENT aux fields values to PAST
-    void advance_aux_fields();
+    //! \brief Set PRESENT aux fields values to PAST or vice-versa
+    void advance_aux_fields(bool move_forward = true);
 
     //! \brief Destroy the primal fields
     //! \param keep_ic Keep the initial condition?

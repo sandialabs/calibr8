@@ -729,6 +729,17 @@ void LocalResidual<T>::gather_aux(
   }
 }
 
+template <typename T>
+EVector LocalResidual<T>::compute_daux_dchi_diag(int step) {
+  EVector daux_dchi_diag = EVector::Zero(1);
+  return daux_dchi_diag;
+}
+
+template <typename T>
+EVector LocalResidual<T>::compute_dlocal_dchi_prev_diag(int step) {
+  EVector dlocal_dchi_prev_diag = EVector::Zero(1);
+  return dlocal_dchi_prev_diag;
+}
 
 template <>
 void LocalResidual<double>::scatter(int, Array1D<apf::Field*>&) {
@@ -751,6 +762,16 @@ void LocalResidual<T>::scatter_aux(int pt, Array1D<apf::Field*>& chi) {
     int const type = m_aux_var_types[i];
     Array1D<double> const chi_vals = get_components(m_chi[i], m_num_dims, type);
     apf::setComponents(chi[i], elem, pt, &(chi_vals[0]));
+  }
+}
+
+template <typename T>
+void LocalResidual<T>::scatter_aux_prev(int pt, Array1D<apf::Field*>& chi_prev) {
+  apf::MeshEntity* elem = apf::getMeshEntity(m_mesh_elem);
+  for (int i = 0; i < m_num_aux_vars; ++i) {
+    int const type = m_aux_var_types[i];
+    Array1D<double> const chi_prev_vals = get_components(m_chi_prev[i], m_num_dims, type);
+    apf::setComponents(chi_prev[i], elem, pt, &(chi_prev_vals[0]));
   }
 }
 

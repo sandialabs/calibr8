@@ -29,6 +29,9 @@ class LTVE : public LocalResidual<T> {
     // make virtual with a default to do nothing
     void compute_past_aux_variables(RCP<GlobalResidual<T>> global, int step);
 
+    EVector compute_daux_dchi_diag(int step);
+    EVector compute_dlocal_dchi_prev_diag(int step);
+
   private:
     void read_prony_series(ParameterList const& prony_files);
     void compute_temperature(ParameterList const& inputs);
@@ -42,6 +45,7 @@ class LTVE : public LocalResidual<T> {
         double const temp, double const tol = 1e-10, int const max_iters = 10);
 
     void compute_present_aux_variables(RCP<GlobalResidual<T>> global, int step);
+
 
     Tensor<T> cauchy_mixed(RCP<GlobalResidual<T>> global);
 
