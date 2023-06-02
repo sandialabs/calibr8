@@ -629,7 +629,8 @@ void eval_adjoint_aux_jacobian(
     Array3D<EVector>& h,
     Array3D<EVector>& g,
     Array3D<EVector>& f,
-    int step) {
+    int step,
+    bool compute_aux_prev) {
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
@@ -721,8 +722,10 @@ void eval_adjoint_aux_jacobian(
             local->gather(pt, xi, xi_prev);
 
             local->gather_aux(pt, chi, chi_prev);
-            local->compute_past_aux_variables(global, step);
-            local->scatter_aux_prev(pt, chi_prev);
+            if (compute_aux_prev) {
+              local->compute_past_aux_variables(global, step);
+              local->scatter_aux_prev(pt, chi_prev);
+            }
 
             nderivs = local->seed_wrt_xi();
             local->evaluate(global, force_path, path, step);
@@ -1049,7 +1052,7 @@ void solve_adjoint_aux_local_and_estimate_error(
 
         // Solve for the local auxiliary adjoint variables
         EVector const h_pt = h[es][elem][pt];
-        EVector const omega_pt = -h_pt; // remove this copy later?
+        EVector const omega_pt = h_pt; // remove this copy later?
 
         // Solve for the global history vector
         local->unseed_wrt_xi();
@@ -1057,7 +1060,6 @@ void solve_adjoint_aux_local_and_estimate_error(
         global->interpolate(iota);
         local->evaluate(global, force_path, path, step);
         EMatrix const dC_dx_prevT = local->eigen_jacobian(nderivs).transpose();
-        f[es][elem][pt] = -dC_dx_prevT * phi_pt;
         EMatrix const dD_dx_prevT = local->daux_dxT(global, step);
         f[es][elem][pt] = -dC_dx_prevT * phi_pt - dD_dx_prevT * omega_pt;
 
@@ -1072,9 +1074,7 @@ void solve_adjoint_aux_local_and_estimate_error(
 
         // Solve for the aux history vector
         EMatrix const dC_dchi_prevT = local->dlocal_dchi_prevT(step);
-        //h[es][elem][pt] = -dC_dchi_prevT * phi_pt;
         EVector const dD_dchi_prev_diag = local->daux_dchi_prev_diag(step);
-        //h[es][elem][pt] = -dD_dchi_prev_diag.cwiseProduct(omega_pt);
         h[es][elem][pt] = -dC_dchi_prevT * phi_pt
             - dD_dchi_prev_diag.cwiseProduct(omega_pt);
 

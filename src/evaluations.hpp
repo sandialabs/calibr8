@@ -81,7 +81,8 @@ void eval_adjoint_aux_jacobian(
     Array3D<EVector>& h,
     Array3D<EVector>& g,
     Array3D<EVector>& f,
-    int step);
+    int step,
+    bool compute_aux_prev);
 
 //! \brief Solve for the local adjoint variables
 //! \param state The application state object

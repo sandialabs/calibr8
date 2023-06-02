@@ -95,11 +95,13 @@ void AdjointAux::solve_and_compute_error_at_step(
   bool const do_print = global.get<bool>("print convergence");
   int const nsteps = problem_params.get<int>("num steps");
 
+  bool compute_aux_prev = false;
   // set the history vectors to zero
   if (step == nsteps) {
     initialize_history_vectors();
   } else {
     m_disc->advance_aux_fields(false);
+    compute_aux_prev = true;
   }
 
   // print the step information
@@ -136,7 +138,8 @@ void AdjointAux::solve_and_compute_error_at_step(
           aux_history,
           local_history,
           global_history,
-          step);
+          step,
+          compute_aux_prev);
 
       // gather the parallel objects to their OWNED state
       m_state->la->gather_A();  // gather the adjoint Jacobian dR_dxT

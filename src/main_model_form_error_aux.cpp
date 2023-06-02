@@ -102,7 +102,9 @@ double Driver::sum_local_errors() {
   apf::Mesh* m = disc->apf_mesh();
   apf::Field* C_error = m->findField("C_error");
   apf::Field* D_error = m->findField("D_error");
-  double eta = 0;
+  double eta = 0.;
+  double eta_C = 0.;
+  double eta_D = 0.;
   double eta_bound = 0.;
   apf::MeshEntity* elem;
   apf::MeshIterator* elems = m->begin(m->getDimension());
@@ -110,6 +112,8 @@ double Driver::sum_local_errors() {
     double const C_val = apf::getScalar(C_error, elem, 0);
     double const D_val = apf::getScalar(D_error, elem, 0);
     double const val = C_val + D_val;
+    eta_C += C_val;
+    eta_D += D_val;
     eta += val;
     eta_bound += std::abs(val);
   }
@@ -117,6 +121,8 @@ double Driver::sum_local_errors() {
   eta_bound = PCU_Add_Double(eta_bound);
   m->end(elems);
   print("eta ~ %.16e", eta);
+  print("eta_C ~ %.16e", eta_C);
+  print("eta_D ~ %.16e", eta_D);
   print("|eta| < %.16e", eta_bound);
   return eta;
 }
