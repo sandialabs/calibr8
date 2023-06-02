@@ -81,8 +81,7 @@ void eval_adjoint_aux_jacobian(
     Array3D<EVector>& h,
     Array3D<EVector>& g,
     Array3D<EVector>& f,
-    int step,
-    bool compute_aux_prev);
+    int step);
 
 //! \brief Solve for the local adjoint variables
 //! \param state The application state object
@@ -123,6 +122,16 @@ void solve_adjoint_aux_local_and_estimate_error(
     apf::Field* D_error,
     int step);
 
+//! \brief Forward pass for the auxiliary variables
+//! \param state The application state object
+//! \param disc The discretization object
+//! \param current_step The current load/time step
+//! \details This will populate:
+//!   state->aux_fields
+void compute_aux_variables(
+    RCP<State> state,
+    RCP<Disc> disc,
+    int current_step);
 
 //! \brief Return the QoI evaluation at a step
 //! \param state The application state object

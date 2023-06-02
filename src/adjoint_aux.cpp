@@ -100,8 +100,7 @@ void AdjointAux::solve_and_compute_error_at_step(
   if (step == nsteps) {
     initialize_history_vectors();
   } else {
-    m_disc->advance_aux_fields(false);
-    compute_aux_prev = true;
+    compute_aux_variables(m_state, m_disc, step);
   }
 
   // print the step information
@@ -138,8 +137,7 @@ void AdjointAux::solve_and_compute_error_at_step(
           aux_history,
           local_history,
           global_history,
-          step,
-          compute_aux_prev);
+          step);
 
       // gather the parallel objects to their OWNED state
       m_state->la->gather_A();  // gather the adjoint Jacobian dR_dxT

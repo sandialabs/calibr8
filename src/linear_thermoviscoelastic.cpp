@@ -235,7 +235,6 @@ EMatrix LTVE<FADT>::daux_dxT(RCP<GlobalResidual<FADT>> global, int step) {
     }
   }
 
-  double const a = std::pow(10., m_log10_shift_factor[step]);
   int m = 0;
 
   for (int k = 0; k < num_vol_prony_terms; ++k) {
@@ -543,52 +542,6 @@ void LTVE<T>::compute_present_aux_variables(
     this->set_sym_tensor_chi(v, J_shear_k);
     ++v;
   }
-}
-
-template <typename T>
-void LTVE<T>::compute_past_aux_variables(
-    RCP<GlobalResidual<T>> global,
-    int step) {
-
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const grad_u_T = transpose(grad_u);
-  Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-  T const vol_eps = trace(eps);
-  Tensor<T> const dev_eps = dev(eps);
-
-  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
-  Tensor<T> const grad_u_prev_T = transpose(grad_u_prev);
-  Tensor<T> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
-  T const vol_eps_prev = trace(eps_prev);
-  Tensor<T> const dev_eps_prev = dev(eps_prev);
-
-  T const delta_vol_eps = vol_eps - vol_eps_prev;
-  Tensor<T> const delta_dev_eps = dev_eps - dev_eps_prev;
-
-  double const a = std::pow(10., m_log10_shift_factor[step]);
-
-  int v = 0;
-
-  int const num_vol_prony_terms = m_vol_prony.size();
-  for (int k = 0; k < num_vol_prony_terms; ++k) {
-    double const a_tau = a * m_vol_prony[k][0];
-    T const J_vol_k = this->scalar_chi(v);
-    T const J_vol_k_prev = (a_tau + m_delta_t) / a_tau
-        * J_vol_k - delta_vol_eps;
-    this->set_scalar_chi_prev(v, J_vol_k_prev);
-    ++v;
-  }
-
-  int const num_shear_prony_terms = m_shear_prony.size();
-  for (int k = 0; k < num_shear_prony_terms; ++k) {
-    double const a_tau = a * m_shear_prony[k][0];
-    Tensor<T> const J_shear_k = this->sym_tensor_chi(v);
-    Tensor<T> const J_shear_k_prev = (a_tau + m_delta_t) / a_tau
-        * J_shear_k - delta_dev_eps;
-    this->set_sym_tensor_chi_prev(v, J_shear_k_prev);
-    ++v;
-  }
-
 }
 
 template <>

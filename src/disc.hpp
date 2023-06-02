@@ -278,6 +278,9 @@ class Disc {
     //! \brief Destroy the auxiliary fields
     void destroy_aux_fields();
 
+    //! \brief Zero the auxiliary fields
+    void zero_aux_fields();
+
     //! \brief Get the primal fields stored on this discretization
     Array1D<Fields>& primal() { return m_primal; }
 

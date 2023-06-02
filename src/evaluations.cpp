@@ -629,8 +629,7 @@ void eval_adjoint_aux_jacobian(
     Array3D<EVector>& h,
     Array3D<EVector>& g,
     Array3D<EVector>& f,
-    int step,
-    bool compute_aux_prev) {
+    int step) {
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
@@ -720,13 +719,7 @@ void eval_adjoint_aux_jacobian(
             // and store the resultant local residual and its derivatives (dC_dxi)
             global->interpolate(iota);
             local->gather(pt, xi, xi_prev);
-
             local->gather_aux(pt, chi, chi_prev);
-            if (compute_aux_prev) {
-              local->compute_past_aux_variables(global, step);
-              local->scatter_aux_prev(pt, chi_prev);
-            }
-
             nderivs = local->seed_wrt_xi();
             local->evaluate(global, force_path, path, step);
             EMatrix const dC_dxi = local->eigen_jacobian(nderivs);
@@ -1108,6 +1101,91 @@ void solve_adjoint_aux_local_and_estimate_error(
 
 }
 
+void compute_aux_variables(
+    RCP<State> state,
+    RCP<Disc> disc,
+    int current_step) {
+
+  // gather discretization information
+  apf::Mesh* mesh = disc->apf_mesh();
+  int const q_order = disc->lv_shape()->getOrder();
+
+  // gather information from the state object
+  int const model_form = BASE_MODEL;
+  RCP<LocalResidual<double>> local = state->residuals->local[model_form];
+  RCP<GlobalResidual<double>> global = state->residuals->global;
+  Array1D<apf::Field*> chi = disc->aux_fields_present();
+  Array1D<apf::Field*> chi_prev = disc->aux_fields_past();
+
+  // reset the aux fields
+  disc->zero_aux_fields();
+
+  for (int step = 1; step <= current_step; ++step) {
+
+    if (step > 1) {
+      disc->advance_aux_fields();
+    }
+
+    Array1D<apf::Field*> x = disc->primal(step).global;
+    Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
+
+    // perform initializations of the residual objects
+    global->before_elems(disc);
+
+    // loop over all element sets in the discretization
+    for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+      local->before_elems(es, disc);
+
+      // gather the elements in the current element set
+      std::string const& es_name = disc->elem_set_name(es);
+      ElemSet const& elems = disc->elems(es_name);
+
+      // loop over all elements in the element set
+      for (size_t elem = 0; elem < elems.size(); ++elem) {
+
+        // get the current mesh element
+        apf::MeshEntity* e = elems[elem];
+        apf::MeshElement* me = apf::createMeshElement(mesh, e);
+
+        // peform operations on element input
+        global->set_elem(me);
+        local->set_elem(me);
+        global->gather(x, x_prev);
+
+        // loop over all integration points in the current element
+        int const npts = apf::countIntPoints(me, q_order);
+
+        for (int pt = 0; pt < npts; ++pt) {
+
+          // get integration point specific information
+          apf::Vector3 iota;
+          apf::getIntPoint(me, q_order, pt, iota);
+
+          // compute and store the auxiliary fields
+          global->interpolate(iota);
+          local->gather_aux(pt, chi, chi_prev);
+          local->compute_present_aux_variables(global, step);
+          local->scatter_aux(pt, chi);
+
+        }
+
+        // perform operations on element output
+        apf::destroyMeshElement(me);
+        global->unset_elem();
+        local->unset_elem();
+
+      }
+
+    }
+
+    // perform clean-ups of the residual objects
+    local->after_elems();
+    global->after_elems();
+
+  }
+
+}
 
 double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
 

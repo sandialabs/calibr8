@@ -177,10 +177,10 @@ class LocalResidual {
     //! \param global The global residual equations
     virtual T pressure_scale_factor() = 0;
 
-    //! \brief Compute the auxiliary variables at the previous step
+    //! \brief Compute the auxiliary variables at the current step
     //! \param global The global residual equations
     //! \param step The current step index
-    virtual void compute_past_aux_variables(RCP<GlobalResidual<T>> global, int step) {};
+    virtual void compute_present_aux_variables(RCP<GlobalResidual<T>> global, int step) {};
 
     //! \brief Compute the auxiliary adjoint matrix (works for both x and x_prev)
     //! \param global The global residual equations

@@ -26,8 +26,7 @@ class LTVE : public LocalResidual<T> {
     T hydro_cauchy(RCP<GlobalResidual<T>> global);
     T pressure_scale_factor();
 
-    // make virtual with a default to do nothing
-    void compute_past_aux_variables(RCP<GlobalResidual<T>> global, int step);
+    void compute_present_aux_variables(RCP<GlobalResidual<T>> global, int step);
 
     EMatrix daux_dxT(RCP<GlobalResidual<T>> global, int step);
     EMatrix daux_dx_prevT(RCP<GlobalResidual<T>> global, int step);
@@ -46,9 +45,6 @@ class LTVE : public LocalResidual<T> {
         double const temp, double& r_val, double& r_deriv);
     double lag_nonlinear_solve(double const psi, Array1D<double> const& J3_k_prev,
         double const temp, double const tol = 1e-10, int const max_iters = 10);
-
-    void compute_present_aux_variables(RCP<GlobalResidual<T>> global, int step);
-
 
     Tensor<T> cauchy_mixed(RCP<GlobalResidual<T>> global);
 

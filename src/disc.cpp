@@ -747,6 +747,14 @@ void Disc::destroy_aux_fields() {
   }
 }
 
+void Disc::zero_aux_fields() {
+  int const num_aux_fields = m_aux_fields[PAST].size();
+  for (size_t i = 0; i < num_aux_fields; ++i) {
+    apf::zeroField(m_aux_fields[PAST][i]);
+    apf::zeroField(m_aux_fields[PRESENT][i]);
+  }
+}
+
 void Disc::create_adjoint(
     RCP<Residuals<double>> R,
     int const num_steps,
