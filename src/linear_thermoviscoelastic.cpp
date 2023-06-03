@@ -184,6 +184,28 @@ void LTVE<T>::compute_shift_factors() {
   }
 }
 
+template <typename T>
+void LTVE<T>::compute_delta_strains(
+    RCP<GlobalResidual<T>> global,
+    T& delta_vol_eps,
+    Tensor<T>& delta_dev_eps) {
+
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const grad_u_T = transpose(grad_u);
+  Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
+  T const vol_eps = trace(eps);
+  Tensor<T> const dev_eps = dev(eps);
+
+  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
+  Tensor<T> const grad_u_prev_T = transpose(grad_u_prev);
+  Tensor<T> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
+  T const vol_eps_prev = trace(eps_prev);
+  Tensor<T> const dev_eps_prev = dev(eps_prev);
+
+  delta_vol_eps = vol_eps - vol_eps_prev;
+  delta_dev_eps = dev_eps - dev_eps_prev;
+}
+
 template <>
 EMatrix LTVE<double>::daux_dxT(RCP<GlobalResidual<double>> global, int step) {
   int const num_global_dofs = global->num_dofs();
@@ -204,20 +226,9 @@ EMatrix LTVE<FADT>::daux_dxT(RCP<GlobalResidual<FADT>> global, int step) {
   int const ndims = this->m_num_dims;
   int const num_sym_tensor_eqs = get_num_eqs(SYM_TENSOR, ndims);
 
-  Tensor<FADT> const grad_u = global->grad_vector_x(0);
-  Tensor<FADT> const grad_u_T = transpose(grad_u);
-  Tensor<FADT> const eps = 0.5 * (grad_u + grad_u_T);
-  FADT const vol_eps = trace(eps);
-  Tensor<FADT> const dev_eps = dev(eps);
-
-  Tensor<FADT> const grad_u_prev = global->grad_vector_x_prev(0);
-  Tensor<FADT> const grad_u_prev_T = transpose(grad_u_prev);
-  Tensor<FADT> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
-  FADT const vol_eps_prev = trace(eps_prev);
-  Tensor<FADT> const dev_eps_prev = dev(eps_prev);
-
-  FADT const delta_vol_eps = vol_eps - vol_eps_prev;
-  Tensor<FADT> const delta_dev_eps = dev_eps - dev_eps_prev;
+  FADT delta_vol_eps;
+  Tensor<FADT> delta_dev_eps;
+  compute_delta_strains(global, delta_vol_eps, delta_dev_eps);
 
   EVector delta_vol_eps_derivs = EVector::Zero(num_global_dofs);
   for (int d = 0; d < num_global_dofs; ++d) {
@@ -348,20 +359,9 @@ EVector LTVE<T>::eigen_aux_residual(RCP<GlobalResidual<T>> global, int step) {
   int const ndims = this->m_num_dims;
   int const num_sym_tensor_eqs = get_num_eqs(SYM_TENSOR, ndims);
 
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const grad_u_T = transpose(grad_u);
-  Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-  T const vol_eps = trace(eps);
-  Tensor<T> const dev_eps = dev(eps);
-
-  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
-  Tensor<T> const grad_u_prev_T = transpose(grad_u_prev);
-  Tensor<T> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
-  T const vol_eps_prev = trace(eps_prev);
-  Tensor<T> const dev_eps_prev = dev(eps_prev);
-
-  T const delta_vol_eps = vol_eps - vol_eps_prev;
-  Tensor<T> const delta_dev_eps = dev_eps - dev_eps_prev;
+  T delta_vol_eps;
+  Tensor<T> delta_dev_eps;
+  compute_delta_strains(global, delta_vol_eps, delta_dev_eps);
 
   double const a = std::pow(10., m_log10_shift_factor[step]);
 
@@ -504,20 +504,9 @@ void LTVE<T>::compute_present_aux_variables(
     RCP<GlobalResidual<T>> global,
     int step) {
 
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const grad_u_T = transpose(grad_u);
-  Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-  T const vol_eps = trace(eps);
-  Tensor<T> const dev_eps = dev(eps);
-
-  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
-  Tensor<T> const grad_u_prev_T = transpose(grad_u_prev);
-  Tensor<T> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
-  T const vol_eps_prev = trace(eps_prev);
-  Tensor<T> const dev_eps_prev = dev(eps_prev);
-
-  T const delta_vol_eps = vol_eps - vol_eps_prev;
-  Tensor<T> const delta_dev_eps = dev_eps - dev_eps_prev;
+  T delta_vol_eps;
+  Tensor<T> delta_dev_eps;
+  compute_delta_strains(global, delta_vol_eps, delta_dev_eps);
 
   double const a = std::pow(10., m_log10_shift_factor[step]);
 
@@ -569,24 +558,13 @@ int LTVE<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
     FADT const delta_mu = mu_g - mu_inf;
     FADT const delta_alpha_K = alpha_g * K_g - alpha_inf * K_inf;
 
-    Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
-
-    Tensor<FADT> const grad_u = global->grad_vector_x(0);
-    Tensor<FADT> const grad_u_T = transpose(grad_u);
-    Tensor<FADT> const eps = 0.5 * (grad_u + grad_u_T);
-    FADT const vol_eps = trace(eps);
-    Tensor<FADT> const dev_eps = dev(eps);
-
-    Tensor<FADT> const grad_u_prev = global->grad_vector_x_prev(0);
-    Tensor<FADT> const grad_u_prev_T = transpose(grad_u_prev);
-    Tensor<FADT> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
-    FADT const vol_eps_prev = trace(eps_prev);
-    Tensor<FADT> const dev_eps_prev = dev(eps_prev);
-
     Tensor<FADT> cauchy_prev = this->sym_tensor_xi_prev(0);
 
-    FADT const delta_vol_eps = vol_eps - vol_eps_prev;
-    Tensor<FADT> const delta_dev_eps = dev_eps - dev_eps_prev;
+    Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
+
+    FADT delta_vol_eps;
+    Tensor<FADT> delta_dev_eps;
+    compute_delta_strains(global, delta_vol_eps, delta_dev_eps);
 
     double const a = std::pow(10., m_log10_shift_factor[step]);
 
@@ -674,21 +652,9 @@ int LTVE<T>::evaluate(
   T const delta_mu = mu_g - mu_inf;
   T const delta_alpha_K = alpha_g * K_g - alpha_inf * K_inf;
 
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const grad_u_T = transpose(grad_u);
-  Tensor<T> const eps = 0.5 * (grad_u + grad_u_T);
-  T const vol_eps = trace(eps);
-  Tensor<T> const dev_eps = dev(eps);
-
-  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
-  Tensor<T> const grad_u_prev_T = transpose(grad_u_prev);
-  Tensor<T> const eps_prev = 0.5 * (grad_u_prev + grad_u_prev_T);
-  T const vol_eps_prev = trace(eps_prev);
-  Tensor<T> const dev_eps_prev = dev(eps_prev);
-
-  T const delta_vol_eps = vol_eps - vol_eps_prev;
-  Tensor<T> const delta_dev_eps = dev_eps - dev_eps_prev;
-
+  T delta_vol_eps;
+  Tensor<T> delta_dev_eps;
+  compute_delta_strains(global, delta_vol_eps, delta_dev_eps);
   double const a = std::pow(10., m_log10_shift_factor[step]);
 
   T bar_K = K_inf;

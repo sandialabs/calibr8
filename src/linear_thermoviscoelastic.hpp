@@ -46,6 +46,9 @@ class LTVE : public LocalResidual<T> {
     double lag_nonlinear_solve(double const psi, Array1D<double> const& J3_k_prev,
         double const temp, double const tol = 1e-10, int const max_iters = 10);
 
+    void compute_delta_strains(RCP<GlobalResidual<T>> global,
+        T& delta_vol_eps, Tensor<T>& delta_dev_eps);
+
     Tensor<T> cauchy_mixed(RCP<GlobalResidual<T>> global);
 
     double m_delta_t = 0.;
