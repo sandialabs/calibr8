@@ -80,7 +80,7 @@ class NLPoisson : public Residual<T> {
       apf::Field* eta = apf::createPackedField(mesh, name.c_str(), this->m_neqs, PU);
       apf::zeroField(eta);
       int const ndims = mesh->getDimension();
-      int q_order = 6;
+      int const q_order = 6;
       auto elems = mesh->begin(ndims);
       apf::Vector3 grad_u;
       apf::Vector3 grad_z;

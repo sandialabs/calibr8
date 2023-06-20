@@ -67,4 +67,6 @@ class Physics {
     RCP<QoI<FAD2T>> m_qoi_hessian;
 };
 
+void fill_vector(int space, RCP<Disc> disc, apf::Field* f, Vector& x);
+
 }

@@ -269,13 +269,13 @@ static void fill_field(
   apf::synchronize(f);
 }
 
-static void fill_vector(
+void fill_vector(
     int space,
     RCP<Disc> disc,
     apf::Field* f,
     Vector& x) {
   int const neqs = apf::countComponents(f);
-  apf::Mesh2* meshh = disc->apf_mesh();
+  apf::Mesh2* mesh = disc->apf_mesh();
   auto x_data = x.val[OWNED]->get1dViewNonConst();
   std::vector<double> vals(neqs, 0);
   apf::DynamicArray<apf::Node> nodes = disc->owned_nodes(space);
