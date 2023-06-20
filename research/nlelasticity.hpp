@@ -39,10 +39,25 @@ class NLElasticity : public Residual<T> {
       }
     }
 
-    Tensor<T> compute_sigma(
-        Tensor<T> const& F,
-        T const& J)
-    {
+    Tensor<T> compute_def_grad(
+        apf::Vector3 const& xi,
+        RCP<Disc> disc) {
+      this->interp_basis(xi, disc);
+      Array1D<T> const dofs = this->interp(xi);
+      Array2D<T> const grad_dofs = this->interp_grad(xi);
+      Tensor<T> grad_u(this->m_ndims);
+      for (int i = 0; i < this->m_ndims; ++i) {
+        for (int j = 0; j < this->m_ndims; ++j) {
+          grad_u(i, j) = grad_dofs[i][j];
+        }
+      }
+      Tensor<T> const I = minitensor::eye<T>(this->m_ndims);
+      Tensor<T> const F = grad_u + I;
+      return F;
+    }
+
+    Tensor<T> compute_sigma(Tensor<T> const& F) {
+      T const J = minitensor::det(F);
       T const mu = this->m_mu;
       T const kappa = this->m_kappa;
       T const Jm13 = 1./std::cbrt(J);
@@ -64,23 +79,13 @@ class NLElasticity : public Residual<T> {
       double const wdetJ = w*dv;
 
       // compute the kinematic quantities
-      this->interp_basis(xi, disc);
-      Array1D<T> const dofs = this->interp(xi);
-      Array2D<T> const grad_dofs = this->interp_grad(xi);
-      Tensor<T> grad_u(this->m_ndims);
-      for (int i = 0; i < this->m_ndims; ++i) {
-        for (int j = 0; j < this->m_ndims; ++j) {
-          grad_u(i, j) = grad_dofs[i][j];
-        }
-      }
-      Tensor<T> const I = minitensor::eye<T>(this->m_ndims);
-      Tensor<T> const F = grad_u + I;
+      Tensor<T> const F = compute_def_grad(xi, disc);
       Tensor<T> const Finv = minitensor::inverse(F);
       Tensor<T> const FinvT = minitensor::transpose(Finv);
       T const J = minitensor::det(F);
 
       // compute the stress divergence residual
-      Tensor<T> const sigma = compute_sigma(F, J);
+      Tensor<T> const sigma = compute_sigma(F);
       Tensor<T> const P = J * sigma * FinvT;
       for (int node = 0; node < this->m_nnodes; ++node) {
         for (int i = 0; i < this->m_ndims; ++i) {

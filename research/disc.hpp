@@ -37,6 +37,7 @@ class Disc {
 
     apf::Mesh2* apf_mesh() { return m_mesh; }
     apf::FieldShape* shape(int space) { return m_shape[space]; }
+    apf::StkModels* sets() { return m_sets; }
 
     int order(int space);
     int get_num_nodes(int space);

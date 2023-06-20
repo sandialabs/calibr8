@@ -3,6 +3,7 @@
 #include "qoi_point.hpp"
 #include "qoi_sqrt_gradient.hpp"
 #include "qoi_value.hpp"
+#include "qoi_vm.hpp"
 #include "residual.hpp"
 
 namespace calibr8 {
@@ -124,6 +125,8 @@ RCP<QoI<T>> create_QoI(ParameterList const& params) {
     return rcp(new QoI_SqrtGradient<T>(params));
   } else if (type == "point") {
     return rcp(new QoI_Point<T>(params));
+  } else if (type == "von mises") {
+    return rcp(new QoI_VM<T>(params));
   } else {
     throw std::runtime_error("invalid qoi");
   }
