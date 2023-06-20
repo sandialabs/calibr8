@@ -12,7 +12,7 @@ using GO = long long;
 
 // this is specific to scalar equations in 2D with
 // triangles using P2 Lagrange basis functions
-static constexpr int nmax_derivs = 6;
+static constexpr int nmax_derivs = 30;
 
 using FADT = Sacado::Fad::SLFad<double, nmax_derivs>;
 using FAD2T = Sacado::Fad::SLFad<FADT, nmax_derivs>;
