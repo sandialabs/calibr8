@@ -37,6 +37,7 @@ set(CALIBR8_SOURCES
   point_wise.cpp
   primal.cpp
   qoi.cpp
+  reaction_mismatch.cpp
   small_hill.cpp
   small_hill_plane_strain.cpp
   small_hill_plane_stress.cpp
