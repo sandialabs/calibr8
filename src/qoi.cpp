@@ -44,7 +44,7 @@ void QoI<T>::scatter(double& J) {
 }
 
 template <typename T>
-bool QoI<T>::setup_mapping(std::string const& side_set,
+bool QoI<T>::setup_side_set_mapping(std::string const& side_set,
     RCP<Disc> disc,
     Array2D<int>& mapping) {
 
@@ -68,6 +68,46 @@ bool QoI<T>::setup_mapping(std::string const& side_set,
             mapping[es][elem] = down;
           }
         }
+      }
+    }
+  }
+  return true;
+}
+
+template <typename T>
+bool QoI<T>::setup_node_set_mapping(std::string const& node_set,
+    RCP<Disc> disc,
+    Array3D<int>& mapping) {
+
+  Array1D<int> node_ids;
+  int ndims = m_num_dims;
+  apf::Mesh* mesh = disc->apf_mesh();
+  apf::Downward downward_nodes;
+  mapping.resize(disc->num_elem_sets());
+  NodeSet const& nodes = disc->nodes(node_set);
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+    std::string const& es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+    mapping[es].resize(elems.size());
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+      apf::MeshEntity* elem_entity = elems[elem];
+      int ndown = mesh->getDownward(elem_entity, 0, downward_nodes);
+      node_ids.resize(0);
+      for (int down = 0; down < ndown; ++down) {
+        apf::MeshEntity* downward_entity = downward_nodes[down];
+        for (apf::Node node : nodes) {
+          if (node.entity == downward_entity) {
+            node_ids.push_back(down);
+          }
+        }
+      }
+      int const num_node_ids = node_ids.size();
+      if (num_node_ids > 0) {
+        mapping[es][elem].resize(num_node_ids);
+        mapping[es][elem] = node_ids;
+      } else {
+        mapping[es][elem].resize(1);
+        mapping[es][elem][0] = -1;
       }
     }
   }

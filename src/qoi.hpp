@@ -101,9 +101,17 @@ class QoI {
     //! \param side_set The name of the side set
     //! \param mapping The element to side set facet mapping array
     //! \returns Flag for whether the mapping array exists
-    bool setup_mapping(std::string const& side_set,
+    bool setup_side_set_mapping(std::string const& side_set,
         RCP<Disc> disc,
         Array2D<int>& mapping);
+
+    //! \brief Initialize the mapping from elements to nodes in a node set
+    //! \param side_set The name of the node set
+    //! \param mapping The element to node set node mapping array
+    //! \returns Flag for whether the mapping array exists
+    bool setup_node_set_mapping(std::string const& node_set,
+        RCP<Disc> disc,
+        Array3D<int>& mapping);
 
     //! \brief Zero out the value (and derivatives) of the QoI at a point
     void initialize_value_pt();

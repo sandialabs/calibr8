@@ -33,9 +33,9 @@ class Calibration : public QoI<T> {
         int elem,
         RCP<GlobalResidual<T>> global,
         RCP<LocalResidual<T>> local,
-        apf::Vector3 const&,
-        double,
-        double);
+        apf::Vector3 const& iota_input,
+        double w,
+        double dv);
 
     //! \brief Evaluate a preprocessing quantity at an integration point
     //! \param elem_set The index of the current element set
@@ -75,7 +75,9 @@ class Calibration : public QoI<T> {
         int elem,
         RCP<GlobalResidual<T>> global,
         RCP<LocalResidual<T>> local,
-        apf::Vector3 const& iota_input);
+        apf::Vector3 const& iota_input,
+        double w,
+        double dv);
 
     double m_balance_factor = 1.;
 
@@ -84,8 +86,8 @@ class Calibration : public QoI<T> {
     Array2D<int> m_mapping_disp; // m_mapping[es_idx][elem_idx]
 
     bool is_initd_load = false;
-    std::string m_side_set_load = "";
-    Array2D<int> m_mapping_load; // m_mapping[es_idx][elem_idx]
+    std::string m_node_set_load = "";
+    Array3D<int> m_mapping_load; // m_mapping[es_idx][elem_idx][node_idx]
 
     bool m_write_load = false;
     std::string m_load_out_file = "";
@@ -96,8 +98,7 @@ class Calibration : public QoI<T> {
     Array1D<double> m_load_data;
     Array1D<double> m_weights {1., 1., 1.};
     bool m_has_weights = false;
-    Array1D<double> m_normal_2D {0., 0.};
-    bool m_has_normal_2D = false;
+    int m_reaction_force_comp = -1;
 
 
 };

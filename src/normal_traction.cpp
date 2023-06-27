@@ -24,7 +24,7 @@ void NormalTraction<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_num_dims = disc->num_dims();
   this->m_shape = disc->gv_shape();
   this->m_step = step;
-  this->setup_mapping(m_side_set, disc, m_mapping);
+  this->setup_side_set_mapping(m_side_set, disc, m_mapping);
   m_elem_set_idx = disc->elem_set_idx(m_elem_set);
   m_area = 0.;
   SideSet const& sides = disc->sides(m_side_set);

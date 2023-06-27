@@ -41,44 +41,9 @@ void ReactionMismatch<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_shape = disc->gv_shape();
   this->m_step = step;
 
-  Array1D<int> node_ids;
-
-  // initialize the list of elements that touch the node set
   if (!is_initd) {
-    int ndims = this->m_num_dims;
-    apf::Mesh* mesh = disc->apf_mesh();
-    apf::Downward downward_nodes;
-    m_mapping.resize(disc->num_elem_sets());
-    NodeSet const& nodes = disc->nodes(m_node_set);
-    for (int es = 0; es < disc->num_elem_sets(); ++es) {
-      std::string const& es_name = disc->elem_set_name(es);
-      ElemSet const& elems = disc->elems(es_name);
-      m_mapping[es].resize(elems.size());
-      for (size_t elem = 0; elem < elems.size(); ++elem) {
-        apf::MeshEntity* elem_entity = elems[elem];
-        int ndown = mesh->getDownward(elem_entity, 0, downward_nodes);
-        node_ids.resize(0);
-        for (int down = 0; down < ndown; ++down) {
-          apf::MeshEntity* downward_entity = downward_nodes[down];
-          for (apf::Node node : nodes) {
-            if (node.entity == downward_entity) {
-              node_ids.push_back(down);
-            }
-          }
-        }
-        int const num_node_ids = node_ids.size();
-        if (num_node_ids > 0) {
-          m_mapping[es][elem].resize(num_node_ids);
-          m_mapping[es][elem] = node_ids;
-        } else {
-          m_mapping[es][elem].resize(1);
-          m_mapping[es][elem][0] = -1;
-        }
-      }
-    }
-    is_initd = true;
+    is_initd = this->setup_node_set_mapping(m_node_set, disc, m_mapping);
   }
-
 }
 
 template <typename T>
@@ -116,9 +81,7 @@ T ReactionMismatch<T>::compute_load(
   int const disp_idx = 0;
   for (size_t i = 0; i < num_nodes; ++i) {
     int const node_id = node_ids[i];
-    T const load_vec_at_node = global->R_nodal(disp_idx, node_id,
-        m_reaction_force_comp);
-    load_pt += load_vec_at_node;
+    load_pt += global->R_nodal(disp_idx, node_id, m_reaction_force_comp);
   }
 
   return load_pt;

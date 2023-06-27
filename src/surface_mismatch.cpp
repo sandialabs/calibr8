@@ -25,7 +25,7 @@ void SurfaceMismatch<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_step = step;
 
   if (!is_initd) {
-    is_initd = this->setup_mapping(m_side_set, disc, m_mapping);
+    is_initd = this->setup_side_set_mapping(m_side_set, disc, m_mapping);
   }
 
 }

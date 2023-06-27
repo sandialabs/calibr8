@@ -14,7 +14,7 @@ template <typename T>
 Calibration<T>::Calibration(ParameterList const& params) {
   m_balance_factor = params.get<double>("balance factor");
   m_side_set_disp = params.get<std::string>("displacement side set");
-  m_side_set_load = params.get<std::string>("load side set");
+  m_node_set_load = params.get<std::string>("load node set");
   m_write_load = params.isParameter("load out file");
   m_read_load = params.isParameter("load input file");
   m_has_weights = params.isParameter("displacement weights");
@@ -23,12 +23,7 @@ Calibration<T>::Calibration(ParameterList const& params) {
         params.get<Teuchos::Array<double>>("displacement weights").toVector();
     ALWAYS_ASSERT((m_weights.size() == 3) || (m_weights.size() == 2));
   }
-  m_has_normal_2D = params.isParameter("2D surface normal");
-  if (m_has_normal_2D) {
-    m_normal_2D =
-        params.get<Teuchos::Array<double>>("2D surface normal").toVector();
-    ALWAYS_ASSERT(m_normal_2D.size() == 2);
-  }
+  m_reaction_force_comp = params.get<int>("reaction force component");
   if (m_write_load) m_load_out_file = params.get<std::string>("load out file");
   if (m_read_load) m_load_in_file = params.get<std::string>("load input file");
   ALWAYS_ASSERT((m_write_load + m_read_load) == 1);
@@ -55,11 +50,11 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_step = step;
 
   if (!is_initd_disp) {
-    is_initd_disp = this->setup_mapping(m_side_set_disp, disc, m_mapping_disp);
+    is_initd_disp = this->setup_side_set_mapping(m_side_set_disp, disc, m_mapping_disp);
   }
 
   if (!is_initd_load) {
-    is_initd_load = this->setup_mapping(m_side_set_load, disc, m_mapping_load);
+    is_initd_load = this->setup_node_set_mapping(m_node_set_load, disc, m_mapping_load);
   }
 
 }
@@ -150,93 +145,39 @@ T Calibration<T>::compute_load(
     int elem,
     RCP<GlobalResidual<T>> global,
     RCP<LocalResidual<T>> local,
-    apf::Vector3 const& iota_input) {
+    apf::Vector3 const& iota,
+    double w,
+    double dv) {
 
-  T load = T(0.);
+  T load_pt = T(0.);
 
   // store some information contained in this class as local variables
   int const ndims = this->m_num_dims;
   int const step = this->m_step;
   apf::Mesh* mesh = this->m_mesh;
   apf::MeshElement* mesh_elem = this->m_mesh_elem;
-
-  // grab the face to integrate over
-  int const facet_id = m_mapping_load[elem_set][elem];
-  apf::Downward elem_faces;
   apf::MeshEntity* elem_entity = apf::getMeshEntity(mesh_elem);
-  mesh->getDownward(elem_entity, ndims - 1, elem_faces);
-  apf::MeshEntity* face = elem_faces[facet_id];
 
-  // get quadrature information over the face
-  int const q_order = 1;
-  apf::MeshElement* me = apf::createMeshElement(mesh, face);
-  int const num_qps = apf::countIntPoints(me, q_order);
+  // get the nodes for the element
+  apf::Downward elem_verts;
+  int const num_elem_nodes = mesh->getDownward(elem_entity, 0, elem_verts);
 
-  // numerically integrate the QoI over the face
-  for (int pt = 0; pt < num_qps; ++pt) {
+  // grab the nodes for the reactions
+  Array1D<int> const& node_ids = m_mapping_load[elem_set][elem];
+  int const num_nodes = node_ids.size();
 
-    // get the integration point info on the face
-    apf::Vector3 iota_face;
-    apf::getIntPoint(me, q_order, pt, iota_face);
-    double const w = apf::getIntWeight(me, q_order, pt);
-    double const dv = apf::getDV(me, iota_face);
+  // compute the internal force vector
+  global->zero_residual();
+  global->evaluate(local, iota, w, dv, 0);
 
-    // map the integration point on the face parametric space to
-    // the element parametric space
-    apf::Vector3 iota_elem = boundaryToElementXi(
-        mesh, face, elem_entity, iota_face);
-
-    // interpolate the global variable solution to face integration point
-    // we assume displacements are index 0 and pressure is index 1
-    int const disp_idx = 0;
-    int const pressure_idx = 1;
-    global->interpolate(iota_elem);
-    Tensor<T> const grad_u = global->grad_vector_x(disp_idx);
-
-    // compute the stress
-    Tensor<T> stress = local->cauchy(global);
-    if (local->is_finite_deformation()) {
-      Tensor<T> const I = minitensor::eye<T>(ndims);
-      Tensor<T> const F = grad_u + I;
-      Tensor<T> const F_inv = inverse(F);
-      Tensor<T> const F_invT = transpose(F_inv);
-      T const J = det(F);
-      stress = J * stress * F_invT;
-      int const z_stretch_idx = local->z_stretch_idx();
-      if (z_stretch_idx > -1) {
-        T const z_stretch = local->scalar_xi(z_stretch_idx);
-        stress *= z_stretch;
-      }
-    }
-
-    apf::Vector3 N(0., 0., 0.);
-
-    if (ndims == 3) {
-      N = ree::computeFaceOutwardNormal(mesh, elem_entity, face, iota_face);
-    } else if (ndims == 2) {
-      N[0] = m_normal_2D[0];
-      N[1] = m_normal_2D[1];
-    }
-
-    // compute the normal load at the integration point
-    for (int i = 0; i < ndims; ++i) {
-      for (int j = 0; j < ndims; ++j) {
-        load += N[i] * stress(i, j) * N[j];
-      }
-    }
-
-    // integrate the normal loadintegrate the normal load
-    load *= w * dv;
-
+  // sum relevant entries
+  int const disp_idx = 0;
+  for (size_t i = 0; i < num_nodes; ++i) {
+    int const node_id = node_ids[i];
+    load_pt += global->R_nodal(disp_idx, node_id, m_reaction_force_comp);
   }
 
-  // clean up allocated memory
-  apf::destroyMeshElement(me);
-
-  // reset the state in global residual to what it was on input
-  global->interpolate(iota_input);
-
-  return load;
+  return load_pt;
 }
 
 template <typename T>
@@ -272,16 +213,16 @@ void Calibration<T>::preprocess(
     int elem,
     RCP<GlobalResidual<T>> global,
     RCP<LocalResidual<T>> local,
-    apf::Vector3 const& iota_input,
-    double,
-    double) {
+    apf::Vector3 const& iota,
+    double w,
+    double dv) {
 
-  // get the id of the facet wrt element if this facet is on the QoI side
-  // do not evaluate if the facet is not adjacent to the QoI side
-  int const facet_id_load = m_mapping_load[elem_set][elem];
-  if (facet_id_load < 0) return;
+  // get the id of the node wrt element if this node is on the QoI node set
+  // do not evaluate if the element contains no nodes in the QoI node set
+  int const node_id_load = m_mapping_load[elem_set][elem][0];
+  if (node_id_load < 0) return;
 
-  T load = compute_load(elem_set, elem, global, local, iota_input);
+  T load = compute_load(elem_set, elem, global, local, iota, w, dv);
   m_total_load += val(load);
 }
 
@@ -314,16 +255,16 @@ void Calibration<FADT>::evaluate(
     RCP<GlobalResidual<FADT>> global,
     RCP<LocalResidual<FADT>> local,
     apf::Vector3 const& iota_input,
-    double,
-    double) {
+    double w,
+    double dv) {
 
   this->initialize_value_pt();
 
   // get the id of the facet wrt element if this facet is on the QoI side
   // do not evaluate if the facet is not adjacent to the QoI side
   int const facet_id_disp = m_mapping_disp[elem_set][elem];
-  int const facet_id_load = m_mapping_load[elem_set][elem];
-  if (facet_id_disp + facet_id_load == -2) return;
+  int const node_id_load = m_mapping_load[elem_set][elem][0];
+  if (facet_id_disp + node_id_load == -2) return;
 
   if (facet_id_disp > -1) {
     FADT mismatch =
@@ -331,8 +272,8 @@ void Calibration<FADT>::evaluate(
     this->value_pt += mismatch;
   }
 
-  if (facet_id_load > -1) {
-    FADT load = compute_load(elem_set, elem, global, local, iota_input);
+  if (node_id_load > -1) {
+    FADT load = compute_load(elem_set, elem, global, local, iota_input, w, dv);
     this->value_pt += m_balance_factor * m_load_mismatch * load;
   }
 

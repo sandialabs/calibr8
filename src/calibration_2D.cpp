@@ -84,7 +84,7 @@ void Calibration2D<T>::before_elems(RCP<Disc> disc, int step) {
   }
 
   if (!is_initd_load) {
-    is_initd_load = this->setup_mapping(m_side_set_load, disc, m_mapping_load);
+    is_initd_load = this->setup_side_set_mapping(m_side_set_load, disc, m_mapping_load);
   }
 
 }
