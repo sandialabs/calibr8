@@ -179,7 +179,7 @@ void assemble_residual(
   r->set_mode(mode);
   r->set_weight(W);
   apf::Mesh2* mesh = disc->apf_mesh();
-  int order = 6;
+  int q_order = 2;
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
     std::string es_name = disc->elem_set_name(es);
     ElemSet const& elems = disc->elems(es_name);
@@ -188,11 +188,11 @@ void assemble_residual(
       apf::MeshElement* me = apf::createMeshElement(mesh, elems[elem]);
       r->in_elem(me, disc);
       r->gather(disc, U);
-      int const npts = apf::countIntPoints(me, order);
+      int const npts = apf::countIntPoints(me, q_order);
       for (int pt = 0; pt < npts; ++pt) {
         apf::Vector3 xi;
-        apf::getIntPoint(me, order, pt, xi);
-        double const w = apf::getIntWeight(me, order, pt);
+        apf::getIntPoint(me, q_order, pt, xi);
+        double const w = apf::getIntWeight(me, q_order, pt);
         double const dv = apf::getDV(me, xi);
         W->at_point(me, xi);
         r->at_point(xi, w, dv, disc);
@@ -219,7 +219,7 @@ void assemble_qoi(
   r->set_space(space, disc);
   qoi->set_space(space, disc);
   apf::Mesh2* mesh = disc->apf_mesh();
-  int order = 6;
+  int q_order = 2;
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
     std::string es_name = disc->elem_set_name(es);
     ElemSet const& elems = disc->elems(es_name);
@@ -230,11 +230,11 @@ void assemble_qoi(
       r->in_elem(me, disc);
       qoi->in_elem(me, r, disc);
       r->gather(disc, U);
-      int const npts = apf::countIntPoints(me, order);
+      int const npts = apf::countIntPoints(me, q_order);
       for (int pt = 0; pt < npts; ++pt) {
         apf::Vector3 xi;
-        apf::getIntPoint(me, order, pt, xi);
-        double const w = apf::getIntWeight(me, order, pt);
+        apf::getIntPoint(me, q_order, pt, xi);
+        double const w = apf::getIntWeight(me, q_order, pt);
         double const dv = apf::getDV(me, xi);
         qoi->at_point(xi, w, dv, r, disc);
       }

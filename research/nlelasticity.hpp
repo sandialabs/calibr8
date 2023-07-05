@@ -33,6 +33,10 @@ class NLElasticity : public Residual<T> {
       this->m_mu = E/(2.*(1.+nu));
       this->m_lambda = (E*nu)/((1.+nu)*(1.-2.*nu));
       if constexpr (std::is_same_v<T, double>) {
+        if (!m_vm_field) {
+          m_vm_field = apf::createIPField(disc->apf_mesh(), "vm", apf::SCALAR, 1);
+          apf::zeroField(m_vm_field);
+        }
         if (!m_sigma_field) {
           m_sigma_field = apf::createIPField(disc->apf_mesh(), "sigma", apf::MATRIX, 1);
           apf::zeroField(m_sigma_field);
@@ -141,6 +145,11 @@ class NLElasticity : public Residual<T> {
             }
           }
           apf::setMatrix(this->m_sigma_field, ent, 0, apf_sigma);
+          Tensor<T> const dev = minitensor::dev(sigma);
+          T const sqrt32 = std::sqrt(3./2.);
+          T const dev_norm = minitensor::norm(dev);
+          T const vm_stress = sqrt32 * dev_norm;
+          apf::setScalar(this->m_vm_field, ent, 0, vm_stress);
         }
       }
 
@@ -155,7 +164,7 @@ class NLElasticity : public Residual<T> {
       apf::Field* eta = apf::createPackedField(mesh, name.c_str(), this->m_neqs, PU);
       apf::zeroField(eta);
       int const ndims = mesh->getDimension();
-      int const q_order = 6;
+      int const q_order = 2;
       auto elems = mesh->begin(ndims);
       apf::Vector3 assembled;
       apf::Vector3 z;
@@ -213,6 +222,10 @@ class NLElasticity : public Residual<T> {
     }
 
     void destroy_data() override {
+      if (m_vm_field) {
+        apf::destroyField(m_vm_field);
+        m_vm_field = nullptr;
+      }
       if (m_sigma_field) {
         apf::destroyField(m_sigma_field);
         m_sigma_field = nullptr;
@@ -226,6 +239,7 @@ class NLElasticity : public Residual<T> {
     double m_mu = 0.;
 
     ParameterList m_params;
+    apf::Field* m_vm_field = nullptr;
     apf::Field* m_sigma_field = nullptr;
 
 };
