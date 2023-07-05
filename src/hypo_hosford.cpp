@@ -198,7 +198,18 @@ int HypoHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     }
 
     double const R_norm = this->norm_residual();
-    if (iter == 1) R_norm_0 = R_norm;
+    double R_norm_prev;
+    if (iter == 1) {
+      R_norm_0 = R_norm;
+      R_norm_prev = 10. * R_norm;
+    } else {
+      R_norm_prev = R_norm;
+    }
+    if (R_norm_prev < R_norm) {
+      print("(local) Newton iter %d: RESIDUAL INCREASE!!!", iter);
+      print("R_norm_prev = %e, R_norm = %e", R_norm_prev, R_norm);
+    }
+
     double const R_norm_rel = R_norm / R_norm_0;
     if ((R_norm_rel < m_rel_tol) || (R_norm < m_abs_tol)) {
       converged = true;
@@ -212,6 +223,8 @@ int HypoHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     this->add_to_sym_tensor_xi(0, dxi);
     this->add_to_scalar_xi(1, dxi);
 
+    // Use the RMA in Section 3 of http://dx.doi.org/10.1016/j.cma.2016.11.026
+    // This approach doesn't work for the global line search or small strain hosford plasticity
     {
       this->evaluate(global, true, path);
 
