@@ -8,6 +8,7 @@
 #include "hypo_hill.hpp"
 #include "hypo_hill_plane_strain.hpp"
 #include "hypo_hill_plane_stress.hpp"
+#include "hypo_hosford.hpp"
 #include "isotropic_elastic.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
@@ -736,6 +737,8 @@ RCP<LocalResidual<T>> create_local_residual(
     return rcp(new HypoHillPlaneStrain<T>(params, ndims));
   } else if (type == "hypo_hill_plane_stress") {
     return rcp(new HypoHillPlaneStress<T>(params, ndims));
+  } else if (type == "hypo_hosford") {
+    return rcp(new HypoHosford<T>(params, ndims));
   } else if (type == "isotropic_elastic") {
     return rcp(new IsotropicElastic<T>(params, ndims));
   } else if (type == "small_hill") {

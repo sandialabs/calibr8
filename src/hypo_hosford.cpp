@@ -3,15 +3,18 @@
 #include "defines.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
+#include "hypo_hosford.hpp"
 #include "material_params.hpp"
-#include "small_hosford.hpp"
+#include "yield_functions.hpp"
 
 namespace calibr8 {
 
 using minitensor::col;
+using minitensor::dev;
 using minitensor::dyad;
 using minitensor::eig_spd_cos;
 using minitensor::eye;
+using minitensor::inverse;
 using minitensor::norm;
 using minitensor::trace;
 using minitensor::transpose;
@@ -19,17 +22,18 @@ using minitensor::zero;
 
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
-  p.set<std::string>("type", "hosford");
+  p.set<std::string>("type", "hypo_hosford");
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
+  p.sublist("materials");
   p.set<double>("line search beta", 1.0e-4);
   p.set<double>("line search eta", 0.5);
   p.set<int>("line search max evals", 10);
   p.set<bool>("line search print", false);
-  p.sublist("materials");
   return p;
 }
+
 static ParameterList get_valid_material_params() {
   ParameterList p;
   p.set<double>("E", 0.);
@@ -43,23 +47,24 @@ static ParameterList get_valid_material_params() {
 }
 
 template <typename T>
-SmallHosford<T>::SmallHosford(ParameterList const& inputs, int ndims) {
+HypoHosford<T>::HypoHosford(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
 
   int const num_residuals = 2;
-  int const num_params = 7;
 
   this->m_num_residuals = num_residuals;
   this->m_num_eqs.resize(num_residuals);
   this->m_var_types.resize(num_residuals);
   this->m_resid_names.resize(num_residuals);
 
-  this->m_resid_names[0] = "pstrain";
+  // unrotated Cauchy stress
+  this->m_resid_names[0] = "TC";
   this->m_var_types[0] = SYM_TENSOR;
   this->m_num_eqs[0] = get_num_eqs(SYM_TENSOR, ndims);
 
+  // isotropic hardening variable
   this->m_resid_names[1] = "alpha";
   this->m_var_types[1] = SCALAR;
   this->m_num_eqs[1] = get_num_eqs(SCALAR, ndims);
@@ -75,11 +80,11 @@ SmallHosford<T>::SmallHosford(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-SmallHosford<T>::~SmallHosford() {
+HypoHosford<T>::~HypoHosford() {
 }
 
 template <typename T>
-void SmallHosford<T>::init_params() {
+void HypoHosford<T>::init_params() {
 
   int const num_params = 7;
   this->m_params.resize(num_params);
@@ -119,37 +124,61 @@ void SmallHosford<T>::init_params() {
 }
 
 template <typename T>
-void SmallHosford<T>::init_variables_impl() {
+void HypoHosford<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
-  int const pstrain_idx = 0;
+  int const TC_idx = 0;
   int const alpha_idx = 1;
 
+  Tensor<T> const TC = minitensor::zero<T>(ndims);
   T const alpha = 0.0;
-  Tensor<T> const pstrain = zero<T>(ndims);
 
+  this->set_sym_tensor_xi(TC_idx, TC);
   this->set_scalar_xi(alpha_idx, alpha);
-  this->set_sym_tensor_xi(pstrain_idx, pstrain);
 
 }
 
+template <typename T>
+Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
+  int const ndims = global->num_dims();
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
+  Tensor<T> const F = grad_u + I;
+  Tensor<T> const F_prev = grad_u_prev + I;
+  Tensor<T> const Finv = inverse(F);
+  Tensor<T> const R = minitensor::polar_rotation(F);
+  Tensor<T> const L = (F - F_prev) * Finv;
+  Tensor<T> const D = 0.5 * (L + transpose(L));
+  Tensor<T> const d = transpose(R) * D * R;
+  return d;
+}
+
+
 template <>
-int SmallHosford<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int HypoHosford<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int HypoHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
   // pick an initial guess for the local variables
   {
-    Tensor<FADT> const pstrain_old = this->sym_tensor_xi_prev(0);
-    Tensor<FADT> const pstrain = pstrain_old;
+    double const E = val(this->m_params[0]);
+    double const nu = val(this->m_params[1]);
+    double const lambda = compute_lambda(E, nu);
+    double const mu = compute_mu(E, nu);
+    int const ndims = this->m_num_dims;
+    Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
+    Tensor<FADT> const TC_old = this->sym_tensor_xi_prev(0);
     FADT const alpha_old = this->scalar_xi_prev(1);
+    Tensor<FADT> const d = eval_d(global);
+    Tensor<FADT> const TC = TC_old + lambda * trace(d) * I + 2. * mu * d;
     FADT const alpha = alpha_old;
-    this->set_sym_tensor_xi(0, pstrain);
+    this->set_sym_tensor_xi(0, TC);
     this->set_scalar_xi(1, alpha);
     path = ELASTIC;
   }
@@ -195,14 +224,13 @@ int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
       double alpha_j = 1.;
       double alpha_diff = alpha_j - alpha_prev;
       double R_j = this->norm_residual();
+      double psi_prev = psi_0;
       double psi_j = 0.5 * R_j * R_j;
 
-      while (psi_j >= ((1. - 2. * m_ls_beta * alpha_j) * psi_0)) {
+      while (psi_j >= ((1. - 2. * m_ls_beta * alpha_j) * psi_prev)) {
 
         alpha_prev = alpha_j;
-        alpha_j  = std::max(m_ls_eta * alpha_j,
-            -(std::pow(alpha_j, 2) * psi_0_deriv) /
-             (2. * (psi_j - psi_0 - alpha_j * psi_0_deriv)));
+        alpha_j  = std::max(m_ls_eta * alpha_j, psi_0 / (psi_0 + psi_j));
 
         if (m_ls_print) {
           print(" > (local) residual increase -- line search alpha_%d = %.2e",
@@ -223,6 +251,7 @@ int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
         path = this->evaluate(global, true, path);
 
         R_j = this->norm_residual();
+        psi_prev = psi_j;
         psi_j = 0.5 * R_j * R_j;
 
       }
@@ -234,23 +263,22 @@ int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("SmallHosford:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("HypoHosford:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
-
 }
 
 template <typename T>
-void SmallHosford<T>::evaluate_phi_and_normal(
-    RCP<GlobalResidual<T>> global,
+void HypoHosford<T>::evaluate_phi_and_normal(
     T const& a,
     T& phi,
     Tensor<T>& n) {
 
-  T const vm_stress = std::sqrt(3. / 2.) * norm(this->dev_cauchy(global));
+  Tensor<T> const TC = this->sym_tensor_xi(0);
+  T const vm_stress = std::sqrt(3. / 2.) * norm(dev(TC));
 
-  std::pair<Tensor<T>, Tensor<T>> const eigen_decomp = eig_spd_cos(this->cauchy(global));
+  std::pair<Tensor<T>, Tensor<T>> const eigen_decomp = eig_spd_cos(TC);
   Tensor<T> const cauchy_eigvecs = eigen_decomp.first;
   Tensor<T> const cauchy_eigvals = eigen_decomp.second;
 
@@ -284,12 +312,13 @@ void SmallHosford<T>::evaluate_phi_and_normal(
 }
 
 template <typename T>
-int SmallHosford<T>::evaluate(
+int HypoHosford<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
 
   int path = ELASTIC;
+  int const ndims = this->m_num_dims;
 
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -299,34 +328,39 @@ int SmallHosford<T>::evaluate(
   T const S = this->m_params[5];
   T const D = this->m_params[6];
   T const mu = compute_mu(E, nu);
+  T const lambda = compute_lambda(E, nu);
 
-  Tensor<T> const pstrain_old = this->sym_tensor_xi_prev(0);
+  Tensor<T> const TC_old = this->sym_tensor_xi_prev(0);
   T const alpha_old = this->scalar_xi_prev(1);
 
-  Tensor<T> const pstrain = this->sym_tensor_xi(0);
+  Tensor<T> const TC = this->sym_tensor_xi(0);
   T const alpha = this->scalar_xi(1);
 
   T phi = 0.;
   Tensor<T> n = zero<T>(3);
-  evaluate_phi_and_normal(global, a, phi, n);
+  evaluate_phi_and_normal(a, phi, n);
 
-  T const flow_stress = Y + K * alpha + S * (1. - std::exp(-D * alpha));
+  T const flow_stress = Y + S * (1. - std::exp(-D * alpha));
   T const f = (phi - flow_stress) / (2. * val(mu));
 
-  Tensor<T> R_pstrain;
+  Tensor<T> R_TC;
   T R_alpha;
+
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const d = eval_d(global);
+  R_TC = TC - TC_old - lambda * trace(d) * I - 2. * mu * d;
+
 
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
       T const dgam = alpha - alpha_old;
-      R_pstrain = pstrain - pstrain_old - dgam * n;
+      R_TC += 2. * mu * dgam * n;
       R_alpha = f;
       path = PLASTIC;
     }
     // elastic step
     else {
-      R_pstrain = pstrain - pstrain_old;
       R_alpha = alpha - alpha_old;
       path = ELASTIC;
     }
@@ -338,17 +372,16 @@ int SmallHosford<T>::evaluate(
     // plastic step
     if (path == PLASTIC) {
       T const dgam = alpha - alpha_old;
-      R_pstrain = pstrain - pstrain_old - dgam * n;
+      R_TC += 2. * mu * dgam * n;
       R_alpha = f;
     }
     // elastic step
     else {
-      R_pstrain = pstrain - pstrain_old;
       R_alpha = alpha - alpha_old;
     }
   }
 
-  this->set_sym_tensor_R(0, R_pstrain);
+  this->set_sym_tensor_R(0, R_TC);
   this->set_scalar_R(1, R_alpha);
 
   return path;
@@ -356,51 +389,51 @@ int SmallHosford<T>::evaluate(
 }
 
 template <typename T>
-Tensor<T> SmallHosford<T>::cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HypoHosford<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
+  int const ndims = this->m_num_dims;
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const grad_u = global->grad_vector_x(0);
+  Tensor<T> const F = grad_u + I;
+  Tensor<T> const TC = this->sym_tensor_xi(0);
+  Tensor<T> const R = minitensor::polar_rotation(F);
+  Tensor<T> const RC = R * TC * transpose(R);
+  return RC;
+}
+
+template <typename T>
+Tensor<T> HypoHosford<T>::cauchy(RCP<GlobalResidual<T>> global) {
   int const pressure_idx = 1;
   T const p = global->scalar_x(pressure_idx);
-  int const ndims = global->num_dims();
-  T const E = this->m_params[0];
-  T const nu = this->m_params[1];
-  Tensor<T> const I = eye<T>(ndims);
-  Tensor<T> const dev_sigma = this->dev_cauchy(global);
-  Tensor<T> const sigma = dev_sigma - p * I;
+  int const ndims = this->m_num_dims;
+  Tensor<T> const I = minitensor::eye<T>(ndims);
+  Tensor<T> const dev_RC = this->dev_cauchy(global);
+  Tensor<T> const sigma = dev_RC - p * I;
   return sigma;
 }
 
 template <typename T>
-Tensor<T> SmallHosford<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
-  int const ndims = global->num_dims();
-  Tensor<T> const I = eye<T>(ndims);
-  T const E = this->m_params[0];
-  T const nu = this->m_params[1];
-  T const mu = compute_mu(E, nu);
-  Tensor<T> const pstrain = this->sym_tensor_xi(0);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const eps = 0.5 * (grad_u + transpose(grad_u));
-  Tensor<T> const dev_eps = eps - (trace(eps) / 3.) * I;
-  return 2. * mu * (dev_eps - pstrain);
+Tensor<T> HypoHosford<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+  Tensor<T> const RC = this->rotated_cauchy(global);
+  return dev(RC);
 }
 
 template <typename T>
-T SmallHosford<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
-  T const E = this->m_params[0];
-  T const nu = this->m_params[1];
-  T const kappa = compute_kappa(E, nu);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const eps = 0.5 * (grad_u + transpose(grad_u));
-  return kappa * trace(eps);
+T HypoHosford<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+  Tensor<T> const RC = this->rotated_cauchy(global);
+  return trace(RC) / 3.;
 }
 
+
 template <typename T>
-T SmallHosford<T>::pressure_scale_factor() {
+T HypoHosford<T>::pressure_scale_factor() {
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
   return kappa;
 }
 
-template class SmallHosford<double>;
-template class SmallHosford<FADT>;
+
+template class HypoHosford<double>;
+template class HypoHosford<FADT>;
 
 }

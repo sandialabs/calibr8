@@ -1,28 +1,28 @@
 #pragma once
 
-//! \file small_hosford.hpp
-//! \brief The interface for the small strain Hosford local plasticity residuals
+//! \file hypo_hosford.hpp
+//! \brief The interface for hypoelastic Hosford local plasticity residuals
 
 #include "local_residual.hpp"
 
 namespace calibr8 {
 
-//! \brief The local residual for the small strain Hosford plasticity model
+//! \brief The local residual for HypoHosford plasticity models
 //! \tparam T The underlying scalar type used for evaluations
 //! \details This implements a concrete instance of the LocalResidual
-//! base class for a small strain Hosford plasticity model
+//! base class for a HypoHosford plasticity model
 template <typename T>
-class SmallHosford : public LocalResidual<T> {
+class HypoHosford : public LocalResidual<T> {
 
   public:
 
-    //! \brief The SmallHosford constructor
+    //! \brief The HypoHosford constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    SmallHosford(ParameterList const& inputs, int ndims);
+    HypoHosford(ParameterList const& inputs, int ndims);
 
-    //! \brief The SmallHosford destructor
-    ~SmallHosford();
+    //! \brief The HypoHosford destructor
+    ~HypoHosford();
 
     //! \brief Initialize the parameters
     void init_params();
@@ -44,7 +44,7 @@ class SmallHosford : public LocalResidual<T> {
         int path = 0);
 
     //! \brief Do these equations correspond to finite deformation
-    bool is_finite_deformation() { return false; }
+    bool is_finite_deformation() { return true; }
 
     //! \brief Get the Cauchy stress tensor
     //! \param global The global residual equations
@@ -64,8 +64,11 @@ class SmallHosford : public LocalResidual<T> {
 
   private:
 
-    void evaluate_phi_and_normal(RCP<GlobalResidual<T>> global,
-        T const& a, T& phi, Tensor<T>& n);
+    //! \brief Get the rotated Cauchy stress tensor
+    //! \param global The global residual equations
+    Tensor<T> rotated_cauchy(RCP<GlobalResidual<T>> global);
+
+    void evaluate_phi_and_normal(T const& a, T& phi, Tensor<T>& n);
 
     int m_max_iters;
     double m_abs_tol;

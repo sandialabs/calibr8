@@ -24,6 +24,7 @@ set(CALIBR8_SOURCES
   hypo_hill.cpp
   hypo_hill_plane_strain.cpp
   hypo_hill_plane_stress.cpp
+  hypo_hosford.cpp
   load_mismatch.cpp
   linear_alg.cpp
   linear_solve.cpp
