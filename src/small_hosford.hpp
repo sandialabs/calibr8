@@ -12,17 +12,17 @@ namespace calibr8 {
 //! \details This implements a concrete instance of the LocalResidual
 //! base class for a small strain Hosford plasticity model
 template <typename T>
-class Hosford : public LocalResidual<T> {
+class SmallHosford : public LocalResidual<T> {
 
   public:
 
-    //! \brief The Hosford constructor
+    //! \brief The SmallHosford constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    Hosford(ParameterList const& inputs, int ndims);
+    SmallHosford(ParameterList const& inputs, int ndims);
 
-    //! \brief The Hosford destructor
-    ~Hosford();
+    //! \brief The SmallHosford destructor
+    ~SmallHosford();
 
     //! \brief Initialize the parameters
     void init_params();

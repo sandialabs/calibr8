@@ -2,7 +2,6 @@
 #include "disc.hpp"
 #include "elastic.hpp"
 #include "fad.hpp"
-#include "hosford.hpp"
 #include "hyper_J2.hpp"
 #include "hyper_J2_plane_strain.hpp"
 #include "hyper_J2_plane_stress.hpp"
@@ -16,6 +15,7 @@
 #include "small_hill_plane_strain.hpp"
 #include "small_hill_plane_stress.hpp"
 #include "small_J2.hpp"
+#include "small_hosford.hpp"
 #include "state.hpp"
 
 namespace calibr8 {
@@ -724,8 +724,6 @@ RCP<LocalResidual<T>> create_local_residual(
   std::string const type = params.get<std::string>("type");
   if (type == "elastic") {
     return rcp(new Elastic<T>(params, ndims));
-  } else if (type == "hosford") {
-    return rcp(new Hosford<T>(params, ndims));
   } else if (type == "hyper_J2") {
     return rcp(new HyperJ2<T>(params, ndims));
   } else if (type == "hyper_J2_plane_strain") {
@@ -748,6 +746,8 @@ RCP<LocalResidual<T>> create_local_residual(
     return rcp(new SmallHillPlaneStress<T>(params, ndims));
   } else if (type == "small_J2") {
     return rcp(new SmallJ2<T>(params, ndims));
+  } else if (type == "small_hosford") {
+    return rcp(new SmallHosford<T>(params, ndims));
   } else {
     fail("unknown local residual name: %s", type.c_str());
     return Teuchos::null;

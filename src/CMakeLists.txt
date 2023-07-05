@@ -18,7 +18,6 @@ set(CALIBR8_SOURCES
   fields.cpp
   global_residual.cpp
   isotropic_elastic.cpp
-  hosford.cpp
   hyper_J2.cpp
   hyper_J2_plane_strain.cpp
   hyper_J2_plane_stress.cpp
@@ -42,6 +41,7 @@ set(CALIBR8_SOURCES
   small_hill.cpp
   small_hill_plane_strain.cpp
   small_hill_plane_stress.cpp
+  small_hosford.cpp
   small_J2.cpp
   state.cpp
   synthetic.cpp

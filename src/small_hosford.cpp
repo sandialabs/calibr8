@@ -3,8 +3,8 @@
 #include "defines.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
-#include "hosford.hpp"
 #include "material_params.hpp"
+#include "small_hosford.hpp"
 
 namespace calibr8 {
 
@@ -42,7 +42,7 @@ static ParameterList get_valid_material_params() {
 }
 
 template <typename T>
-Hosford<T>::Hosford(ParameterList const& inputs, int ndims) {
+SmallHosford<T>::SmallHosford(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
@@ -74,11 +74,11 @@ Hosford<T>::Hosford(ParameterList const& inputs, int ndims) {
 }
 
 template <typename T>
-Hosford<T>::~Hosford() {
+SmallHosford<T>::~SmallHosford() {
 }
 
 template <typename T>
-void Hosford<T>::init_params() {
+void SmallHosford<T>::init_params() {
 
   int const num_params = 7;
   this->m_params.resize(num_params);
@@ -118,7 +118,7 @@ void Hosford<T>::init_params() {
 }
 
 template <typename T>
-void Hosford<T>::init_variables_impl() {
+void SmallHosford<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
   int const pstrain_idx = 0;
@@ -133,12 +133,12 @@ void Hosford<T>::init_variables_impl() {
 }
 
 template <>
-int Hosford<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int SmallHosford<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int Hosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
@@ -233,7 +233,7 @@ int Hosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("Hosford:solve_nonlinear failed in %d iterations", m_max_iters);
+    fail("SmallHosford:solve_nonlinear failed in %d iterations", m_max_iters);
   }
 
   return path;
@@ -241,7 +241,7 @@ int Hosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
-void Hosford<T>::evaluate_phi_and_normal(
+void SmallHosford<T>::evaluate_phi_and_normal(
     RCP<GlobalResidual<T>> global,
     T const& a,
     T& phi,
@@ -283,7 +283,7 @@ void Hosford<T>::evaluate_phi_and_normal(
 }
 
 template <typename T>
-int Hosford<T>::evaluate(
+int SmallHosford<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
@@ -355,7 +355,7 @@ int Hosford<T>::evaluate(
 }
 
 template <typename T>
-Tensor<T> Hosford<T>::cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> SmallHosford<T>::cauchy(RCP<GlobalResidual<T>> global) {
   int const pressure_idx = 1;
   T const p = global->scalar_x(pressure_idx);
   int const ndims = global->num_dims();
@@ -368,7 +368,7 @@ Tensor<T> Hosford<T>::cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-Tensor<T> Hosford<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> SmallHosford<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   Tensor<T> const I = eye<T>(ndims);
   T const E = this->m_params[0];
@@ -382,7 +382,7 @@ Tensor<T> Hosford<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-T Hosford<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+T SmallHosford<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
@@ -392,14 +392,14 @@ T Hosford<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-T Hosford<T>::pressure_scale_factor() {
+T SmallHosford<T>::pressure_scale_factor() {
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
   return kappa;
 }
 
-template class Hosford<double>;
-template class Hosford<FADT>;
+template class SmallHosford<double>;
+template class SmallHosford<FADT>;
 
 }
