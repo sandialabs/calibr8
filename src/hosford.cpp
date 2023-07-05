@@ -190,11 +190,9 @@ void Hosford<T>::evaluate_phi_and_normal(
     T& phi,
     Tensor<T>& n) {
 
-  // compute the von-mises stress
-  double const vm_val = std::sqrt(3. / 2.) * val(norm(this->dev_cauchy(global)));
+  T const vm_stress = std::sqrt(3. / 2.) * norm(this->dev_cauchy(global));
 
   std::pair<Tensor<T>, Tensor<T>> const eigen_decomp = eig_spd_cos(this->cauchy(global));
-
   Tensor<T> const cauchy_eigvecs = eigen_decomp.first;
   Tensor<T> const cauchy_eigvals = eigen_decomp.second;
 
@@ -202,18 +200,17 @@ void Hosford<T>::evaluate_phi_and_normal(
   Vector<T> const eigvec_1 = col(cauchy_eigvecs, 1);
   Vector<T> const eigvec_2 = col(cauchy_eigvecs, 2);
 
-  T const vm_scaled_eigval_0 = cauchy_eigvals(0, 0) / vm_val;
-  T const vm_scaled_eigval_1 = cauchy_eigvals(1, 1) / vm_val;
-  T const vm_scaled_eigval_2 = cauchy_eigvals(2, 2) / vm_val;
+  T const vm_scaled_eigval_0 = cauchy_eigvals(0, 0) / vm_stress;
+  T const vm_scaled_eigval_1 = cauchy_eigvals(1, 1) / vm_stress;
+  T const vm_scaled_eigval_2 = cauchy_eigvals(2, 2) / vm_stress;
 
-  phi = vm_val * std::pow(0.5 * (std::pow(std::abs(vm_scaled_eigval_0 - vm_scaled_eigval_1), a)
-      + std::pow(std::abs(vm_scaled_eigval_1 - vm_scaled_eigval_2), a)
-      + std::pow(std::abs(vm_scaled_eigval_2 - vm_scaled_eigval_0), a)), 1. / a);
-  double const phi_val = val(phi);
+  phi = vm_stress * std::pow(0.5 * (std::pow(std::abs(vm_scaled_eigval_0 - vm_scaled_eigval_1), a)
+    + std::pow(std::abs(vm_scaled_eigval_1 - vm_scaled_eigval_2), a)
+    + std::pow(std::abs(vm_scaled_eigval_2 - vm_scaled_eigval_0), a)), 1. / a);
 
-  T const phi_scaled_eigval_0 = cauchy_eigvals(0, 0) / phi_val;
-  T const phi_scaled_eigval_1 = cauchy_eigvals(1, 1) / phi_val;
-  T const phi_scaled_eigval_2 = cauchy_eigvals(2, 2) / phi_val;
+  T const phi_scaled_eigval_0 = cauchy_eigvals(0, 0) / phi;
+  T const phi_scaled_eigval_1 = cauchy_eigvals(1, 1) / phi;
+  T const phi_scaled_eigval_2 = cauchy_eigvals(2, 2) / phi;
 
   T const sig_diff_0_1 = phi_scaled_eigval_0 - phi_scaled_eigval_1;
   T const sig_diff_1_2 = phi_scaled_eigval_1 - phi_scaled_eigval_2;
@@ -224,8 +221,8 @@ void Hosford<T>::evaluate_phi_and_normal(
   T const sig_factor_2_0 = sig_diff_2_0 * std::pow(std::abs(sig_diff_2_0), a - 2.);
 
   n = 0.5 * ((sig_factor_0_1 - sig_factor_2_0) * dyad(eigvec_0, eigvec_0)
-  + (sig_factor_1_2 - sig_factor_0_1) * dyad(eigvec_1, eigvec_1)
-  + (sig_factor_2_0 - sig_factor_1_2) * dyad(eigvec_2, eigvec_2));
+    + (sig_factor_1_2 - sig_factor_0_1) * dyad(eigvec_1, eigvec_1)
+    + (sig_factor_2_0 - sig_factor_1_2) * dyad(eigvec_2, eigvec_2));
 }
 
 template <typename T>
