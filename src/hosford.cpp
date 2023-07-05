@@ -184,6 +184,31 @@ int Hosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 }
 
 template <typename T>
+void Hosford<T>::evaluate_phi_and_normal(
+    Tensor<T> const& cauchy,
+    T const& a,
+    T& phi,
+    Tensor<T>& n) {
+
+  std::pair<Tensor<T>, Tensor<T>> const eigen_decomp = eig_spd_cos(cauchy);
+  Tensor<T> const cauchy_eigvec = eigen_decomp.first;
+  Tensor<T> const cauchy_eigval = eigen_decomp.second;
+
+  Vector<T> const eigvec_0 = col(cauchy_eigvec, 0);
+  Vector<T> const eigvec_1 = col(cauchy_eigvec, 1);
+  Vector<T> const eigvec_2 = col(cauchy_eigvec, 2);
+
+  phi = std::sqrt(0.5 * (std::pow(cauchy_eigval(0, 0) - cauchy_eigval(1, 1), 2)
+    + std::pow(cauchy_eigval(1, 1) - cauchy_eigval(2, 2), 2)
+    + std::pow(cauchy_eigval(2, 2) - cauchy_eigval(0, 0), 2)));
+
+  n = ((2. * cauchy_eigval(0, 0) - cauchy_eigval(1, 1) - cauchy_eigval(2, 2)) * dyad(eigvec_0, eigvec_0)
+    + (2. * cauchy_eigval(1, 1) - cauchy_eigval(0, 0) - cauchy_eigval(2, 2)) * dyad(eigvec_1, eigvec_1)
+    + (2. * cauchy_eigval(2, 2) - cauchy_eigval(0, 0) - cauchy_eigval(1, 1)) * dyad(eigvec_2, eigvec_2))
+    / (2. * phi);
+}
+
+template <typename T>
 int Hosford<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
@@ -200,28 +225,15 @@ int Hosford<T>::evaluate(
   T const D = this->m_params[6];
   T const mu = compute_mu(E, nu);
 
-  std::pair<Tensor<T>, Tensor<T>> const eigen_decomp = eig_spd_cos(this->cauchy(global));
-  Tensor<T> const cauchy_eigvec = eigen_decomp.first;
-  Tensor<T> const cauchy_eigval = eigen_decomp.second;
-
-  Vector<T> const eigvec_0 = col(cauchy_eigvec, 0);
-  Vector<T> const eigvec_1 = col(cauchy_eigvec, 1);
-  Vector<T> const eigvec_2 = col(cauchy_eigvec, 2);
-
-  T const phi = std::sqrt(0.5 * (std::pow(cauchy_eigval(0, 0) - cauchy_eigval(1, 1), 2)
-    + std::pow(cauchy_eigval(1, 1) - cauchy_eigval(2, 2), 2)
-    + std::pow(cauchy_eigval(2, 2) - cauchy_eigval(0, 0), 2)));
-
-  Tensor<T> const n = ((2. * cauchy_eigval(0, 0) - cauchy_eigval(1, 1) - cauchy_eigval(2, 2)) * dyad(eigvec_0, eigvec_0)
-    + (2. * cauchy_eigval(1, 1) - cauchy_eigval(0, 0) - cauchy_eigval(2, 2)) * dyad(eigvec_1, eigvec_1)
-    + (2. * cauchy_eigval(2, 2) - cauchy_eigval(0, 0) - cauchy_eigval(1, 1)) * dyad(eigvec_2, eigvec_2))
-    / (2. * phi);
-
   Tensor<T> const pstrain_old = this->sym_tensor_xi_prev(0);
   T const alpha_old = this->scalar_xi_prev(1);
 
   Tensor<T> const pstrain = this->sym_tensor_xi(0);
   T const alpha = this->scalar_xi(1);
+
+  T phi = 0.;
+  Tensor<T> n = zero<T>(3);
+  evaluate_phi_and_normal(this->cauchy(global), a, phi, n);
 
   T const flow_stress = Y + K * alpha + S * (1. - std::exp(-D * alpha));
   T const f = (phi - flow_stress) / (2. * val(mu));

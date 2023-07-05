@@ -64,6 +64,8 @@ class Hosford : public LocalResidual<T> {
 
   private:
 
+    void evaluate_phi_and_normal(Tensor<T> const& cauchy, T const& a, T& phi, Tensor<T>& n);
+
     int m_max_iters;
     double m_abs_tol;
     double m_rel_tol;
