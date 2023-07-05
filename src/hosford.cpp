@@ -22,6 +22,10 @@ static ParameterList get_valid_local_residual_params() {
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
+  p.set<double>("line search beta", 1.0e-4);
+  p.set<double>("line search eta", 0.5);
+  p.set<int>("line search max evals", 10);
+  p.set<bool>("line search print", false);
   p.sublist("materials");
   return p;
 }
@@ -62,6 +66,10 @@ Hosford<T>::Hosford(ParameterList const& inputs, int ndims) {
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
   m_rel_tol = inputs.get<double>("nonlinear relative tol");
+  m_ls_beta = inputs.get<double>("line search beta");
+  m_ls_eta = inputs.get<double>("line search eta");
+  m_ls_max_evals = inputs.get<int>("line search max evals");
+  m_ls_print = inputs.get<bool>("line search print");
 
 }
 
@@ -153,7 +161,11 @@ int Hosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   while ((iter <= m_max_iters) && (!converged)) {
 
-    path = this->evaluate(global);
+    if (iter == 1) {
+      path = this->evaluate(global);
+    } else {
+      this->evaluate(global, true, path);
+    }
 
     double const R_norm = this->norm_residual();
     if (iter == 1) R_norm_0 = R_norm;
@@ -169,6 +181,51 @@ int Hosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
     this->add_to_sym_tensor_xi(0, dxi);
     this->add_to_scalar_xi(1, dxi);
+
+    {
+      this->evaluate(global, true, path);
+
+      double const R_0 = R_norm;
+      double const psi_0 = 0.5 * R_0 * R_0;
+      double const psi_0_deriv = -2. * psi_0;
+
+      int j = 1;
+      double alpha_prev = 1.;
+      double alpha_j = 1.;
+      double alpha_diff = alpha_j - alpha_prev;
+      double R_j = this->norm_residual();
+      double psi_j = 0.5 * R_j * R_j;
+
+      while (psi_j >= ((1. - 2. * m_ls_beta * alpha_j) * psi_0)) {
+
+        alpha_prev = alpha_j;
+        alpha_j  = std::max(m_ls_eta * alpha_j,
+            -(std::pow(alpha_j, 2) * psi_0_deriv) /
+             (2. * (psi_j - psi_0 - alpha_j * psi_0_deriv)));
+
+        if (m_ls_print) {
+          print(" > (local) residual increase -- line search alpha_%d = %.2e",
+              j, alpha_j);
+        }
+
+        if (j == m_ls_max_evals) {
+          print(" > (local) Reached max line search evals");
+          break;
+        }
+
+        ++j;
+
+        alpha_diff = alpha_j - alpha_prev;
+        this->add_to_sym_tensor_xi(0, alpha_diff * dxi);
+        this->add_to_scalar_xi(1, alpha_diff * dxi);
+
+        path = this->evaluate(global, true, path);
+
+        R_j = this->norm_residual();
+        psi_j = 0.5 * R_j * R_j;
+
+      }
+    }
 
     iter++;
 

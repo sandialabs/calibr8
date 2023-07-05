@@ -70,6 +70,10 @@ class Hosford : public LocalResidual<T> {
     int m_max_iters;
     double m_abs_tol;
     double m_rel_tol;
+    double m_ls_beta;
+    double m_ls_eta;
+    int m_ls_max_evals;
+    bool m_ls_print;
 
     enum {ELASTIC = 0, PLASTIC = 1};
 
