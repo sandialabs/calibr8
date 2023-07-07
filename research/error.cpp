@@ -46,6 +46,8 @@ void Error::write_mesh(RCP<Physics> physics, std::string const& file, int ctr) {
     disc->change_shape(space);
     apf::writeVtkFiles(names[space].c_str(), mesh);
   }
+  auto const native_name = names[COARSE] + ".smb";
+  mesh->writeNative(native_name.c_str());
 }
 
 static void write_pvd(

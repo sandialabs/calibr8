@@ -218,6 +218,7 @@ class NLElasticity : public Residual<T> {
         apf::destroyElement(u_elem);
         apf::destroyMeshElement(mesh_elem);
       }
+      apf::accumulate(eta);
       return eta;
     }
 
