@@ -594,11 +594,14 @@ void Disc::create_primal(
 // TODO: add in local residual prolong operation
 void Disc::create_primal_fine_model(
     RCP<Residuals<double>> R,
-    int num_steps) {
+    int num_steps,
+    bool has_ic) {
   int const base_model_form = BASE_MODEL;
   int const fine_model_form = FINE_MODEL;
   int const nlr = R->local[base_model_form]->num_residuals();
-  for (int step = 0; step < num_steps; ++step ) {
+  int start = 0;
+  if (has_ic) start = 1;
+  for (int step = start; step < num_steps; ++step ) {
     resize(m_primal[step].local[fine_model_form], nlr);
     for (int i = 0; i < nlr; ++i) {
       std::string const name = R->local[base_model_form]->resid_name(i);
@@ -1019,6 +1022,18 @@ void Disc::initialize_primal_fine(
   for (int i = 0; i < nlr; ++i) {
     apf::copyData(m_primal_fine[step].local[model_form][i],
         m_primal_fine[step - 1].local[model_form][i]);
+  }
+}
+
+void Disc::initialize_base_local_residuals() {
+  m_base_local_residuals.resize(m_num_elem_sets);
+  for (int set = 0; set < m_num_elem_sets; ++set) {
+    std::string const es_name = elem_set_name(set);
+    int const nelems = elems(es_name).size();
+    m_base_local_residuals[set].resize(nelems);
+    for (size_t elem = 0; elem < nelems; ++elem) {
+      m_base_local_residuals[set][elem] = BASE_MODEL;
+    }
   }
 }
 

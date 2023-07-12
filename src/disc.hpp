@@ -239,9 +239,11 @@ class Disc {
     //! \brief Create the fine model primal fields
     //! \param R The global/local residuals defining the problem
     //! \param step The total number of time steps
+    //! \param has_ic Does the initial condition already exist
     void create_primal_fine_model(
         RCP<Residuals<double>> R,
-        int num_steps);
+        int num_steps,
+        bool has_ic=false);
 
     //! \brief Create the virtual fields
     //! \param R The global/local residuals defining the problem
@@ -378,6 +380,12 @@ class Disc {
     //! \details Change the discretization type after construction
     void set_disc_type(int type) { m_disc_type = type; }
 
+    //! \brief Initialize the array that defines base model local residuals
+    void initialize_base_local_residuals();
+
+    //! \brief Get the base local residuals
+    Array2D<int>& base_local_residuals() { return m_base_local_residuals; }
+
   protected:
 
     int m_num_dims = -1;
@@ -451,6 +459,7 @@ class Disc {
     Array1D<Fields> m_primal_fine;
     Array1D<Fields> m_adjoint_fine;
     Array3D<bool> m_branch_paths; /* [load step, elem_set, elem] */
+    Array2D<int> m_base_local_residuals; /* [elem_set, elem] */
 
 };
 

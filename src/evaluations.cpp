@@ -139,10 +139,19 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
   // variable telling us the current number of derivatives
   int nderivs = -1;
 
+  // determine if there are multiple model forms on the base model
+  Array2D<int> const& base_models = disc->base_local_residuals();
+  bool has_multiple_models = (base_models.size() > 0);
+  auto& local_residuals = state->d_residuals->local;
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
 
-    local->before_elems(es, disc);
+    if (has_multiple_models) {
+      local_residuals[BASE_MODEL]->before_elems(es, disc);
+      local_residuals[FINE_MODEL]->before_elems(es, disc);
+    } else {
+      local->before_elems(es, disc);
+    }
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -150,6 +159,10 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
 
     // loop over all elements in the element set
     for (size_t elem = 0; elem < elems.size(); ++elem) {
+
+      if (has_multiple_models) {
+        local = local_residuals[base_models[es][elem]];
+      }
 
       // get the current mesh element
       apf::MeshEntity* e = elems[elem];
