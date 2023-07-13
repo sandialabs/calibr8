@@ -15,6 +15,9 @@ AvgElementStress<T>::AvgElementStress(ParameterList const& params) {
   if (params.isParameter("transform to polar")) {
     m_transform_to_polar = params.get<bool>("transform to polar");
   }
+  if (params.isParameter("step")) {
+    m_qoi_eval_step = params.get<int>("step");
+  }
 }
 
 template <typename T>
@@ -57,25 +60,27 @@ void AvgElementStress<T>::evaluate(
 
   if (elem_set != m_elem_set_idx) return;
 
-  Tensor<T> sigma = local->cauchy(global);
+  if (this->m_step == m_qoi_eval_step) {
 
-  if (m_transform_to_polar) {
-    apf::Vector3 x(0., 0., 0.);
-    apf::mapLocalToGlobal(this->m_mesh_elem, iota, x);
-    double const theta = std::atan2(x[1], x[0]);
-    Tensor<double> Q = minitensor::zero<double>(3);
-    Q(0, 0) = std::cos(theta);
-    Q(0, 1) = std::sin(theta);
-    Q(1, 0) = -Q(0, 1);
-    Q(1, 1) = Q(0, 0);
-    Q(2, 2) = 1.;
-    sigma = Q * sigma * minitensor::transpose(Q);
+    Tensor<T> sigma = local->cauchy(global);
+
+    if (m_transform_to_polar) {
+      apf::Vector3 x(0., 0., 0.);
+      apf::mapLocalToGlobal(this->m_mesh_elem, iota, x);
+      double const theta = std::atan2(x[1], x[0]);
+      Tensor<double> Q = minitensor::zero<double>(3);
+      Q(0, 0) = std::cos(theta);
+      Q(0, 1) = std::sin(theta);
+      Q(1, 0) = -Q(0, 1);
+      Q(1, 1) = Q(0, 0);
+      Q(2, 2) = 1.;
+      sigma = Q * sigma * minitensor::transpose(Q);
+    }
+
+    int const i_idx = m_stress_idx[0];
+    int const j_idx = m_stress_idx[1];
+    this->value_pt += sigma(i_idx, j_idx) * w * dv / m_volume;
   }
-
-
-  int const i_idx = m_stress_idx[0];
-  int const j_idx = m_stress_idx[1];
-  this->value_pt += sigma(i_idx, j_idx) * w * dv / m_volume;
 
 }
 

@@ -14,6 +14,7 @@ static ParameterList get_valid_local_residual_params() {
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
+  p.set<double>("temperature increment", 0.);
   p.sublist("materials");
   return p;
 }
@@ -25,7 +26,6 @@ static ParameterList get_valid_material_params() {
   p.set<double>("S", 0.);
   p.set<double>("D", 0.);
   p.set<double>("cte", 0.);
-  p.set<double>("delta_T", 0.);
   return p;
 }
 
@@ -36,7 +36,7 @@ SmallJ2Mechanics<T>::SmallJ2Mechanics(ParameterList const& inputs, int ndims) {
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
 
   int const num_residuals = 2;
-  int const num_params = 7;
+  int const num_params = 6;
 
   this->m_num_residuals = num_residuals;
   this->m_num_eqs.resize(num_residuals);
@@ -56,6 +56,7 @@ SmallJ2Mechanics<T>::SmallJ2Mechanics(ParameterList const& inputs, int ndims) {
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
   m_rel_tol = inputs.get<double>("nonlinear relative tol");
+  m_delta_temp = inputs.get<double>("temperature increment");
 }
 
 template <typename T>
@@ -65,7 +66,7 @@ SmallJ2Mechanics<T>::~SmallJ2Mechanics() {
 template <typename T>
 void SmallJ2Mechanics<T>::init_params() {
 
-  int const num_params = 7;
+  int const num_params = 6;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
 
@@ -75,7 +76,6 @@ void SmallJ2Mechanics<T>::init_params() {
   this->m_param_names[3] = "S";
   this->m_param_names[4] = "D";
   this->m_param_names[5] = "cte";
-  this->m_param_names[6] = "delta_T";
 
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
@@ -94,7 +94,6 @@ void SmallJ2Mechanics<T>::init_params() {
     this->m_param_values[es][3] = material_params.get<double>("S");
     this->m_param_values[es][4] = material_params.get<double>("D");
     this->m_param_values[es][5] = material_params.get<double>("cte");
-    this->m_param_values[es][6] = material_params.get<double>("delta_T");
   }
 
   this->m_active_indices.resize(1);
@@ -125,7 +124,7 @@ int SmallJ2Mechanics<double>::solve_nonlinear(RCP<GlobalResidual<double>>, int s
 template <>
 int SmallJ2Mechanics<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global, int step) {
 
-  (void)step;
+  m_step = step;
   int path;
 
   // pick an initial guess for the local variables
@@ -184,7 +183,7 @@ int SmallJ2Mechanics<T>::evaluate(
     int path_in,
     int step) {
 
-  (void)step;
+  m_step = step;
   int path = ELASTIC;
   int const ndims = this->m_num_dims;
   double const sqrt_23 = std::sqrt(2./3.);
@@ -285,7 +284,7 @@ T SmallJ2Mechanics<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   T const nu = this->m_params[1];
   T const kappa = compute_kappa(E, nu);
   T const cte = this->m_params[5];
-  T const delta_T = this->m_params[6];
+  T const delta_T = m_step * m_delta_temp;
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
   return kappa * trace(eps) - cte * delta_T * E / (1. - 2. * nu);

@@ -71,6 +71,9 @@ class SmallJ2Mechanics : public LocalResidual<T> {
     double m_abs_tol;
     double m_rel_tol;
 
+    int m_step = -1;
+    double m_delta_temp = 0.;
+
     enum {ELASTIC = 0, PLASTIC = 1};
 
 };

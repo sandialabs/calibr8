@@ -27,6 +27,7 @@ class AvgElementStress : public QoI<T> {
     int m_stress_i_idx = -1;
     int m_stress_j_idx = -1;
     double m_volume = 0.;
+    int m_qoi_eval_step = 1;
 };
 
 }
