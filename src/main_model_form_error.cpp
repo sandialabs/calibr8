@@ -47,6 +47,10 @@ Driver::Driver(std::string const& input_file) {
   m_state = rcp(new State(*m_params));
   m_primal = rcp(new Primal(m_params, m_state, m_state->disc));
   ALWAYS_ASSERT(m_state->qoi != Teuchos::null);
+  if (m_params->isSublist("adaptivity")) {
+    auto adapt_params = m_params->sublist("adaptivity", true);
+    m_ncycles = adapt_params.get<int>("solve cycles");
+  }
 }
 
 double Driver::solve_primal() {

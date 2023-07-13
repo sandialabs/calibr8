@@ -3,6 +3,7 @@ set(CALIBR8_SOURCES
   adjoint_aux.cpp
   adjoint_objective.cpp
   avg_disp.cpp
+  avg_element_stress.cpp
   avg_stress.cpp
   calibration.cpp
   calibration_2D.cpp
@@ -43,6 +44,7 @@ set(CALIBR8_SOURCES
   small_hill_plane_strain.cpp
   small_hill_plane_stress.cpp
   small_J2.cpp
+  small_J2_mechanics.cpp
   state.cpp
   synthetic.cpp
   surface_mismatch.cpp

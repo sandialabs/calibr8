@@ -1,4 +1,5 @@
 #include "avg_disp.hpp"
+#include "avg_element_stress.hpp"
 #include "avg_stress.hpp"
 #include "calibration.hpp"
 #include "calibration_2D.hpp"
@@ -143,6 +144,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
     return rcp(new DispComp<T>(params));
   } else if (type == "average stress") {
     return rcp(new AvgStress<T>(params));
+  } else if (type == "average element stress") {
+    return rcp(new AvgElementStress<T>(params));
   } else if (type == "surface mismatch") {
     return rcp(new SurfaceMismatch<T>(params));
   } else if (type == "load mismatch") {
