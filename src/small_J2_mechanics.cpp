@@ -285,6 +285,7 @@ T SmallJ2Mechanics<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   T const kappa = compute_kappa(E, nu);
   T const cte = this->m_params[5];
   T const delta_T = m_step * m_delta_temp;
+  print("m_step = %d", m_step);
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const eps = 0.5 * (grad_u + minitensor::transpose(grad_u));
   return kappa * trace(eps) - cte * delta_T * E / (1. - 2. * nu);

@@ -62,6 +62,9 @@ void AvgElementStress<T>::evaluate(
 
   if (this->m_step == m_qoi_eval_step) {
 
+    // remove this
+    local->evaluate(global, false, 0, this->m_step);
+
     Tensor<T> sigma = local->cauchy(global);
 
     if (m_transform_to_polar) {
