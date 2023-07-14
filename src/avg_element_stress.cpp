@@ -43,7 +43,6 @@ void AvgElementStress<T>::before_elems(RCP<Disc> disc, int step) {
     apf::destroyMeshElement(me);
   }
   m_volume = PCU_Add_Double(m_volume);
-  print(" > qoi volume: %.15e", m_volume);
 }
 
 template <typename T>
@@ -61,9 +60,6 @@ void AvgElementStress<T>::evaluate(
   if (elem_set != m_elem_set_idx) return;
 
   if (this->m_step == m_qoi_eval_step) {
-
-    // remove this
-    local->evaluate(global, false, 0, this->m_step);
 
     Tensor<T> sigma = local->cauchy(global);
 

@@ -1,7 +1,7 @@
 #pragma once
 
-//! \file small_J2.hpp
-//! \brief The interface for small strain J2 local plasticity residuals
+//! \file small_rate_J2.hpp
+//! \brief The interface for small strain, rate-based J2 local plasticity residuals
 
 #include "local_residual.hpp"
 
@@ -12,17 +12,17 @@ namespace calibr8 {
 //! \details This implements a concrete instance of the LocalResidual
 //! base class for a small strain J2 plasticity model
 template <typename T>
-class SmallJ2Mechanics : public LocalResidual<T> {
+class SmallRateJ2 : public LocalResidual<T> {
 
   public:
 
-    //! \brief The SmallJ2Mechanics constructor
+    //! \brief The SmallRateJ2 constructor
     //! \param inputs The local residual parameterlist
     //! \param ndims The number of spatial dimensions
-    SmallJ2Mechanics(ParameterList const& inputs, int ndims);
+    SmallRateJ2(ParameterList const& inputs, int ndims);
 
-    //! \brief The SmallJ2Mechanics destructor
-    ~SmallJ2Mechanics();
+    //! \brief The SmallRateJ2 destructor
+    ~SmallRateJ2();
 
     //! \brief Initialize the parameters
     void init_params();
@@ -65,13 +65,16 @@ class SmallJ2Mechanics : public LocalResidual<T> {
     //! \param global The global residual equations
     T pressure_scale_factor();
 
+
   private:
 
     int m_max_iters;
     double m_abs_tol;
     double m_rel_tol;
 
-    int m_step = -1;
+    void compute_delta_strains(RCP<GlobalResidual<T>> global,
+        T& delta_vol_eps, Tensor<T>& delta_dev_eps);
+
     double m_delta_temp = 0.;
 
     enum {ELASTIC = 0, PLASTIC = 1};

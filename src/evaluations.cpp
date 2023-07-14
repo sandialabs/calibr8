@@ -1202,8 +1202,6 @@ void compute_aux_variables(
 
 double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
 
-  print("step at eval_qoi = %d", step);
-
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
   int const q_order = disc->lv_shape()->getOrder();
