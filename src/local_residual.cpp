@@ -10,6 +10,7 @@
 #include "hypo_hill_plane_stress.hpp"
 #include "isotropic_elastic.hpp"
 #include "linear_thermoviscoelastic.hpp"
+#include "linear_thermoviscoelastic_plastic.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
 #include "small_hill.hpp"
@@ -1014,6 +1015,8 @@ RCP<LocalResidual<T>> create_local_residual(
     return rcp(new IsotropicElastic<T>(params, ndims));
   } else if (type == "linear_thermoviscoelastic") {
     return rcp(new LTVE<T>(params, ndims));
+  } else if (type == "linear_thermoviscoelastic_plastic") {
+    return rcp(new LTVEPlastic<T>(params, ndims));
   } else if (type == "small_hill") {
     return rcp(new SmallHill<T>(params, ndims));
   } else if (type == "small_hill_plane_strain") {

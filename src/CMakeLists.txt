@@ -30,6 +30,7 @@ set(CALIBR8_SOURCES
   linear_alg.cpp
   linear_solve.cpp
   linear_thermoviscoelastic.cpp
+  linear_thermoviscoelastic_plastic.cpp
   local_residual.cpp
   mechanics.cpp
   mechanics_plane_stress.cpp
