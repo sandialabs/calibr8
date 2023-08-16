@@ -14,6 +14,7 @@ template <typename T>
 ReactionMismatch<T>::ReactionMismatch(ParameterList const& params) {
   m_coord_idx = params.get<int>("coordinate index");
   m_coord_value = params.get<double>("coordinate value");
+  m_reaction_force_comp = params.get<int>("reaction force component");
   m_write_load = params.isParameter("load out file");
   m_read_load = params.isParameter("load input file");
   if (m_write_load) m_load_out_file = params.get<std::string>("load out file");
@@ -26,7 +27,6 @@ ReactionMismatch<T>::ReactionMismatch(ParameterList const& params) {
       m_load_data.push_back(std::stod(line));
     }
   }
-  m_reaction_force_comp = params.get<int>("reaction force component");
 }
 
 template <typename T>
