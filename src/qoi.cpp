@@ -49,7 +49,6 @@ bool QoI<T>::setup_side_set_mapping(std::string const& side_set,
     Array2D<int>& mapping) {
 
   int ndims = m_num_dims;
-  apf::Mesh* m_mesh = disc->apf_mesh();
   apf::Downward downward_faces;
   mapping.resize(disc->num_elem_sets());
   SideSet const& sides = disc->sides(side_set);
@@ -75,13 +74,55 @@ bool QoI<T>::setup_side_set_mapping(std::string const& side_set,
 }
 
 template <typename T>
+bool QoI<T>::setup_side_set_to_node_mapping(
+    std::string const& side_set,
+    RCP<Disc> disc,
+    Array3D<int>& mapping) {
+
+  Array1D<int> node_ids;
+  int ndims = m_num_dims;
+  apf::Downward downward_faces;
+  apf::Downward downward_nodes;
+  mapping.resize(disc->num_elem_sets());
+  SideSet const& sides = disc->sides(side_set);
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+    std::string const& es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+    mapping[es].resize(elems.size());
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+      mapping[es][elem].resize(1);
+      mapping[es][elem][0] = -1;
+      apf::MeshEntity* elem_entity = elems[elem];
+      int ndown_faces = m_mesh->getDownward(elem_entity, ndims - 1, downward_faces);
+      for (int down_face = 0; down_face < ndown_faces; ++down_face) {
+        apf::MeshEntity* downward_entity = downward_faces[down_face];
+        for (apf::MeshEntity* side : sides) {
+          if (side == downward_entity) {
+            int ndown_nodes = m_mesh->getDownward(downward_entity, 0, downward_nodes);
+            node_ids.resize(0);
+            for (int down_node = 0; down_node < ndown_nodes; ++down_node) {
+              node_ids.push_back(down_node);
+            }
+            int const num_node_ids = node_ids.size();
+            if (num_node_ids > 0) {
+              mapping[es][elem].resize(num_node_ids);
+              mapping[es][elem] = node_ids;
+            }
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
+
+template <typename T>
 bool QoI<T>::setup_node_set_mapping(std::string const& node_set,
     RCP<Disc> disc,
     Array3D<int>& mapping) {
 
   Array1D<int> node_ids;
   int ndims = m_num_dims;
-  apf::Mesh* mesh = disc->apf_mesh();
   apf::Downward downward_nodes;
   mapping.resize(disc->num_elem_sets());
   NodeSet const& nodes = disc->nodes(node_set);
@@ -91,7 +132,7 @@ bool QoI<T>::setup_node_set_mapping(std::string const& node_set,
     mapping[es].resize(elems.size());
     for (size_t elem = 0; elem < elems.size(); ++elem) {
       apf::MeshEntity* elem_entity = elems[elem];
-      int ndown = mesh->getDownward(elem_entity, 0, downward_nodes);
+      int ndown = m_mesh->getDownward(elem_entity, 0, downward_nodes);
       node_ids.resize(0);
       for (int down = 0; down < ndown; ++down) {
         apf::MeshEntity* downward_entity = downward_nodes[down];
@@ -99,6 +140,47 @@ bool QoI<T>::setup_node_set_mapping(std::string const& node_set,
           if (node.entity == downward_entity) {
             node_ids.push_back(down);
           }
+        }
+      }
+      int const num_node_ids = node_ids.size();
+      if (num_node_ids > 0) {
+        mapping[es][elem].resize(num_node_ids);
+        mapping[es][elem] = node_ids;
+      } else {
+        mapping[es][elem].resize(1);
+        mapping[es][elem][0] = -1;
+      }
+    }
+  }
+  return true;
+}
+
+template <typename T>
+bool QoI<T>::setup_coord_based_node_mapping(
+    int coord_idx,
+    double coord_value,
+    RCP<Disc> disc,
+    Array3D<int>& mapping) {
+
+  double const tol = 1e-12;
+  Array1D<int> node_ids;
+  apf::Vector3 x;
+  int ndims = m_num_dims;
+  apf::Downward downward_nodes;
+  mapping.resize(disc->num_elem_sets());
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+    std::string const& es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+    mapping[es].resize(elems.size());
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+      apf::MeshEntity* elem_entity = elems[elem];
+      int ndown = m_mesh->getDownward(elem_entity, 0, downward_nodes);
+      node_ids.resize(0);
+      for (int down = 0; down < ndown; ++down) {
+        apf::MeshEntity* downward_entity = downward_nodes[down];
+        m_mesh->getPoint(downward_entity, 0, x);
+        if (std::abs(x[coord_idx] - coord_value) < tol) {
+          node_ids.push_back(down);
         }
       }
       int const num_node_ids = node_ids.size();

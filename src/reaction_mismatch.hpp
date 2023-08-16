@@ -81,7 +81,6 @@ class ReactionMismatch : public QoI<T> {
   private:
 
     bool is_initd = false;
-    std::string m_node_set = "";
     bool m_write_load = false;
     std::string m_load_out_file = "";
     bool m_read_load = false;
@@ -90,6 +89,8 @@ class ReactionMismatch : public QoI<T> {
     double m_load_mismatch = 0.;
     Array1D<double> m_load_data;
     Array3D<int> m_mapping; // m_mapping[es_idx][elem_idx][node_idx]
+    int m_coord_idx = -1;
+    double m_coord_value = 0.;
     int m_reaction_force_comp = -1;
     bool m_has_normal_2D = false;
 

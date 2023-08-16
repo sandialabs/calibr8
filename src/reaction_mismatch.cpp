@@ -12,7 +12,8 @@ namespace calibr8 {
 
 template <typename T>
 ReactionMismatch<T>::ReactionMismatch(ParameterList const& params) {
-  m_node_set = params.get<std::string>("node set");
+  m_coord_idx = params.get<int>("coordinate index");
+  m_coord_value = params.get<double>("coordinate value");
   m_write_load = params.isParameter("load out file");
   m_read_load = params.isParameter("load input file");
   if (m_write_load) m_load_out_file = params.get<std::string>("load out file");
@@ -42,8 +43,10 @@ void ReactionMismatch<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_step = step;
 
   if (!is_initd) {
-    is_initd = this->setup_node_set_mapping(m_node_set, disc, m_mapping);
+    is_initd = this->setup_coord_based_node_mapping(m_coord_idx, m_coord_value,
+        disc, m_mapping);
   }
+
 }
 
 template <typename T>
