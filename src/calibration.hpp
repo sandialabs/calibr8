@@ -116,6 +116,7 @@ class Calibration : public QoI<T> {
     bool m_has_distance_threshold = false;
     double m_distance_threshold = 0.;
 
+    double m_area = 1.;
 };
 
 }

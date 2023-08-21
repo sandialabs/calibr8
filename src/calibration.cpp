@@ -60,11 +60,15 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
   int ndims = this->m_num_dims;
 
   if (!is_initd_disp) {
+    m_area = 0.;
     apf::Field* f_dist = this->m_mesh->findField(m_distance_field_name.c_str());
     ALWAYS_ASSERT(f_dist);
     Array1D<double> distance(1);
     apf::Vector3 iota;
     m_mapping_disp.resize(disc->num_elem_sets());
+    double w = 0.;
+    double dv = 0.;
+
     if (ndims == 2) {
       for (int es = 0; es < disc->num_elem_sets(); ++es) {
         std::string const& es_name = disc->elem_set_name(es);
@@ -79,6 +83,9 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
           apf::getComponents(e_dist, iota, &(distance[0]));
           if (distance[0] > m_distance_threshold) {
             m_mapping_disp[es][elem] = 1;
+            w = apf::getIntWeight(me, 0, 0);
+            dv = apf::getDV(me, iota);
+            m_area += w * dv;
           }
           apf::destroyMeshElement(me);
           apf::destroyElement(e_dist);
@@ -105,6 +112,9 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
                 apf::getComponents(e_dist, iota, &(distance[0]));
                 if (distance[0] > m_distance_threshold) {
                   m_mapping_disp[es][elem] = down;
+                  w = apf::getIntWeight(me, 0, 0);
+                  dv = apf::getDV(me, iota);
+                  m_area += w * dv;
                 }
                 apf::destroyMeshElement(me);
                 apf::destroyElement(e_dist);
@@ -114,14 +124,17 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
         }
       }
     }
+    m_area = PCU_Add_Double(m_area);
+    print("disp qoi area = %e", m_area);
+    is_initd_disp = true;
   }
 
   if (!is_initd_load) {
     is_initd_load = this->setup_coord_based_node_mapping(m_coord_idx, m_coord_value,
         disc, m_mapping_load);
   }
-
 }
+
 template <typename T>
 T Calibration<T>::compute_disp_mismatch(
     int elem_set,
@@ -175,7 +188,7 @@ T Calibration<T>::compute_disp_mismatch(
 
     // compute the difference between the FEM displacement and
     // the measured input displacement data
-    mismatch += qoi * w * dv;
+    mismatch += 0.5 * qoi * w * dv / m_area;
   }
 
   // clean up allocated memory
@@ -253,7 +266,7 @@ T Calibration<T>::compute_surface_mismatch(
 
     // compute the difference between the FEM displacement and
     // the measured input displacement data
-    mismatch += qoi * w * dv;
+    mismatch += 0.5 * qoi * w * dv / m_area;
 
   }
 
