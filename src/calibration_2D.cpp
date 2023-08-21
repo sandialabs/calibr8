@@ -22,12 +22,16 @@ Calibration2D<T>::Calibration2D(ParameterList const& params) {
   if (m_has_weights) {
     m_weights =
         params.get<Teuchos::Array<double>>("displacement weights").toVector();
-    ALWAYS_ASSERT(m_weights.size() == 2);
+    int const num_weights = m_weights.size();
+    ALWAYS_ASSERT((num_weights == 2) || (num_weights == 3));
   }
   m_has_distance_threshold = params.isParameter("distance threshold");
   if (m_has_distance_threshold) {
     m_distance_threshold = params.get<double>("distance threshold");
   }
+  if (params.isParameter("displacement side set")) {
+    m_side_set_disp = params.get<std::string>("displacement side set");
+   }
   if (m_write_load) m_load_out_file = params.get<std::string>("load out file");
   if (m_read_load) m_load_in_file = params.get<std::string>("load input file");
   ALWAYS_ASSERT((m_write_load + m_read_load) == 1);
@@ -53,28 +57,61 @@ void Calibration2D<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_shape = disc->gv_shape();
   this->m_step = step;
 
+  int ndims = this->m_num_dims;
+
   if (!is_initd_disp) {
     apf::Field* f_dist = this->m_mesh->findField(m_distance_field_name.c_str());
     ALWAYS_ASSERT(f_dist);
     Array1D<double> distance(1);
     apf::Vector3 iota;
     m_mapping_disp.resize(disc->num_elem_sets());
-    for (int es = 0; es < disc->num_elem_sets(); ++es) {
-      std::string const& es_name = disc->elem_set_name(es);
-      ElemSet const& elems = disc->elems(es_name);
-      m_mapping_disp[es].resize(elems.size());
-      for (size_t elem = 0; elem < elems.size(); ++elem) {
-        m_mapping_disp[es][elem] = -1;
-        apf::MeshEntity* elem_entity = elems[elem];
-        apf::MeshElement* me = apf::createMeshElement(this->m_mesh, elem_entity);
-        apf::Element* e_dist = createElement(f_dist, me);
-        apf::getIntPoint(me, 1, 0, iota);
-        apf::getComponents(e_dist, iota, &(distance[0]));
-        if (distance[0] > m_distance_threshold) {
-          m_mapping_disp[es][elem] = 1;
+    if (ndims == 2) {
+      for (int es = 0; es < disc->num_elem_sets(); ++es) {
+        std::string const& es_name = disc->elem_set_name(es);
+        ElemSet const& elems = disc->elems(es_name);
+        m_mapping_disp[es].resize(elems.size());
+        for (size_t elem = 0; elem < elems.size(); ++elem) {
+          m_mapping_disp[es][elem] = -1;
+          apf::MeshEntity* elem_entity = elems[elem];
+          apf::MeshElement* me = apf::createMeshElement(this->m_mesh, elem_entity);
+          apf::Element* e_dist = createElement(f_dist, me);
+          apf::getIntPoint(me, 1, 0, iota);
+          apf::getComponents(e_dist, iota, &(distance[0]));
+          if (distance[0] > m_distance_threshold) {
+            m_mapping_disp[es][elem] = 1;
+          }
+          apf::destroyMeshElement(me);
+          apf::destroyElement(e_dist);
         }
-        apf::destroyMeshElement(me);
-        apf::destroyElement(e_dist);
+      }
+    } else if (ndims == 3) {
+      SideSet const& sides = disc->sides(m_side_set_disp);
+      apf::Downward downward_faces;
+      for (int es = 0; es < disc->num_elem_sets(); ++es) {
+        std::string const& es_name = disc->elem_set_name(es);
+        ElemSet const& elems = disc->elems(es_name);
+        m_mapping_disp[es].resize(elems.size());
+        for (size_t elem = 0; elem < elems.size(); ++elem) {
+          m_mapping_disp[es][elem] = -1;
+          apf::MeshEntity* elem_entity = elems[elem];
+          int ndown = this->m_mesh->getDownward(elem_entity, ndims - 1, downward_faces);
+          for (int down = 0; down < ndown; ++down) {
+            apf::MeshEntity* downward_entity = downward_faces[down];
+            for (apf::MeshEntity* side : sides) {
+              if (side == downward_entity) {
+                apf::MeshElement* me = apf::createMeshElement(this->m_mesh, side);
+                apf::Element* e_dist = createElement(f_dist, me);
+                apf::getIntPoint(me, 1, 0, iota);
+                apf::getComponents(e_dist, iota, &(distance[0]));
+                if (distance[0] > m_distance_threshold) {
+                  m_mapping_disp[es][elem] = down;
+                }
+                apf::destroyMeshElement(me);
+                apf::destroyElement(e_dist);
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -150,6 +187,85 @@ T Calibration2D<T>::compute_disp_mismatch(
   return mismatch;
 }
 
+template <typename T>
+T Calibration2D<T>::compute_surface_mismatch(
+    int elem_set,
+    int elem,
+    RCP<GlobalResidual<T>> global,
+    RCP<LocalResidual<T>> local,
+    apf::Vector3 const& iota_input) {
+
+  T mismatch = T(0.);
+
+  // store some information contained in this class as local variables
+  int const ndims = this->m_num_dims;
+  int const step = this->m_step;
+  apf::Mesh* mesh = this->m_mesh;
+  apf::MeshElement* mesh_elem = this->m_mesh_elem;
+
+  // grab the face to integrate over
+  int const facet_id = m_mapping_disp[elem_set][elem];
+  apf::Downward elem_faces;
+  apf::MeshEntity* elem_entity = apf::getMeshEntity(mesh_elem);
+  mesh->getDownward(elem_entity, ndims - 1, elem_faces);
+  apf::MeshEntity* face = elem_faces[facet_id];
+
+  // grab the field for the measured displacement data at the step
+  std::string name = "measured_" + std::to_string(step);
+  apf::Field* f_meas = mesh->findField(name.c_str());
+  ALWAYS_ASSERT(f_meas);
+  apf::Element* e_meas = createElement(f_meas, mesh_elem);
+
+  // get quadrature information over the face
+  int const q_order = 2;
+  apf::MeshElement* me = apf::createMeshElement(mesh, face);
+  int const num_qps = apf::countIntPoints(me, q_order);
+
+  // numerically integrate the QoI over the face
+  for (int pt = 0; pt < num_qps; ++pt) {
+
+    // get the integration point info on the face
+    apf::Vector3 iota_face;
+    apf::getIntPoint(me, q_order, pt, iota_face);
+    double const w = apf::getIntWeight(me, q_order, pt);
+    double const dv = apf::getDV(me, iota_face);
+
+    // map the integration point on the face parametric space to
+    // the element parametric space
+    apf::Vector3 iota_elem = boundaryToElementXi(
+        mesh, face, elem_entity, iota_face);
+
+    // interpolate the global variable solution to face integration point
+    // we assume displacements are index 0
+    int const disp_idx = 0;
+    global->interpolate(iota_elem);
+    Vector<T> const u_fem = global->vector_x(disp_idx);
+
+    // interpolate the measured displacement data to the point
+    apf::Vector3 u_meas;
+    apf::getVector(e_meas, iota_elem, u_meas);
+
+    // compute the QoI contribution at the point
+    T qoi = 0.;
+    for (int d = 0; d < ndims; ++d) {
+      qoi += m_weights[d] * (u_fem[d] - u_meas[d]) * (u_fem[d] - u_meas[d]);
+    }
+
+    // compute the difference between the FEM displacement and
+    // the measured input displacement data
+    mismatch += qoi * w * dv;
+
+  }
+
+  // clean up allocated memory
+  apf::destroyElement(e_meas);
+  apf::destroyMeshElement(me);
+
+  // reset the state in global residual to what it was on input
+  global->interpolate(iota_input);
+
+  return mismatch;
+}
 
 template <typename T>
 T Calibration2D<T>::compute_load(
@@ -284,9 +400,16 @@ void Calibration2D<FADT>::evaluate(
   int const node_id_load = m_mapping_load[elem_set][elem][0];
   if (facet_id_disp + node_id_load == -2) return;
 
+  int const ndims = this->m_num_dims;
   if (facet_id_disp > -1) {
-    FADT mismatch =
-        compute_disp_mismatch(elem_set, elem, global, local, iota_input);
+    FADT mismatch;
+    if (ndims == 2) {
+      mismatch =
+          compute_disp_mismatch(elem_set, elem, global, local, iota_input);
+    } else if (ndims == 3) {
+      mismatch =
+          compute_surface_mismatch(elem_set, elem, global, local, iota_input);
+    }
     this->value_pt += mismatch;
   }
 

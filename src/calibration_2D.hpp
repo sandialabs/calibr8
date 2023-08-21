@@ -63,7 +63,16 @@ class Calibration2D : public QoI<T> {
 
   private:
 
+    // 2D
     T compute_disp_mismatch(
+        int elem_set,
+        int elem,
+        RCP<GlobalResidual<T>> global,
+        RCP<LocalResidual<T>> local,
+        apf::Vector3 const& iota_input);
+
+    // 3D
+    T compute_surface_mismatch(
         int elem_set,
         int elem,
         RCP<GlobalResidual<T>> global,
@@ -95,11 +104,14 @@ class Calibration2D : public QoI<T> {
     double m_coord_value = 0.;
     int m_reaction_force_comp = -1;
 
+    // only in 3D
+    std::string m_side_set_disp = "";
+
     bool is_initd_disp = false;
     std::string m_distance_field_name = "distance";
     Array2D<int> m_mapping_disp; // m_mapping[es_idx][elem_idx]
 
-    Array1D<double> m_weights {1., 1.};
+    Array1D<double> m_weights {1., 1., 1.};
     bool m_has_weights = false;
     bool m_has_distance_threshold = false;
     double m_distance_threshold = 0.;

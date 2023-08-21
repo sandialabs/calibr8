@@ -293,6 +293,7 @@ int HypoHillPlaneStress<T>::evaluate(
       R_TC(0, 0) += 2. * mu * dp_2D(0, 0) - lambda * corr_dp_zz;
       R_TC(1, 1) += 2. * mu * dp_2D(1, 1) - lambda * corr_dp_zz;
       R_TC(0, 1) += 2. * mu * dp_2D(0, 1);
+      R_TC /= val(mu);
       R_alpha = f;
       R_lambda_z = lambda_z - lambda_z_old / (1. - (d_zz + corr_dp_zz));
       path = PLASTIC;
