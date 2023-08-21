@@ -1,7 +1,7 @@
 #pragma once
 
 //! \file calibration.hpp
-//! \brief The interface for displacement and load mismatch QoI
+//! \brief The interface for displacement (distance-based inclusion) and load mismatch QoI
 
 #include "arrays.hpp"
 #include "qoi.hpp"
@@ -63,6 +63,15 @@ class Calibration : public QoI<T> {
 
   private:
 
+    // 2D
+    T compute_disp_mismatch(
+        int elem_set,
+        int elem,
+        RCP<GlobalResidual<T>> global,
+        RCP<LocalResidual<T>> local,
+        apf::Vector3 const& iota_input);
+
+    // 3D
     T compute_surface_mismatch(
         int elem_set,
         int elem,
@@ -75,19 +84,14 @@ class Calibration : public QoI<T> {
         int elem,
         RCP<GlobalResidual<T>> global,
         RCP<LocalResidual<T>> local,
-        apf::Vector3 const& iota_input,
+        apf::Vector3 const& iota,
         double w,
         double dv);
 
     double m_balance_factor = 1.;
 
-    bool is_initd_disp = false;
-    std::string m_side_set_disp = "";
-    Array2D<int> m_mapping_disp; // m_mapping[es_idx][elem_idx]
-
     bool is_initd_load = false;
-    std::string m_node_set_load = "";
-    Array3D<int> m_mapping_load; // m_mapping[es_idx][elem_idx][node_idx]
+    Array3D<int> m_mapping_load; // m_mapping[es_idx][elem_idx]
 
     bool m_write_load = false;
     std::string m_load_out_file = "";
@@ -96,10 +100,21 @@ class Calibration : public QoI<T> {
     double m_total_load = 0.;
     double m_load_mismatch = 0.;
     Array1D<double> m_load_data;
-    Array1D<double> m_weights {1., 1., 1.};
-    bool m_has_weights = false;
+    int m_coord_idx = -1;
+    double m_coord_value = 0.;
     int m_reaction_force_comp = -1;
 
+    // only in 3D
+    std::string m_side_set_disp = "";
+
+    bool is_initd_disp = false;
+    std::string m_distance_field_name = "distance";
+    Array2D<int> m_mapping_disp; // m_mapping[es_idx][elem_idx]
+
+    Array1D<double> m_weights {1., 1., 1.};
+    bool m_has_weights = false;
+    bool m_has_distance_threshold = false;
+    double m_distance_threshold = 0.;
 
 };
 
