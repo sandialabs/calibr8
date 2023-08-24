@@ -116,6 +116,9 @@ class Calibration : public QoI<T> {
     bool m_has_distance_threshold = false;
     double m_distance_threshold = 0.;
 
+    bool m_write_obj_at_step = false;
+    std::string m_obj_out_file = "";
+
     double m_area = 1.;
 };
 

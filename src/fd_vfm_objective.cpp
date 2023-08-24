@@ -29,6 +29,7 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
 
     ParameterList& problem_params = m_params->sublist("problem", true);
     ParameterList& inverse_params = m_params->sublist("inverse", true);
+    double const obj_scale_factor = inverse_params.get<double>("objective scale factor");
     int const nsteps = problem_params.get<int>("num steps");
     double const dt = problem_params.get<double>("step size");
     double const thickness = inverse_params.get<double>("thickness", 1.);
@@ -54,7 +55,7 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
         print("  internal_power = %e", volume_internal_virtual_power);
         print("  load = %e", load_at_step);
       }
-      J += 0.5 * std::pow(volume_internal_virtual_power - load_at_step, 2);
+      J += 0.5 * obj_scale_factor * std::pow(volume_internal_virtual_power - load_at_step, 2) / nsteps;
 
     }
     m_J_old = J;

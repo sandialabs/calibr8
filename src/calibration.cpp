@@ -16,6 +16,7 @@ Calibration<T>::Calibration(ParameterList const& params) {
   m_coord_idx = params.get<int>("coordinate index");
   m_coord_value = params.get<double>("coordinate value");
   m_reaction_force_comp = params.get<int>("reaction force component");
+  m_write_obj_at_step = params.isParameter("objective out file");
   m_write_load = params.isParameter("load out file");
   m_read_load = params.isParameter("load input file");
   m_has_weights = params.isParameter("displacement weights");
@@ -34,7 +35,7 @@ Calibration<T>::Calibration(ParameterList const& params) {
    }
   if (m_write_load) m_load_out_file = params.get<std::string>("load out file");
   if (m_read_load) m_load_in_file = params.get<std::string>("load input file");
-  ALWAYS_ASSERT((m_write_load + m_read_load) == 1);
+  if (m_write_obj_at_step) m_obj_out_file = params.get<std::string>("objective out file");
   if (m_read_load) {
     std::ifstream in_file(m_load_in_file);
     std::string line;
@@ -349,9 +350,22 @@ void Calibration<T>::preprocess_finalize(int step) {
 template <typename T>
 void Calibration<T>::postprocess(double& J) {
   J = PCU_Add_Double(J);
+  double const J_disp = J;
   double J_forc = 0.5 * m_balance_factor * std::pow(m_load_mismatch, 2);
   J += J_forc;
-  J /= PCU_Comm_Peers();
+  J /= PCU_Comm_Peers(); // to account for reduction in the objective
+
+  if (m_write_obj_at_step && PCU_Comm_Self() == 0) {
+    std::ofstream out_file;
+    if (this->m_step == 1) {
+      out_file.open(m_obj_out_file);
+    } else {
+      out_file.open(m_obj_out_file, std::ios::app | std::ios::out);
+    }
+    out_file << std::scientific << std::setprecision(17);
+    out_file << J_disp << " " << J_forc << "\n";
+    out_file.close();
+  }
 }
 
 template <typename T>
