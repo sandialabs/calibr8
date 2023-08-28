@@ -2,14 +2,14 @@ notch verify test:
 
   problem:
     name: J2
-    num steps: 1
-    step size: 1.
     do regression: true
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
     mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.smb'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.txt'
+    num steps: 1
+    step size: 1.
 
   residuals:
     global residual:

@@ -2,13 +2,13 @@ cube hyperJ2:
 
   problem:
     name: J2
-    num steps: 4
-    step size: 1.
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
     mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.smb'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.txt'
+    num steps: 4
+    step size: 1.
 
   residuals:
     global residual:

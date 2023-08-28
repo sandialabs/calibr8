@@ -21,7 +21,6 @@ double FEMU_Objective::value(ROL::Vector<double> const& p, double&) {
 
     ParameterList problem_params = m_params->sublist("problem", true);
     int const nsteps = m_state->disc->num_time_steps();
-    double const dt = problem_params.get<double>("step size");
     double J = 0.;
     m_state->disc->destroy_primal();
     for (int step = 1; step <= nsteps; ++step) {

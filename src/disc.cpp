@@ -20,6 +20,10 @@ static ParameterList get_valid_params() {
   p.set<std::string>("geom file", "");
   p.set<std::string>("mesh file", "");
   p.set<std::string>("assoc file", "");
+  p.set<int>("num steps", 1);
+  p.set<double>("step size", 1.);
+  p.set<std::string>("time file", "");
+  p.set<double>("initial time", 0.);
   return p;
 }
 
@@ -96,12 +100,13 @@ static void destroy_existing_numberings(apf::Mesh2* m) {
 }
 
 Disc::Disc(ParameterList const& params) {
-  params.validateParameters(get_valid_params(), 0);
-  load_mesh(&m_mesh, params);
-  create_time(params);
-  m_is_null_model = is_null_model(params);
+  ParameterList disc_params(params);
+  disc_params.validateParametersAndSetDefaults(get_valid_params(), 0);
+  load_mesh(&m_mesh, disc_params);
+  create_time(disc_params);
+  m_is_null_model = is_null_model(disc_params);
   destroy_existing_numberings(m_mesh);
-  m_sets = read_sets(m_mesh, params);
+  m_sets = read_sets(m_mesh, disc_params);
   // lol - be aware that this is called
   apf::reorderMdsMesh(m_mesh);
   // skip because of problems with non-manifold geometries
@@ -119,6 +124,7 @@ Disc::~Disc() {
   m_mesh->destroyNative();
   apf::destroyMesh(m_mesh);
   if (m_is_base) delete m_sets;
+  m_time = {};
 }
 
 static int count_nodes(apf::FieldShape* s, int type) {
@@ -127,8 +133,15 @@ static int count_nodes(apf::FieldShape* s, int type) {
 }
 
 void Disc::create_time(ParameterList const& params) {
-  if (params.isParameter("time file")) {
-    std::string const time_file = params.get<std::string>("time file");
+  std::string const time_file = params.get<std::string>("time file");
+  if (time_file == "") {
+    int const nsteps = params.get<int>("num steps");
+    double const dt = params.get<double>("step size");
+    m_time.resize(nsteps + 1);
+    for (int step = 0; step <=nsteps; ++step) {
+      m_time[step] = step * dt;
+    }
+  } else {
     double const initial_time = params.get<double>("initial time");
     m_time.resize(1);
     m_time[0] = initial_time;
@@ -136,13 +149,6 @@ void Disc::create_time(ParameterList const& params) {
     std::string line;
     while (getline(in_file, line)) {
       m_time.push_back(std::stod(line));
-    }
-  } else {
-    int const nsteps = params.get<int>("num steps");
-    double const dt = params.get<double>("step size");
-    m_time.resize(nsteps + 1);
-    for (int step = 0; step <=nsteps; ++step) {
-      m_time[step] = step * dt;
     }
   }
 }
@@ -531,7 +537,6 @@ void Disc::destroy_data() {
   m_global_nmbr = nullptr;
   m_num_residuals = -1;
   m_num_eqs = {};
-  m_time = {};
 }
 
 Array2D<LO> Disc::get_element_lids(apf::MeshEntity* e, int i) {

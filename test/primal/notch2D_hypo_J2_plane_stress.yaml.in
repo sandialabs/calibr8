@@ -2,13 +2,13 @@ notch hypoJ2_plane_stress:
 
   problem:
     name: notch_hypoJ2_plane_stress
-    num steps: 4
-    step size: 1.
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'
     mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.smb'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.txt'
+    num steps: 4
+    step size: 1.
 
   residuals:
     global residual:

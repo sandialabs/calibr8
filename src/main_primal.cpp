@@ -208,6 +208,7 @@ void Solver::solve() {
   ParameterList problem_params = m_params->sublist("problem", true);
   std::string const name = problem_params.get<std::string>("name");
   int const nsteps = m_state->disc->num_time_steps();
+  print("nsteps = %d", nsteps);
   double J = 0.;
   //write_at_step(0, false);
   for (int step = 1; step <= nsteps; ++step) {

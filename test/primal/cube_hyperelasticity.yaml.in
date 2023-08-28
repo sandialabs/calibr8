@@ -2,13 +2,13 @@ cube hyperelasticity:
 
   problem:
     name: cube_hyperelasticity
-    num steps: 4
-    step size: 1.
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.dmg'
     mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.smb'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.txt'
+    num steps: 4
+    step size: 1.
 
   residuals:
     global residual:

@@ -2,13 +2,13 @@ notch hyperJ2:
 
   problem:
     name: J2_small_strain_2D
-    num steps: 8
-    step size: 1.
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'
     mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.smb'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.txt'
+    num steps: 8
+    step size: 1.
 
   residuals:
     global residual:

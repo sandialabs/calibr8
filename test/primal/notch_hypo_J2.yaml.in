@@ -2,13 +2,13 @@ notch J2_hypo:
 
   problem:
     name: J2_hypo
-    num steps: 4
-    step size: 1.
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
     mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.smb'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.txt'
+    num steps: 4
+    step size: 1.
 
   residuals:
     global residual:
