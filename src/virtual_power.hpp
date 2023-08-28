@@ -28,9 +28,7 @@ class VirtualPower {
 
     //! \brief Compute the squared virtual power mismatch at a step
     //! \param step The current step to compute at
-    //! \param t The simulation time at the current step
-    //! \param dt The time increment used to get to the current time
-    double compute_at_step(int step, double t, double dt);
+    double compute_at_step(int step);
 
     ~VirtualPower() { resize(m_vf_vec[OWNED], 0); resize(m_vf_vec[GHOST], 0); }
 

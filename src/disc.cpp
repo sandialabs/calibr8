@@ -1,6 +1,8 @@
 #include <list>
+#include <fstream>
 #include <gmi_mesh.h>
 #include <gmi_null.h>
+#include <iomanip>
 #include <PCU.h>
 #include <Tpetra_Core.hpp>
 #include "arrays.hpp"
@@ -96,6 +98,7 @@ static void destroy_existing_numberings(apf::Mesh2* m) {
 Disc::Disc(ParameterList const& params) {
   params.validateParameters(get_valid_params(), 0);
   load_mesh(&m_mesh, params);
+  create_time(params);
   m_is_null_model = is_null_model(params);
   destroy_existing_numberings(m_mesh);
   m_sets = read_sets(m_mesh, params);
@@ -121,6 +124,27 @@ Disc::~Disc() {
 static int count_nodes(apf::FieldShape* s, int type) {
   apf::EntityShape* ent_shape = s->getEntityShape(type);
   return ent_shape->countNodes();
+}
+
+void Disc::create_time(ParameterList const& params) {
+  if (params.isParameter("time file")) {
+    std::string const time_file = params.get<std::string>("time file");
+    double const initial_time = params.get<double>("initial time");
+    m_time.resize(1);
+    m_time[0] = initial_time;
+    std::ifstream in_file(time_file);
+    std::string line;
+    while (getline(in_file, line)) {
+      m_time.push_back(std::stod(line));
+    }
+  } else {
+    int const nsteps = params.get<int>("num steps");
+    double const dt = params.get<double>("step size");
+    m_time.resize(nsteps + 1);
+    for (int step = 0; step <=nsteps; ++step) {
+      m_time[step] = step * dt;
+    }
+  }
 }
 
 void Disc::initialize() {
@@ -507,6 +531,7 @@ void Disc::destroy_data() {
   m_global_nmbr = nullptr;
   m_num_residuals = -1;
   m_num_eqs = {};
+  m_time = {};
 }
 
 Array2D<LO> Disc::get_element_lids(apf::MeshEntity* e, int i) {

@@ -18,6 +18,7 @@ void eval_measured_residual(RCP<State> state, RCP<Disc> disc, int step) {
   int const model_form = state->model_form;
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
   Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
 
   // measured displacement field
@@ -115,6 +116,7 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
   int const model_form = state->model_form;
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
   Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
   Array2D<RCP<MatrixT>>& LHS = state->la->A[GHOST];
   Array1D<apf::Field*> x = disc->primal(step).global;
@@ -252,6 +254,7 @@ void eval_global_residual(RCP<State> state, RCP<Disc> disc, int step,
   int const model_form = state->model_form;
   RCP<LocalResidual<double>> local = state->residuals->local[model_form];
   RCP<GlobalResidual<double>> global = state->residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
   Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
   Array2D<RCP<MatrixT>>& LHS = state->la->A[GHOST];
   Array1D<apf::Field*> x = disc->primal(step).global;
@@ -457,6 +460,7 @@ void eval_adjoint_jacobian(
   int const model_form = state->model_form;
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
   RCP<QoI<FADT>> qoi = state->d_qoi;
   preprocess_qoi(qoi, local, global, state, disc, step);
 
@@ -634,6 +638,7 @@ void solve_adjoint_local(
   int const model_form = state->model_form;
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
   Array1D<apf::Field*> x = disc->primal(step).global;
   Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
@@ -762,6 +767,7 @@ double eval_qoi(RCP<State> state, RCP<Disc> disc, int step) {
   int const model_form = state->model_form;
   RCP<LocalResidual<double>> local = state->residuals->local[model_form];
   RCP<GlobalResidual<double>> global = state->residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
   RCP<QoI<double>> qoi = state->qoi;
   preprocess_qoi(qoi, local, global, state, disc, step);
 
@@ -861,6 +867,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   // preprocess the QoI
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
   RCP<QoI<FADT>> qoi = state->d_qoi;
   preprocess_qoi(qoi, local, global, state, disc, step);
 
@@ -988,6 +995,7 @@ void eval_error_contributions(
   int const model_form = state->model_form;
   RCP<LocalResidual<double>> local = state->residuals->local[model_form];
   RCP<GlobalResidual<double>> global = state->residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
   Array1D<RCP<VectorT>>& resid_vec = state->la->b[GHOST];
   Array1D<RCP<VectorT>>& z_vec = state->la->x[GHOST];
 
@@ -1136,6 +1144,7 @@ void eval_linearization_errors(
   int const model_form = state->model_form;
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
@@ -1328,6 +1337,7 @@ void eval_exact_errors(
   int const model_form = state->model_form;
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
@@ -1524,6 +1534,7 @@ apf::Field* eval_cauchy(RCP<State> state, int step) {
   int const model_form = state->model_form;
   RCP<LocalResidual<double>> local = state->residuals->local[model_form];
   RCP<GlobalResidual<double>> global = state->residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
   Array1D<apf::Field*> x = disc->primal(step).global;
   Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;

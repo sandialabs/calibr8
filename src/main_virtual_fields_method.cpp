@@ -132,20 +132,19 @@ void Solver::write_pvd() {
   if (PCU_Comm_Self()) return;
   ParameterList problem_params = m_params->sublist("problem", true);
   std::string const pvd_name = base_name() + "_viz/out.pvd";
-  int const nsteps = problem_params.get<int>("num steps");
-  double const dt = problem_params.get<double>("step size");
-  double t = dt;
+  int const nsteps = m_state->disc->num_time_steps();
+  double t = 0.;
   std::fstream pvdf;
   pvdf.open(pvd_name, std::ios::out);
   pvdf << "<VTKFile type=\"Collection\" version=\"0.1\">" << std::endl;
   pvdf << "  <Collection>" << std::endl;
   for (int step = 1; step <= nsteps; ++step) {
+    t = m_state->disc->time(step);
     std::string const out_name = "out_" + std::to_string(step);
     std::string const vtu = out_name + "/" + out_name;
     pvdf << "    <DataSet timestep=\"" << t << "\" group=\"\" ";
     pvdf << "part=\"0\" file=\"" << vtu;
     pvdf << ".pvtu\"/>" << std::endl;
-    t += dt;
   }
   pvdf << "  </Collection>" << std::endl;
   pvdf << "</VTKFile>" << std::endl;
@@ -175,13 +174,10 @@ Solver::Solver(std::string const& input_file) {
 void Solver::solve() {
   ParameterList problem_params = m_params->sublist("problem", true);
   std::string const name = problem_params.get<std::string>("name");
-  int const nsteps = problem_params.get<int>("num steps");
-  double const dt = problem_params.get<double>("step size");
-  double t = 0.;
+  int const nsteps = m_state->disc->num_time_steps();
   double J = 0.;
   for (int step = 1; step <= nsteps; ++step) {
-    t += dt;
-    J += m_virtual_power->compute_at_step(step, t, dt);
+    J += m_virtual_power->compute_at_step(step);
     write_at_step(step, false);
   }
   write_at_end();

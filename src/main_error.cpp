@@ -70,13 +70,10 @@ Driver::Driver(std::string const& input_file) {
 
 double Driver::solve_primal() {
   ParameterList problem_params = m_params->sublist("problem", true);
-  int const nsteps = problem_params.get<int>("num steps");
-  double const dt = problem_params.get<double>("step size");
-  double t = 0;
+  int const nsteps = m_state->disc->num_time_steps();
   double J = 0;
   for (int step = 1; step <= nsteps; ++step) {
-    t += dt;
-    m_primal->solve_at_step(step, t, dt);
+    m_primal->solve_at_step(step);
     J += eval_qoi(m_state, m_state->disc, step);
   }
   J = PCU_Add_Double(J);
@@ -177,11 +174,10 @@ Array1D<apf::Field*> Driver::estimate_error() {
 
   ParameterList& tbcs = m_params->sublist("traction bcs");
   ParameterList& prob = m_params->sublist("problem", true);
-  double const dt = prob.get<double>("step size");
-
   double t = 0.;
+
   for (int step = 1; step < nsteps; ++step) {
-    t += dt;
+    t = m_state->disc->time(step);
 
     Array1D<apf::Field*> Z_fine_fields = m_nested->adjoint_fine(step).global;
     // form the coarse space interpolant of z^h
@@ -374,13 +370,10 @@ static void write_nested_files(RCP<NestedDisc> disc, int cycle, RCP<ParameterLis
 double Driver::solve_primal_fine() {
   RCP<Primal> primal = rcp(new Primal(m_params, m_state, m_nested));
   ParameterList problem_params = m_params->sublist("problem", true);
-  int const nsteps = problem_params.get<int>("num steps");
-  double const dt = problem_params.get<double>("step size");
-  double t = 0;
+  int const nsteps = m_state->disc->num_time_steps();
   double J = 0.;
   for (int step = 1; step <= nsteps; ++step) {
-    t += dt;
-    primal->solve_at_step(step, t, dt);
+    primal->solve_at_step(step);
     J += eval_qoi(m_state, m_nested, step);
   }
   J = PCU_Add_Double(J);

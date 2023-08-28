@@ -63,13 +63,10 @@ Driver::Driver(std::string const& input_file) {
 
 double Driver::solve_primal() {
   ParameterList problem_params = m_params->sublist("problem", true);
-  int const nsteps = problem_params.get<int>("num steps");
-  double const dt = problem_params.get<double>("step size");
-  double t = 0;
+  int const nsteps = m_state->disc->num_time_steps();
   double J = 0;
   for (int step = 1; step <= nsteps; ++step) {
-    t += dt;
-    m_primal->solve_at_step(step, t, dt);
+    m_primal->solve_at_step(step);
     J += eval_qoi(m_state, m_state->disc, step);
   }
   J = PCU_Add_Double(J);
@@ -234,7 +231,6 @@ Array1D<apf::Field*> Driver::estimate_error() {
 
   ParameterList& tbcs = m_params->sublist("traction bcs");
   ParameterList& prob = m_params->sublist("problem", true);
-  double const dt = prob.get<double>("step size");
 
   double t = 0.;
   double fine_error = 0.;
@@ -242,7 +238,7 @@ Array1D<apf::Field*> Driver::estimate_error() {
   for (int step = 1; step < nsteps; ++step) {
     // should apply global DBCs to x when they are not constant or linear
     //Array1D<apf::Field*> x = m_nested->primal(step).global;
-    t += dt;
+    t = m_state->disc->time(step);
 
     double fine_step_error = 0.;
     m_state->la->zero_all();

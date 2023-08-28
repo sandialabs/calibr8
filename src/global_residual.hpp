@@ -275,6 +275,10 @@ class GlobalResidual {
 
     void set_stabilization_h(int stabilization_h);
 
+    void set_time_info(double time, double dt);
+    double time() const {return m_time;}
+    double delta_t() const {return m_delta_t;}
+
   private:
 
     int dx_idx(int i, int node, int eq) const;
@@ -313,6 +317,9 @@ class GlobalResidual {
 
     Weight* m_weight = nullptr;
     Weight* m_stab_weight = nullptr;
+
+    double m_time = -1.;
+    double m_delta_t = -1.;
 
     //! \endcond
 

@@ -20,14 +20,12 @@ double FEMU_Objective::value(ROL::Vector<double> const& p, double&) {
     m_state->d_residuals->local[m_model_form]->set_params(unscaled_params);
 
     ParameterList problem_params = m_params->sublist("problem", true);
-    int const nsteps = problem_params.get<int>("num steps");
+    int const nsteps = m_state->disc->num_time_steps();
     double const dt = problem_params.get<double>("step size");
-    double t = 0.;
     double J = 0.;
     m_state->disc->destroy_primal();
     for (int step = 1; step <= nsteps; ++step) {
-      t += dt;
-      m_primal->solve_at_step(step, t, dt);
+      m_primal->solve_at_step(step);
       J += eval_qoi(m_state, m_state->disc, step);
     }
 

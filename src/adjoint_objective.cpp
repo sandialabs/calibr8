@@ -23,15 +23,12 @@ double Adjoint_Objective::value(ROL::Vector<double> const& p, double&) {
     m_state->d_residuals->local[m_model_form]->set_params(unscaled_params);
 
     ParameterList problem_params = m_params->sublist("problem", true);
-    int const nsteps = problem_params.get<int>("num steps");
-    double const dt = problem_params.get<double>("step size");
-    double t = 0.;
+    int const nsteps = m_state->disc->num_time_steps();
     double J = 0.;
     m_state->disc->destroy_primal();
 
     for (int step = 1; step <= nsteps; ++step) {
-      t += dt;
-      m_primal->solve_at_step(step, t, dt);
+      m_primal->solve_at_step(step);
       J += eval_qoi(m_state, m_state->disc, step);
     }
 
@@ -56,7 +53,7 @@ void Adjoint_Objective::gradient(
   m_state->d_residuals->local[m_model_form]->set_params(unscaled_params);
 
   ParameterList problem_params = m_params->sublist("problem", true);
-  int const nsteps = problem_params.get<int>("num steps");
+  int const nsteps = m_state->disc->num_time_steps();
 
   Array1D<double> grad_at_step(m_num_opt_params);
   Array1D<double> grad(m_num_opt_params, 0.);
@@ -64,13 +61,10 @@ void Adjoint_Objective::gradient(
   if (param_diff(*xp)) {
 
     m_state->disc->destroy_primal();
-    double const dt = problem_params.get<double>("step size");
-    double t = 0.;
     double J = 0.;
 
     for (int step = 1; step <= nsteps; ++step) {
-      t += dt;
-      m_primal->solve_at_step(step, t, dt);
+      m_primal->solve_at_step(step);
       J += eval_qoi(m_state, m_state->disc, step);
     }
 

@@ -356,6 +356,13 @@ class Disc {
     //! \details Change the discretization type after construction
     void set_disc_type(int type) { m_disc_type = type; }
 
+    //! \brief Get the number of solution time steps (no IC)
+    int num_time_steps() { return m_time.size() - 1; }
+    //! \brief Get the current time
+    double time(int step) { return m_time[step]; }
+    //! \brief Get the current time increment
+    double dt(int step) { return m_time[step] - m_time[step - 1]; }
+
   protected:
 
     int m_num_dims = -1;
@@ -404,6 +411,8 @@ class Disc {
     bool m_is_base = true;
     int m_disc_type = COARSE;
 
+    Array1D<double> m_time;
+
   protected:
 
     void initialize();
@@ -427,6 +436,8 @@ class Disc {
     Array1D<Fields> m_primal_fine;
     Array1D<Fields> m_adjoint_fine;
     Array3D<bool> m_branch_paths; /* [load step, elem_set, elem] */
+
+    void create_time(ParameterList const& params);
 
 };
 

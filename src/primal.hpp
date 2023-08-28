@@ -28,9 +28,7 @@ class Primal {
 
     //! \brief Solve the primal problem at a given step
     //! \param step The current step to solve at
-    //! \param t The simulation time at the current step
-    //! \param dt The time increment used to get to the current time
-    void solve_at_step(int step, double t, double dt);
+    void solve_at_step(int step);
 
   private:
 

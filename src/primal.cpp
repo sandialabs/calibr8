@@ -25,7 +25,7 @@ Primal::Primal(
   }
 }
 
-void Primal::solve_at_step(int step, double t, double) {
+void Primal::solve_at_step(int step) {
 
   // gather data needed to solve the problem
   Array2D<RCP<MatrixT>>& dR_dx = m_state->la->A[OWNED];
@@ -42,6 +42,7 @@ void Primal::solve_at_step(int step, double t, double) {
   double const rel_tol = global.get<double>("nonlinear relative tol");
   bool const do_print = global.get<bool>("print convergence");
   int const max_line_search_evals = global.get<int>("max line search evals", 5);
+  double const t = m_state->disc->time(step);
 
   // print the step information
   if (do_print) print("ON PRIMAL STEP (%d)", step);

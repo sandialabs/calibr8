@@ -49,13 +49,10 @@ Driver::Driver(std::string const& input_file) {
 
 double Driver::solve_primal() {
   ParameterList problem_params = m_params->sublist("problem", true);
-  int const nsteps = problem_params.get<int>("num steps");
-  double const dt = problem_params.get<double>("step size");
-  double t = 0;
+  int const nsteps = m_state->disc->num_time_steps();
   double J = 0;
   for (int step = 1; step <= nsteps; ++step) {
-    t += dt;
-    m_primal->solve_at_step(step, t, dt);
+    m_primal->solve_at_step(step);
     J += eval_qoi(m_state, m_state->disc, step);
   }
   J = PCU_Add_Double(J);
@@ -79,7 +76,7 @@ void Driver::prepare_fine_space() {
 void Driver::solve_adjoint() {
   auto disc = m_state->disc;
   m_adjoint = rcp(new Adjoint(m_params, m_state, disc));
-  int const nsteps = disc->primal().size() - 1;
+  int const nsteps = m_state->disc->num_time_steps();
   auto residuals = m_state->residuals;
   disc->create_adjoint(residuals, nsteps, FINE_MODEL);
   for (int step = nsteps; step > 0; --step) {

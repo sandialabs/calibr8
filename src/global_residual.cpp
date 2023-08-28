@@ -556,6 +556,12 @@ void GlobalResidual<T>::set_stabilization_h(int stabilization_h) {
   m_stabilization_h = stabilization_h;
 }
 
+template <typename T>
+void GlobalResidual<T>::set_time_info(double time, double dt) {
+  m_time = time;
+  m_delta_t = dt;
+}
+
 template class GlobalResidual<double>;
 template class GlobalResidual<FADT>;
 
@@ -564,5 +570,6 @@ create_global_residual<double>(ParameterList const&, int);
 
 template RCP<GlobalResidual<FADT>>
 create_global_residual<FADT>(ParameterList const&, int);
+
 
 }

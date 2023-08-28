@@ -64,9 +64,6 @@ class State {
     //! \brief The linear algebra data structure
     RCP<LinearAlg> la;
 
-    //! \brief The time at each step (size nsteps + 1)
-    Array1D<double> time;
-
   public:
 
     //! \brief State constructor

@@ -75,7 +75,7 @@ void Adjoint::solve_at_step(int step) {
   double const abs_tol = global.get<double>("nonlinear absolute tol");
   double const rel_tol = global.get<double>("nonlinear relative tol");
   bool const do_print = global.get<bool>("print convergence");
-  int const nsteps = problem_params.get<int>("num steps");
+  int const nsteps = m_state->disc->num_time_steps();
 
   // set the history vectors to zero
   if (step == nsteps) {

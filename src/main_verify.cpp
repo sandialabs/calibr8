@@ -51,13 +51,10 @@ Driver::Driver(std::string const& input_file) {
 void Driver::solve_primal_coarse() {
   m_primal = rcp(new Primal(m_params, m_state, m_state->disc));
   ParameterList problem_params = m_params->sublist("problem", true);
-  int const nsteps = problem_params.get<int>("num steps");
-  double const dt = problem_params.get<double>("step size");
-  double t = 0;
+  int const nsteps = m_state->disc->num_time_steps();
   m_J_H = 0.;
   for (int step = 1; step <= nsteps; ++step) {
-    t += dt;
-    m_primal->solve_at_step(step, t, dt);
+    m_primal->solve_at_step(step);
     m_J_H += eval_qoi(m_state, m_state->disc, step);
   }
   m_J_H = PCU_Add_Double(m_J_H);
@@ -81,13 +78,10 @@ void Driver::prepare_fine_space() {
 void Driver::solve_primal_fine() {
   m_primal = rcp(new Primal(m_params, m_state, m_nested));
   ParameterList problem_params = m_params->sublist("problem", true);
-  int const nsteps = problem_params.get<int>("num steps");
-  double const dt = problem_params.get<double>("step size");
-  double t = 0;
+  int const nsteps = m_state->disc->num_time_steps();
   m_J_h = 0.;
   for (int step = 1; step <= nsteps; ++step) {
-    t += dt;
-    m_primal->solve_at_step(step, t, dt);
+    m_primal->solve_at_step(step);
     m_J_h += eval_qoi(m_state, m_nested, step);
   }
   m_J_h = PCU_Add_Double(m_J_h);
@@ -118,12 +112,12 @@ void Driver::estimate_error() {
   apf::zeroField(C_error);
   int const nsteps = m_nested->primal().size();
   ParameterList problem_params = m_params->sublist("problem", true);
-  double const dt = problem_params.get<double>("step size");
   ParameterList& tbcs = m_params->sublist("traction bcs");
   ParameterList& dbcs = m_params->sublist("dirichlet bcs", true);
-  double t = dt;
+  double t = 0.;
   double e = 0.;
   for (int step = 1; step < nsteps; ++step) {
+    t = m_state->disc->time(step);
     print(" > at error step: %d", step);
     Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     m_state->la->resume_fill_A();
@@ -135,7 +129,6 @@ void Driver::estimate_error() {
     m_state->la->gather_x(/*sum=*/false);
     apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, step,
         /*is_adjoint=*/true);
-    t += dt;
     for (int i = 0; i < m_state->residuals->global->num_residuals(); ++i) {
       e += R[i]->dot(*(z[i]));
     }
@@ -151,14 +144,13 @@ void Driver::evaluate_linearization_error() {
   apf::Mesh* m = m_nested->apf_mesh();
   ParameterList problem_params = m_params->sublist("problem", true);
   ParameterList& tbcs = m_params->sublist("traction bcs");
-  double const dt = problem_params.get<double>("step size");
-  double t = dt;
+  double t = 0;
   for (int step = 1; step < nsteps; ++step) {
+    t = m_state->disc->time(step);
     print(" > at error linearization error: %d", step);
     Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
     eval_linearization_errors(m_state, m_nested, step, m_E_lin_R, m_E_lin_C);
     m_E_lin_R += sum_tbcs_error_contributions(tbcs, m_nested, zfields, t);
-    t += dt;
   }
   m_E_lin_R = PCU_Add_Double(m_E_lin_R);
 }

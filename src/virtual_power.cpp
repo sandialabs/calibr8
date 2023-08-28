@@ -31,7 +31,7 @@ VirtualPower::VirtualPower(
 
 }
 
-double VirtualPower::compute_at_step(int step, double t, double) {
+double VirtualPower::compute_at_step(int step) {
 
   // gather data needed to solve the problem
   Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];

@@ -30,22 +30,22 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
     ParameterList& problem_params = m_params->sublist("problem", true);
     ParameterList& inverse_params = m_params->sublist("inverse", true);
     double const obj_scale_factor = inverse_params.get<double>("objective scale factor");
-    int const nsteps = problem_params.get<int>("num steps");
-    double const dt = problem_params.get<double>("step size");
+    int const nsteps = m_state->disc->num_time_steps();
+    double const total_time = m_state->disc->time(nsteps) - m_state->disc->time(0);
     double const thickness = inverse_params.get<double>("thickness", 1.);
     double const internal_power_scale_factor
         = inverse_params.get<double>("internal power scale factor", 1.);
     bool const print_vfm_mismatch
         = inverse_params.get<bool>("print vfm mismatch", false);
-    double t = 0.;
+    double dt = 0;
     double J = 0.;
     double internal_virtual_power;
     double load_at_step;
     double volume_internal_virtual_power;
     m_state->disc->destroy_primal();
     for (int step = 1; step <= nsteps; ++step) {
-      t += dt;
-      internal_virtual_power = m_virtual_power->compute_at_step(step, t, dt)
+      dt = m_state->disc->dt(step);
+      internal_virtual_power = m_virtual_power->compute_at_step(step)
           * internal_power_scale_factor;
       load_at_step = m_load_data[step - 1];
       PCU_Add_Double(internal_virtual_power);
@@ -55,7 +55,8 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
         print("  internal_power = %e", volume_internal_virtual_power);
         print("  load = %e", load_at_step);
       }
-      J += 0.5 * obj_scale_factor * std::pow(volume_internal_virtual_power - load_at_step, 2) / nsteps;
+      J += 0.5 * obj_scale_factor * dt / total_time
+          * std::pow(volume_internal_virtual_power - load_at_step, 2);
 
     }
     m_J_old = J;
