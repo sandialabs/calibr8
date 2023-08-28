@@ -64,11 +64,20 @@ class State {
     //! \brief The linear algebra data structure
     RCP<LinearAlg> la;
 
+    //! \brief The time at each step (size nsteps + 1)
+    Array1D<double> time;
+
   public:
 
     //! \brief State constructor
     //! \param params The top-level parameterlist
     State(ParameterList const& params);
+
+  private:
+
+    //! \brief Set up the time discretization
+    //! \param params The top-level parameterlist
+
 
 };
 

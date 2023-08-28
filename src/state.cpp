@@ -30,9 +30,26 @@ RCP<QoI<T>> create_qois(ParameterList const& params) {
   return Teuchos::null;
 }
 
+Array1D<double> create_time(ParameterList const& params) {
+  Array1D<double> time;
+  if (params.isSublist("time file")) {
+    time.resize(1);
+    time[0] = 0.;
+  } else {
+    int const nsteps = params.get<int>("num steps");
+    double const dt = params.get<double>("step size");
+    time.resize(nsteps);
+    for (int step = 0; step <=nsteps; ++step) {
+      time[step] = step * dt;
+    }
+  }
+  return time;
+}
+
 State::State(ParameterList const& params) {
   ParameterList const disc_params = params.sublist("discretization");
   ParameterList const resid_params = params.sublist("residuals");
+  ParameterList const problem_params = params.sublist("problem");
   disc = rcp(new Disc(disc_params));
   la = rcp(new LinearAlg);
   residuals = create_residuals<double>(resid_params, disc->num_dims());
@@ -41,6 +58,7 @@ State::State(ParameterList const& params) {
   d_qoi = create_qois<FADT>(params);
   disc->build_data(residuals->global->num_residuals(), residuals->global->num_eqs());
   la->build_data(disc);
+  time = create_time(problem_params);
 }
 
 }
