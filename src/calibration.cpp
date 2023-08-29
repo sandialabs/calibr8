@@ -39,7 +39,7 @@ Calibration<T>::Calibration(ParameterList const& params) {
   if (m_read_load) {
     std::ifstream in_file(m_load_in_file);
     std::string line;
-    while(getline(in_file, line)) {
+    while (getline(in_file, line)) {
       m_load_data.push_back(std::stod(line));
     }
   }
@@ -126,13 +126,19 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
       }
     }
     m_area = PCU_Add_Double(m_area);
-    print("disp qoi area = %e", m_area);
     is_initd_disp = true;
   }
 
   if (!is_initd_load) {
     is_initd_load = this->setup_coord_based_node_mapping(m_coord_idx, m_coord_value,
         disc, m_mapping_load);
+  }
+
+  this->m_dt = disc->dt(step);
+  if (!is_initd_total_time) {
+    int const num_time_steps = disc->num_time_steps();
+    m_total_time = disc->time(num_time_steps) - disc->time(0);
+    is_initd_total_time = true;
   }
 }
 
@@ -267,7 +273,7 @@ T Calibration<T>::compute_surface_mismatch(
 
     // compute the difference between the FEM displacement and
     // the measured input displacement data
-    mismatch += 0.5 * qoi * w * dv / m_area;
+    mismatch += 0.5 * qoi * w * dv / m_area * m_dt / m_total_time;
 
   }
 
@@ -351,7 +357,8 @@ template <typename T>
 void Calibration<T>::postprocess(double& J) {
   J = PCU_Add_Double(J);
   double const J_disp = J;
-  double J_forc = 0.5 * m_balance_factor * std::pow(m_load_mismatch, 2);
+  double J_forc = 0.5 * m_balance_factor * m_dt / m_total_time
+      * std::pow(m_load_mismatch, 2);
   J += J_forc;
   J /= PCU_Comm_Peers(); // to account for reduction in the objective
 
@@ -447,7 +454,8 @@ void Calibration<FADT>::evaluate(
 
   if (node_id_load > -1) {
     FADT load = compute_load(elem_set, elem, global, local, iota_input, w, dv);
-    this->value_pt += m_balance_factor * m_load_mismatch * load;
+    this->value_pt += m_balance_factor * m_dt / m_total_time
+        * m_load_mismatch * load;
   }
 
 }

@@ -120,6 +120,9 @@ class Calibration : public QoI<T> {
     std::string m_obj_out_file = "";
 
     double m_area = 1.;
+    double m_dt = 1.;
+    bool is_initd_total_time = false;
+    double m_total_time = 1.;
 };
 
 }

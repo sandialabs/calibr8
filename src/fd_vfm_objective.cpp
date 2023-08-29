@@ -37,7 +37,7 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
         = inverse_params.get<double>("internal power scale factor", 1.);
     bool const print_vfm_mismatch
         = inverse_params.get<bool>("print vfm mismatch", false);
-    double dt = 0;
+    double dt = 0.;
     double J = 0.;
     double internal_virtual_power;
     double load_at_step;
