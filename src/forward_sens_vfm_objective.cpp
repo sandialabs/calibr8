@@ -109,7 +109,8 @@ void FS_VFM_Objective::gradient(
         * std::pow(virtual_power_mismatch, 2);
 
     for (int i = 0; i < m_num_opt_params; ++i) {
-      grad[i] += grad_at_step[i] * virtual_power_mismatch;
+      grad[i] += grad_at_step[i] * virtual_power_mismatch
+          * obj_scale_factor * dt / total_time;
     }
   }
   m_J_old = J;
