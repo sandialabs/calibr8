@@ -138,6 +138,15 @@ class GlobalResidual {
         EVector const& rhs,
         Array1D<RCP<VectorT>>& RHS);
 
+    //! \brief Scatter the residual derives into the global residual MV
+    //! \param disc The discretization object
+    //! \param matrix The element-level sensitivity matrix to scatter
+    //! \param MV The global right hand side vectors
+    void scatter_sens(
+        RCP<Disc> disc,
+        EMatrix const& sens,
+        Array1D<RCP<MultiVectorT>>& MV);
+
     //! \brief Assign a value into a global vector
     //! \param disc The discretization object
     //! \param vector The element-level vector to assign

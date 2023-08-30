@@ -23,6 +23,22 @@ void eval_measured_residual(
     RCP<Disc> disc,
     int step);
 
+//! \brief Evaluate the residual vector and its gradient given measured displacement data
+//! \param state The application state object
+//! \param disc The discretization object
+//! \param dR The ghosted derivatives of the residual
+//! \param local_sens The sensitivity matrices
+//! \param step The current load/time step
+//! \details This will populate:
+//!   state->la->b[GHOST] as the residual R
+//!   the residual gradient dR (ghost)
+void eval_measured_residual_and_grad(
+    RCP<State> state,
+    RCP<Disc> disc,
+    Array1D<RCP<MultiVectorT>>& dR,
+    Array3D<EMatrix>& local_sens,
+    int step);
+
 //! \brief Evaluate the Jacobian matrix and residual vector
 //! \param state The application state object
 //! \param disc The discretization object

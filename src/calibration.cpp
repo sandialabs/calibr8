@@ -195,7 +195,7 @@ T Calibration<T>::compute_disp_mismatch(
 
     // compute the difference between the FEM displacement and
     // the measured input displacement data
-    mismatch += 0.5 * qoi * w * dv / m_area;
+    mismatch += 0.5 * qoi * w * dv / m_area * m_dt / m_total_time;
   }
 
   // clean up allocated memory

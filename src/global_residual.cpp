@@ -437,7 +437,29 @@ void GlobalResidual<T>::scatter_rhs(
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
         LO const row = rows[n][eq];
         int const i_idx = dx_idx(i, n, eq);
-        R_data[row] += rhs[i_idx];
+        R_data[row] += rhs(i_idx);
+      }
+    }
+  }
+}
+
+template <typename T>
+void GlobalResidual<T>::scatter_sens(
+    RCP<Disc> disc,
+    EMatrix const& sens,
+    Array1D<RCP<MultiVectorT>>& MV) {
+  apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
+  int const num_params = sens.cols();
+  for (int i = 0; i < m_num_residuals; ++i) {
+    Array2D<LO> const rows = disc->get_element_lids(ent, i);
+    for (int p = 0 ; p < num_params; ++p) {
+      auto dR_data = MV[i]->getVectorNonConst(p)->get1dViewNonConst();
+      for (int n = 0; n < m_num_nodes; ++n) {
+        for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
+          LO const row = rows[n][eq];
+          int const i_idx = dx_idx(i, n, eq);
+          dR_data[row] += sens(i_idx, p);
+        }
       }
     }
   }
