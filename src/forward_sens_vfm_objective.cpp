@@ -102,7 +102,6 @@ void FS_VFM_Objective::gradient(
     m_virtual_power->compute_at_step(step, internal_virtual_power, grad_at_step);
     internal_virtual_power *= internal_power_scale_factor;
     load_at_step = m_load_data[step - 1];
-    PCU_Add_Double(internal_virtual_power);
     volume_internal_virtual_power = thickness * internal_virtual_power;
     virtual_power_mismatch = volume_internal_virtual_power - load_at_step;
     J += 0.5 * obj_scale_factor * dt / total_time
@@ -114,8 +113,6 @@ void FS_VFM_Objective::gradient(
     }
   }
   m_J_old = J;
-
-  PCU_Add_Doubles(grad.data(), m_num_opt_params);
 
   Array1D<double> const canonical_grad = transform_gradient(grad);
   for (int i = 0; i < m_num_opt_params; ++i) {

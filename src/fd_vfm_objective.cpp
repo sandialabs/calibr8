@@ -48,7 +48,6 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
       internal_virtual_power = m_virtual_power->compute_at_step(step)
           * internal_power_scale_factor;
       load_at_step = m_load_data[step - 1];
-      PCU_Add_Double(internal_virtual_power);
       volume_internal_virtual_power = thickness * internal_virtual_power;
       if (print_vfm_mismatch) {
         print("\nstep = %d", step);
@@ -57,12 +56,9 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
       }
       J += 0.5 * obj_scale_factor * dt / total_time
           * std::pow(volume_internal_virtual_power - load_at_step, 2);
-
     }
     m_J_old = J;
-
   }
-
   return m_J_old;
 }
 
