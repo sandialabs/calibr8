@@ -36,6 +36,7 @@ NestedDisc::NestedDisc(RCP<Disc> disc, int type) {
   refine();
   store_old_verts();
   initialize();
+  m_time = disc->time_disc();
   create_primal(disc);
   create_adjoint_for_spr(disc);
 }

@@ -356,6 +356,8 @@ class Disc {
     //! \details Change the discretization type after construction
     void set_disc_type(int type) { m_disc_type = type; }
 
+    //! \brief Get the complete time discretization
+    Array1D<double> time_disc() { return m_time; }
     //! \brief Get the number of solution time steps (no IC)
     int num_time_steps() { return m_time.size() - 1; }
     //! \brief Get the current time

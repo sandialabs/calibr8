@@ -964,7 +964,7 @@ void Disc::create_verification_data(int model_form) {
       int const vtype = apf::getValueType(coarse);
       apf::Field* fine = apf::createField(m_mesh, name.c_str(), vtype, m_lv_shape);
       apf::zeroField(fine);
-      if (name == "fine_Ie_0") {
+      if (name == "fine_Ie_0" || name == "fine_lambda_z_0") {
         apf::MeshEntity* elem;
         apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
         while ((elem = m_mesh->iterate(elems))) {
