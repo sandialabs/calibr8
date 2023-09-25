@@ -153,6 +153,7 @@ void Driver::evaluate_linearization_error() {
     m_E_lin_R += sum_tbcs_error_contributions(tbcs, m_nested, zfields, t);
   }
   m_E_lin_R = PCU_Add_Double(m_E_lin_R);
+  m_E_lin_C = PCU_Add_Double(m_E_lin_C);
 }
 
 void Driver::print_error_estimate() {
