@@ -589,8 +589,7 @@ void eval_adjoint_jacobian(
   bool force_path = false;
   int path = 0;
   if (disc->type() == VERIFICATION) {
-    //force_path = true;
-    force_path = false;
+    force_path = true;
   }
 
   // perform initializations of the residual objects
@@ -1574,11 +1573,11 @@ void eval_linearization_error_terms(
             local->evaluate(global, force_path, path);
             EMatrix const dC_dxi_prev = local->eigen_jacobian(nderivs);
 
-            // evaluate the point level local linearization error
-            //EVector const ELC_e =
-            //  -C - (dC_dx * x_diff) - (dC_dxi * xi_diff) -
-            //  (dC_dx_prev * x_prev_diff) - (dC_dxi_prev * xi_prev_diff);
-            EVector const ELC_e = C;
+            // evaluate the point level total level local residual error
+            // standard + linearization error
+            EVector const ELC_e = -(dC_dx * x_diff) - (dC_dxi * xi_diff) -
+              (dC_dx_prev * x_prev_diff) - (dC_dxi_prev * xi_prev_diff);
+            //EVector const ELC_e = C;
             double const E_C_elem = phi_pt.dot(ELC_e);
             double E_C = apf::getScalar(C_error, e, 0);
             apf::setScalar(C_error, e, 0, E_C + E_C_elem);

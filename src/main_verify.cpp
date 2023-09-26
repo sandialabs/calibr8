@@ -106,6 +106,7 @@ void Driver::estimate_error() {
   Array1D<RCP<VectorT>>& z = m_state->la->x[OWNED];
   Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
   Array1D<RCP<VectorT>>& R_ghost = m_state->la->b[GHOST];
+  Array2D<RCP<MatrixT>>& dR_dx = m_state->la->A[OWNED];
   apf::Field* R_error = apf::createStepField(m, "R_error", apf::SCALAR);
   apf::Field* C_error = apf::createStepField(m, "C_error", apf::SCALAR);
   apf::zeroField(R_error);
@@ -120,10 +121,20 @@ void Driver::estimate_error() {
     t = m_state->disc->time(step);
     print(" > at error step: %d", step);
     Array1D<apf::Field*> zfields = m_nested->adjoint(step).global;
+    m_state->la->resume_fill_A();
     m_state->la->zero_all();
     eval_error_contributions(m_state, m_nested, R_error, C_error, step);
     eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
+    apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
+    m_state->la->gather_b();
+    m_state->la->gather_x(/*sum=*/false);
+    apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, step,
+        /*is_adjoint=*/true);
+    for (int i = 0; i < m_state->residuals->global->num_residuals(); ++i) {
+      e += R[i]->dot(*(z[i]));
+    }
   }
+  print("eta ~ %.16e", e);
 }
 
 void Driver::evaluate_linearization_error() {

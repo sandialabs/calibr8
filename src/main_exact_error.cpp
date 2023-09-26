@@ -181,7 +181,7 @@ Array1D<apf::Field*> Driver::estimate_error() {
       R[i]->scale(ELR_dot_z / R_dot_R);
     }
 
-    //m_nested->add_to_soln(Z_fields, R, 1.);
+    m_nested->add_to_soln(Z_fields, R, 1.);
 
   }
 
