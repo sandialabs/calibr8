@@ -129,11 +129,7 @@ void Driver::estimate_error() {
     m_state->la->gather_x(/*sum=*/false);
     apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, step,
         /*is_adjoint=*/true);
-    for (int i = 0; i < m_state->residuals->global->num_residuals(); ++i) {
-      e += R[i]->dot(*(z[i]));
-    }
   }
-  print("eta ~ %.16e", e);
 }
 
 void Driver::evaluate_linearization_error() {
@@ -160,6 +156,8 @@ void Driver::print_error_estimate() {
   apf::Mesh* m = m_nested->apf_mesh();
   apf::Field* R_error = m->findField("R_error");
   apf::Field* C_error = m->findField("C_error");
+  double eta_R = 0.;
+  double eta_C = 0.;
   double eta = 0;
   double eta_bound = 0.;
   apf::MeshEntity* elem;
@@ -167,13 +165,19 @@ void Driver::print_error_estimate() {
   while ((elem = m->iterate(elems))) {
     double const R_val = apf::getScalar(R_error, elem, 0);
     double const C_val = apf::getScalar(C_error, elem, 0);
+    eta_R += R_val;
+    eta_C += C_val;
     double const val = R_val + C_val;
     eta += val;
     eta_bound += std::abs(val);
   }
   m->end(elems);
   eta = PCU_Add_Double(eta);
+  eta_R = PCU_Add_Double(eta_R);
+  eta_C = PCU_Add_Double(eta_C);
   eta_bound = PCU_Add_Double(eta_bound);
+  print("eta_R ~ %.16e", eta_R);
+  print("eta_C ~ %.16e", eta_C);
   print("eta ~ %.16e", eta);
   print("|eta| < %.16e", eta_bound);
   ParameterList qoi_params = m_params->sublist("quantity of interest", true);

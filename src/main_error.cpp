@@ -93,6 +93,7 @@ void Driver::prepare_fine_space(bool truth = false) {
   m_nested->build_data(nr, neq);
   m_state->la->destroy_data();
   m_state->la->build_data(m_nested);
+  global->set_stabilization_h(BASE);
 }
 
 void Driver::solve_adjoint_coarse() {
@@ -189,9 +190,9 @@ Array1D<apf::Field*> Driver::estimate_error() {
     }
 
     m_state->la->zero_all();
-    global->set_stabilization_h(BASE);
+    //global->set_stabilization_h(BASE);
     eval_global_residual(m_state, m_nested, step, true, Z_coarse_fields);
-    global->set_stabilization_h(CURRENT);
+    //global->set_stabilization_h(CURRENT);
     eval_tbcs_error_contributions(tbcs, m_nested, Z_coarse_fields, R_ghost, t);
     m_state->la->gather_b();
     m_nested->add_to_soln(eta_field, R, -1.);

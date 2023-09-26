@@ -136,6 +136,21 @@ void eval_linearization_errors(
     double& E_lin_R,
     double& E_lin_C);
 
+//! \brief Evaluate the global residual linearization error vector and the
+//! scalar local residual error
+//! \param state The application state object
+//! \param disc The (nested) discretization object
+//! \param step The current load/time step
+//! \param ELR The global residual linearization error in the global residual (vector)
+//! \param E_lin_C The local residual linearization error in the QoI (scalar)
+//! \details Only valid for linear QoIs
+void eval_linearization_error_terms(
+    RCP<State> state,
+    RCP<Disc> disc,
+    int step,
+    Array1D<RCP<VectorT>>& ELR,
+    apf::Field* C_error);
+
 //! \brief Evalaute exact contributions to the error at a step
 //! \param state The application state object
 //! \param disc The (nested) discretization object
