@@ -156,7 +156,6 @@ Array1D<apf::Field*> Driver::estimate_error() {
   apf::zeroField(C_error);
 
   // compute Z_fine* and C_error
-  /*
   for (int step = 1; step < nsteps; ++step) {
 
     for (int i = 0; i < num_global_residuals; ++i) {
@@ -185,7 +184,6 @@ Array1D<apf::Field*> Driver::estimate_error() {
     //m_nested->add_to_soln(Z_fields, R, 1.);
 
   }
-  */
 
   ParameterList& tbcs = m_params->sublist("traction bcs");
   ParameterList& prob = m_params->sublist("problem", true);
@@ -195,6 +193,7 @@ Array1D<apf::Field*> Driver::estimate_error() {
     t = m_state->disc->time(step);
 
     Array1D<apf::Field*> Z_fields = m_nested->adjoint(step).global;
+
     // form the coarse space interpolant of z^h
     /*
     Array1D<apf::Field*> Z_interp_fields(num_global_residuals);
@@ -219,6 +218,9 @@ Array1D<apf::Field*> Driver::estimate_error() {
     m_state->la->gather_b();
     m_nested->add_to_soln(eta_field, R, 1.);
   }
+
+  double eta_C = 0.;
+  double eta_R = 0.;
 
   double error = 0.;
   double error_bound = 0.;
@@ -247,25 +249,28 @@ Array1D<apf::Field*> Driver::estimate_error() {
     }
 
     error += eta_node;
+    eta_R += eta_node;
     error_bound += std::abs(eta_node);
   }
 
-  /*
   apf::MeshEntity* elem;
   apf::MeshIterator* it = m->begin(num_dims);
   while ((elem = m->iterate(it))) {
     double const elem_error = apf::getScalar(C_error, elem, 0);
+    eta_C += elem_error;
     error += elem_error;
     error_bound += std::abs(elem_error);
   }
   m->end(it);
-  */
 
   error = PCU_Add_Double(error);
   error_bound = PCU_Add_Double(error_bound);
 
   m_eta.push_back(error);
   m_eta_bound.push_back(error_bound);
+
+  print("eta_R ~ %.15e", eta_R);
+  print("eta_C ~ %.15e", eta_C);
 
   print("total estimate ~ %.15e", error);
   print("error bound ~ %.15e", error_bound);
