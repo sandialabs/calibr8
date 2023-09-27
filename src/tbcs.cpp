@@ -298,62 +298,65 @@ void eval_tbc_error_contributions(
   Teuchos::ArrayRCP<double> R_data = R_error[i]->get1dViewNonConst();
 
   // data needed for weight
-  apf::MeshEntity* side = sides[0];
-  apf::MeshElement* me = apf::createMeshElement(mesh, side);
-  apf::EntityShape* es = gv_shape->getEntityShape(mesh->getType(side));
-  int const num_nodes = es->countNodes();
-  apf::destroyMeshElement(me);
-
-  int const num_residuals = disc->num_residuals();
-  Array1D<int> num_eqs(num_residuals);
-  for (int i = 0; i < num_residuals; ++i) {
-    num_eqs[i] = disc->num_eqs(i);
-  }
-
-  ErrorWeight* weight = new ErrorWeight(gv_shape,
-      num_dims, num_residuals, num_nodes,
-      num_eqs, z_fields);
-
-  // loop over all faces for this BC
-  for (size_t s = 0; s < sides.size(); ++s) {
-
-    // get some info about the basis for the face
-    apf::MeshEntity* side = sides[s];
+  int const num_sides = sides.size();
+  if (num_sides > 0) {
+    apf::MeshEntity* side = sides[0];
     apf::MeshElement* me = apf::createMeshElement(mesh, side);
     apf::EntityShape* es = gv_shape->getEntityShape(mesh->getType(side));
     int const num_nodes = es->countNodes();
-
-    // loop over integration points along the face
-    int const npts = apf::countIntPoints(me, q_order);
-    for (int pt = 0; pt < npts; ++pt) {
-
-      // get info at the current integration point
-      apf::getIntPoint(me, q_order, pt, iota);
-      double const w = apf::getIntWeight(me, q_order, pt);
-      double const dv = apf::getDV(me, iota);
-      apf::mapLocalToGlobal(me, iota, x);
-      weight->evaluate(me, iota);
-
-      // evaluate the traction
-      for (int d = 0; d < num_dims; ++d) {
-        T[d] = eval(vals[d], x[0], x[1], x[2], t);
-      }
-
-      // modify the residual for the applied traction
-      for (int n = 0; n < num_nodes; ++n) {
-        for (int d = 0; d < num_dims; ++d) {
-          LO row = disc->get_lid(side, i, n, d);
-          R_data[row] -= T[d] * weight->val(i, n, d) * w * dv;
-        }
-      }
-    }
-
-    // clean up
     apf::destroyMeshElement(me);
 
-  }
+    int const num_residuals = disc->num_residuals();
+    Array1D<int> num_eqs(num_residuals);
+    for (int i = 0; i < num_residuals; ++i) {
+      num_eqs[i] = disc->num_eqs(i);
+    }
 
-  delete weight;
+    ErrorWeight* weight = new ErrorWeight(gv_shape,
+        num_dims, num_residuals, num_nodes,
+        num_eqs, z_fields);
+
+    // loop over all faces for this BC
+    for (size_t s = 0; s < num_sides; ++s) {
+
+      // get some info about the basis for the face
+      apf::MeshEntity* side = sides[s];
+      apf::MeshElement* me = apf::createMeshElement(mesh, side);
+      apf::EntityShape* es = gv_shape->getEntityShape(mesh->getType(side));
+      int const num_nodes = es->countNodes();
+
+      // loop over integration points along the face
+      int const npts = apf::countIntPoints(me, q_order);
+      for (int pt = 0; pt < npts; ++pt) {
+
+        // get info at the current integration point
+        apf::getIntPoint(me, q_order, pt, iota);
+        double const w = apf::getIntWeight(me, q_order, pt);
+        double const dv = apf::getDV(me, iota);
+        apf::mapLocalToGlobal(me, iota, x);
+        weight->evaluate(me, iota);
+
+        // evaluate the traction
+        for (int d = 0; d < num_dims; ++d) {
+          T[d] = eval(vals[d], x[0], x[1], x[2], t);
+        }
+
+        // modify the residual for the applied traction
+        for (int n = 0; n < num_nodes; ++n) {
+          for (int d = 0; d < num_dims; ++d) {
+            LO row = disc->get_lid(side, i, n, d);
+            R_data[row] -= T[d] * weight->val(i, n, d) * w * dv;
+          }
+        }
+      }
+
+      // clean up
+      apf::destroyMeshElement(me);
+
+    }
+
+    delete weight;
+  }
 
 }
 

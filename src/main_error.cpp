@@ -88,12 +88,14 @@ void Driver::prepare_fine_space(bool truth = false) {
   if (!truth) m_nested = rcp(new NestedDisc(disc));
   else m_nested = rcp(new NestedDisc(disc, TRUTH));
   auto global = m_state->residuals->global;
+  auto d_global = m_state->d_residuals->global;
   int const nr = global->num_residuals();
   Array1D<int> const neq = global->num_eqs();
   m_nested->build_data(nr, neq);
   m_state->la->destroy_data();
   m_state->la->build_data(m_nested);
   global->set_stabilization_h(BASE);
+  d_global->set_stabilization_h(BASE);
 }
 
 void Driver::solve_adjoint_coarse() {
