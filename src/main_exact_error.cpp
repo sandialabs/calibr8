@@ -120,6 +120,30 @@ void Driver::solve_adjoint_fine() {
   m_adjoint = Teuchos::null;
 }
 
+static void create_localization_Z(
+    RCP<NestedDisc> disc,
+    Array1D<apf::Field*>& Z_fields) {
+  int const num_residuals = Z_fields.size();
+  for (int i = 0; i < num_residuals; ++i) {
+    auto f = Z_fields[i];
+    auto interp = disc->get_coarse(f);
+    int const neqs = apf::countComponents(f);
+    Array1D<double> f_vals(neqs, 0.);
+    Array1D<double> interp_vals(neqs, 0.);
+    apf::DynamicArray<apf::Node> nodes = disc->get_owned_nodes();
+    for (auto& node : nodes) {
+      apf::MeshEntity* ent = node.entity;
+      int const local_node = node.node;
+      apf::getComponents(f, ent, local_node, &(f_vals[0]));
+      apf::getComponents(interp, ent, local_node, &(interp_vals[0]));
+      for (int eq = 0; eq < neqs; ++eq) {
+        f_vals[eq] -= interp_vals[eq];
+      }
+      apf::setComponents(f, ent, local_node, &(f_vals[0]));
+    }
+    apf::synchronize(f);
+  }
+}
 
 Array1D<apf::Field*> Driver::estimate_error() {
   print("ESTIMATING THE ERROR");
@@ -169,7 +193,6 @@ Array1D<apf::Field*> Driver::estimate_error() {
 
   for (int step = 1; step < nsteps; ++step) {
     t = m_state->disc->time(step);
-
     Array1D<apf::Field*> Z_fields = m_nested->adjoint(step).global;
 
     for (int i = 0; i < num_global_residuals; ++i) {
@@ -177,47 +200,33 @@ Array1D<apf::Field*> Driver::estimate_error() {
       ELR_owned[i]->putScalar(0.);
     }
 
+    m_state->la->resume_fill_A();
     m_state->la->zero_all();
-    apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
     eval_global_residual(m_state, m_nested, step);
+    apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
+    m_state->la->gather_A();
     m_state->la->gather_b();
     apply_primal_dbcs(dbcs, m_nested, dR_dx, R, Z_fields, t, step,
         /*is_adjoint=*/true);
+    m_state->la->complete_fill_A();
 
     apply_primal_tbcs(tbcs, m_nested, ELR_ghost, t);
     for (int i = 0; i < num_global_residuals; ++i) {
       ELR_ghost[i]->scale(-1.);
     }
-
     eval_linearization_error_terms(m_state, m_nested, step, ELR_ghost, C_error);
     m_nested->populate_vector(Z_fields, Z);
-
     for (int i = 0; i < num_global_residuals; ++i) {
       RCP<const ExportT> exporter = m_nested->exporter(i);
       ELR_owned[i]->doExport(*ELR_ghost[i], *exporter, Tpetra::ADD);
       double const ELR_dot_z = ELR_owned[i]->dot(*Z_owned[i]);
       double const R_dot_R = R[i]->dot(*R[i]);
-      print("ELR_dot_z = %e", ELR_dot_z);
-      print("R_dot_R = %e", R_dot_R);
       R[i]->scale(ELR_dot_z / R_dot_R);
       R_lin_error += ELR_dot_z;
     }
 
     m_nested->add_to_soln(Z_fields, R, 1.);
-
-    // form the coarse space interpolant of z^h
-    Array1D<apf::Field*> Z_interp_fields(num_global_residuals);
-    for (int i = 0; i < num_global_residuals; ++i) {
-      auto f = Z_fields[i];
-      auto interp = m_nested->get_coarse(f);
-      Z_interp_fields[i] = interp;
-    }
-
-    m_state->la->zero_all();
-    eval_global_residual(m_state, m_nested, step, true, Z_interp_fields);
-    eval_tbcs_error_contributions(tbcs, m_nested, Z_interp_fields, R_ghost, t);
-    m_state->la->gather_b();
-    m_nested->add_to_soln(eta_field, R, -1.);
+    create_localization_Z(m_nested, Z_fields);
 
     m_state->la->zero_all();
     eval_global_residual(m_state, m_nested, step, true, Z_fields);
@@ -228,11 +237,11 @@ Array1D<apf::Field*> Driver::estimate_error() {
 
   print("R linearization error = %.16e", R_lin_error);
 
-  double eta_C = 0.;
   double eta_R = 0.;
-
+  double eta_C = 0.;
   double error = 0.;
   double error_bound = 0.;
+
   // get the nodes associated with the nodes in the mesh
   apf::DynamicArray<apf::Node> nodes;
   auto owned_numbering = m_nested->owned_numbering();
@@ -278,9 +287,11 @@ Array1D<apf::Field*> Driver::estimate_error() {
   m_eta.push_back(error);
   m_eta_bound.push_back(error_bound);
 
+  eta_R = PCU_Add_Double(eta_R);
+  eta_C = PCU_Add_Double(eta_C);
+
   print("eta_R ~ %.15e", eta_R);
   print("eta_C ~ %.15e", eta_C);
-
   print("total estimate ~ %.15e", error);
   print("error bound ~ %.15e", error_bound);
   return eta_field;
@@ -384,6 +395,10 @@ void Driver::rebuild_coarse_space() {
   Array1D<int> const neqs = m_state->residuals->global->num_eqs();
   disc->build_data(ngr, neqs);
   m_state->la->build_data(disc);
+  auto global = m_state->residuals->global;
+  auto d_global = m_state->d_residuals->global;
+  global->set_stabilization_h(CURRENT);
+  d_global->set_stabilization_h(CURRENT);
 }
 
 static void write_primal_files(RCP<State> state, int cycle, RCP<ParameterList> p) {
@@ -431,6 +446,8 @@ void Driver::drive() {
     solve_adjoint_fine();
     auto eta = estimate_error();
     localize_error(eta);
+    write_primal_files(m_state, cycle, m_params);
+    write_nested_files(m_nested, cycle, m_params);
     clean_up_fine_space();
     if (cycle < (m_ncycles - 1)) {
       adapt_mesh(cycle);
