@@ -67,12 +67,15 @@ void Driver::prepare_fine_space() {
   disc->destroy_data();
   m_nested = rcp(new NestedDisc(disc, VERIFICATION));
   auto global = m_state->residuals->global;
+  auto d_global = m_state->d_residuals->global;
   int const nr = global->num_residuals();
   Array1D<int> const neq = global->num_eqs();
   m_nested->build_data(nr, neq);
   m_nested->create_verification_data();
   m_state->la->destroy_data();
   m_state->la->build_data(m_nested);
+  global->set_stabilization_h(BASE);
+  d_global->set_stabilization_h(BASE);
 }
 
 void Driver::solve_primal_fine() {
@@ -105,7 +108,6 @@ void Driver::estimate_error() {
   Array1D<RCP<VectorT>>& z = m_state->la->x[OWNED];
   Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
   Array1D<RCP<VectorT>>& R_ghost = m_state->la->b[GHOST];
-  Array2D<RCP<MatrixT>>& dR_dx = m_state->la->A[OWNED];
   apf::Field* R_error = apf::createStepField(m, "R_error", apf::SCALAR);
   apf::Field* C_error = apf::createStepField(m, "C_error", apf::SCALAR);
   apf::zeroField(R_error);
@@ -124,16 +126,7 @@ void Driver::estimate_error() {
     m_state->la->zero_all();
     eval_error_contributions(m_state, m_nested, R_error, C_error, step);
     eval_tbcs_error_contributions(tbcs, m_nested, zfields, R_error, t);
-    apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
-    m_state->la->gather_b();
-    m_state->la->gather_x(/*sum=*/false);
-    apply_primal_dbcs(dbcs, m_nested, dR_dx, R, zfields, t, step,
-        /*is_adjoint=*/true);
-    for (int i = 0; i < m_state->residuals->global->num_residuals(); ++i) {
-      e += R[i]->dot(*(z[i]));
-    }
   }
-  print("eta ~ %.16e", e);
 }
 
 void Driver::evaluate_linearization_error() {
@@ -153,12 +146,15 @@ void Driver::evaluate_linearization_error() {
     m_E_lin_R += sum_tbcs_error_contributions(tbcs, m_nested, zfields, t);
   }
   m_E_lin_R = PCU_Add_Double(m_E_lin_R);
+  m_E_lin_C = PCU_Add_Double(m_E_lin_C);
 }
 
 void Driver::print_error_estimate() {
   apf::Mesh* m = m_nested->apf_mesh();
   apf::Field* R_error = m->findField("R_error");
   apf::Field* C_error = m->findField("C_error");
+  double eta_R = 0.;
+  double eta_C = 0.;
   double eta = 0;
   double eta_bound = 0.;
   apf::MeshEntity* elem;
@@ -166,13 +162,19 @@ void Driver::print_error_estimate() {
   while ((elem = m->iterate(elems))) {
     double const R_val = apf::getScalar(R_error, elem, 0);
     double const C_val = apf::getScalar(C_error, elem, 0);
+    eta_R += R_val;
+    eta_C += C_val;
     double const val = R_val + C_val;
     eta += val;
     eta_bound += std::abs(val);
   }
   m->end(elems);
   eta = PCU_Add_Double(eta);
+  eta_R = PCU_Add_Double(eta_R);
+  eta_C = PCU_Add_Double(eta_C);
   eta_bound = PCU_Add_Double(eta_bound);
+  print("eta_R ~ %.16e", eta_R);
+  print("eta_C ~ %.16e", eta_C);
   print("eta ~ %.16e", eta);
   print("|eta| < %.16e", eta_bound);
   ParameterList qoi_params = m_params->sublist("quantity of interest", true);

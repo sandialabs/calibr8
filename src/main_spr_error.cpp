@@ -29,12 +29,14 @@ class Driver {
     void solve_adjoint();
     void prepare_fine_space();
     void perform_SPR();
-    Array1D<apf::Field*> estimate_error();
+    Array1D<apf::Field*> estimate_error_simple();
+    Array1D<apf::Field*> estimate_error_pou();
     void localize_error(Array1D<apf::Field*> const& eta);
     void clean_up_fine_space();
     void adapt_mesh(int cycle);
     void rebuild_coarse_space();
     void print_final_summary();
+    void convert_from_packed_field(apf::Field* f_packed, apf::Field* f_fine);
   private:
     int m_ncycles = 1;
     RCP<ParameterList> m_params;
@@ -106,11 +108,14 @@ void Driver::prepare_fine_space() {
   disc->destroy_data();
   m_nested = rcp(new NestedDisc(disc));
   auto global = m_state->residuals->global;
+
   int const nr = global->num_residuals();
   Array1D<int> const neq = global->num_eqs();
   m_nested->build_data(nr, neq);
   m_state->la->destroy_data();
   m_state->la->build_data(m_nested);
+
+  global->set_stabilization_h(BASE);
 }
 
 static apf::Field* interpolate_to_cell_center(
@@ -193,13 +198,28 @@ void Driver::perform_SPR() {
       std::string const f_cell_name = std::string(apf::getName(f)) + "_e";
       auto f_cell = interpolate_to_cell_center(f, f_cell_name);
       auto f_spr = spr_recovery(f_cell); // f_e is deleted here
-      fields_fine[i] = f_spr;
+      convert_from_packed_field(f_spr, f_fine);
     }
     apply_adjoint_dbcs(dbcs, m_nested, fields_fine);
   }
 }
 
-Array1D<apf::Field*> Driver::estimate_error() {
+void Driver::convert_from_packed_field(
+    apf::Field* f_packed,
+    apf::Field* f_fine) {
+  apf::Mesh* m = apf::getMesh(f_fine);
+  apf::MeshEntity* vtx;
+  apf::MeshIterator* it = m->begin(0);
+  int const ncomps = apf::countComponents(f_fine);
+  Array1D<double> vals(ncomps);
+  while ((vtx = m->iterate(it))) {
+    apf::getComponents(f_packed, vtx, 0, &(vals[0]));
+    apf::setComponents(f_fine, vtx, 0, &(vals[0]));
+  }
+  apf::synchronize(f_fine);
+}
+
+Array1D<apf::Field*> Driver::estimate_error_simple() {
   print("ESTIMATING THE ERROR");
   int const nsteps = m_nested->adjoint().size();
 
@@ -256,9 +276,9 @@ Array1D<apf::Field*> Driver::estimate_error() {
 
     double coarse_step_error = 0.;
     m_state->la->zero_all();
-    global->set_stabilization_h(BASE);
+    //global->set_stabilization_h(BASE);
     eval_global_residual(m_state, m_nested, step);
-    global->set_stabilization_h(CURRENT);
+    //global->set_stabilization_h(CURRENT);
     apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
     m_state->la->gather_b();
     Array1D<apf::Field*> Z_coarse_fields = m_nested->adjoint(step).global;
@@ -309,6 +329,108 @@ Array1D<apf::Field*> Driver::estimate_error() {
 
   print("coarse error ~ %.15e", coarse_error);
   print("total error ~ %.15e", error);
+  print("error bound ~ %.15e", error_bound);
+  return eta_field;
+}
+
+Array1D<apf::Field*> Driver::estimate_error_pou() {
+  print("ESTIMATING THE ERROR");
+  int const nsteps = m_nested->adjoint().size();
+
+  Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
+  Array1D<RCP<VectorT>>& R_ghost = m_state->la->b[GHOST];
+
+  auto global = m_state->residuals->global;
+  int const num_global_residuals = global->num_residuals();
+  Array1D<apf::Field*> eta_field(num_global_residuals);
+
+  auto gv_shape = m_nested->gv_shape();
+  auto m = m_nested->apf_mesh();
+  int const num_dims = m->getDimension();
+
+  for (int i = 0; i < num_global_residuals; ++i) {
+    std::string name = global->resid_name(i);
+    name = "eta_" + name;
+    int const vtype = m_nested->get_value_type(global->num_eqs(i), num_dims);
+    apf::Field* error = apf::createField(m, name.c_str(), vtype, gv_shape);
+    apf::zeroField(error);
+    eta_field[i] = error;
+  }
+
+  ParameterList& tbcs = m_params->sublist("traction bcs");
+  ParameterList& prob = m_params->sublist("problem", true);
+  double t = 0.;
+
+  for (int step = 1; step < nsteps; ++step) {
+    t = m_state->disc->time(step);
+
+    Array1D<apf::Field*> Z_fine_fields = m_nested->adjoint_fine(step).global;
+    // form the coarse space interpolant of z^h
+    Array1D<apf::Field*> Z_coarse_fields(num_global_residuals);
+    for (int i = 0; i < num_global_residuals; ++i) {
+      auto f_fine = Z_fine_fields[i];
+      auto coarse = m_nested->get_coarse(f_fine);
+      Z_coarse_fields[i] = coarse;
+    }
+
+    m_state->la->zero_all();
+    //global->set_stabilization_h(BASE);
+    eval_global_residual(m_state, m_nested, step, true, Z_coarse_fields);
+    //global->set_stabilization_h(CURRENT);
+    eval_tbcs_error_contributions(tbcs, m_nested, Z_coarse_fields, R_ghost, t);
+    m_state->la->gather_b();
+    m_nested->add_to_soln(eta_field, R, -1.);
+
+    // crude way of turning off stabilization
+    //global->set_stabilization_h(BASE);
+    //apf::Field* h = m->findField("h");
+    //apf::zeroField(h);
+
+    m_state->la->zero_all();
+    eval_global_residual(m_state, m_nested, step, true, Z_fine_fields);
+
+    eval_tbcs_error_contributions(tbcs, m_nested, Z_fine_fields, R_ghost, t);
+    m_state->la->gather_b();
+    m_nested->add_to_soln(eta_field, R, 1.);
+  }
+
+  double error = 0.;
+  double error_bound = 0.;
+  // get the nodes associated with the nodes in the mesh
+  apf::DynamicArray<apf::Node> nodes;
+  auto owned_numbering = m_nested->owned_numbering();
+  apf::getNodes(owned_numbering, nodes);
+
+  // loop over all the nodes in the discretization
+  for (size_t n = 0; n < nodes.size(); ++n) {
+
+    // get information about the current node
+    apf::Node node = nodes[n];
+    apf::MeshEntity* ent = node.entity;
+    int const ent_node = node.node;
+
+    double eta_node = 0.;
+    for (int i = 0; i < num_global_residuals; ++i) {
+      apf::Field* f = eta_field[i];
+      int const neqs = apf::countComponents(f);
+      Array1D<double> sol_comps(9);
+      apf::getComponents(f, ent, ent_node, &(sol_comps[0]));
+      for (int eq = 0; eq < neqs; ++eq) {
+        eta_node += sol_comps[eq];
+      }
+    }
+
+    error += eta_node;
+    error_bound += std::abs(eta_node);
+  }
+
+  error = PCU_Add_Double(error);
+  error_bound = PCU_Add_Double(error_bound);
+
+  m_eta.push_back(error);
+  m_eta_bound.push_back(error_bound);
+
+  print("total estimate ~ %.15e", error);
   print("error bound ~ %.15e", error_bound);
   return eta_field;
 }
@@ -440,7 +562,7 @@ void Driver::drive() {
     solve_adjoint();
     prepare_fine_space();
     perform_SPR();
-    auto eta = estimate_error();
+    auto eta = estimate_error_pou();
     localize_error(eta);
     write_base_files(m_state, cycle, m_params);
     write_nested_files(m_nested, cycle, m_params);

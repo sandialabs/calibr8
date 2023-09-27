@@ -40,7 +40,7 @@ void PointWise<T>::evaluate(
 apf::MeshEntity* get_owned_vertex(
     std::string const& node_set,
     RCP<Disc> disc) {
-  apf::MeshEntity* owned_vtx = 0;
+  apf::MeshEntity* owned_vtx = nullptr;
   NodeSet const& nodes = disc->nodes(node_set);
   if (nodes.size() > 0) {
     ALWAYS_ASSERT(nodes.size() == 1);
@@ -77,8 +77,7 @@ void PointWise<T>::modify_state(RCP<State> state) {
   apf::MeshEntity* owned_vtx = get_owned_vertex(m_node_set, m_disc);
   if (!owned_vtx) return;
   static constexpr int const momentum_idx = 0;
-  apf::Node node{owned_vtx, 0};
-  LO const row = m_disc->get_lid(node, momentum_idx, m_component);
+  LO const row = m_disc->get_lid(owned_vtx, momentum_idx, 0, m_component);
   auto dJdx = (state->la->b[GHOST][momentum_idx])->get1dViewNonConst();
   dJdx[row] = -1.;
 }
