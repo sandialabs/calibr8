@@ -125,11 +125,13 @@ Array1D<apf::Field*> Driver::estimate_error() {
   print("ESTIMATING THE ERROR");
   int const nsteps = m_nested->adjoint().size();
 
+  ParameterList& dbcs = m_params->sublist("dirichlet bcs", true);
   ParameterList& tbcs = m_params->sublist("traction bcs");
   ParameterList& prob = m_params->sublist("problem", true);
 
   Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
   Array1D<RCP<VectorT>>& R_ghost = m_state->la->b[GHOST];
+  Array2D<RCP<MatrixT>>& dR_dx = m_state->la->A[OWNED];
   auto Z = m_state->la->x;
   auto& Z_owned = Z[OWNED];
 
@@ -170,14 +172,6 @@ Array1D<apf::Field*> Driver::estimate_error() {
 
     Array1D<apf::Field*> Z_fields = m_nested->adjoint(step).global;
 
-    // form the coarse space interpolant of z^h
-    Array1D<apf::Field*> Z_interp_fields(num_global_residuals);
-    for (int i = 0; i < num_global_residuals; ++i) {
-      auto f = Z_fields[i];
-      auto interp = m_nested->get_coarse(f);
-      Z_interp_fields[i] = interp;
-    }
-
     for (int i = 0; i < num_global_residuals; ++i) {
       ELR_ghost[i]->putScalar(0.);
       ELR_owned[i]->putScalar(0.);
@@ -187,6 +181,8 @@ Array1D<apf::Field*> Driver::estimate_error() {
     apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
     eval_global_residual(m_state, m_nested, step);
     m_state->la->gather_b();
+    apply_primal_dbcs(dbcs, m_nested, dR_dx, R, Z_fields, t, step,
+        /*is_adjoint=*/true);
 
     apply_primal_tbcs(tbcs, m_nested, ELR_ghost, t);
     for (int i = 0; i < num_global_residuals; ++i) {
@@ -208,6 +204,14 @@ Array1D<apf::Field*> Driver::estimate_error() {
     }
 
     m_nested->add_to_soln(Z_fields, R, 1.);
+
+    // form the coarse space interpolant of z^h
+    Array1D<apf::Field*> Z_interp_fields(num_global_residuals);
+    for (int i = 0; i < num_global_residuals; ++i) {
+      auto f = Z_fields[i];
+      auto interp = m_nested->get_coarse(f);
+      Z_interp_fields[i] = interp;
+    }
 
     m_state->la->zero_all();
     eval_global_residual(m_state, m_nested, step, true, Z_interp_fields);
