@@ -74,6 +74,7 @@ double Driver::solve_primal_coarse() {
     J += eval_qoi(m_state, m_state->disc, step);
   }
   J = PCU_Add_Double(J);
+  print("J^H: %.16e\n", J);
   return J;
 }
 
@@ -105,6 +106,7 @@ double Driver::solve_primal_fine() {
     J += eval_qoi(m_state, m_nested, step);
   }
   J = PCU_Add_Double(J);
+  print("J^h: %.16e\n", J);
   return J;
 }
 
