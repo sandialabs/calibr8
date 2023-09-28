@@ -354,6 +354,10 @@ void Driver::rebuild_coarse_space() {
   Array1D<int> const neqs = m_state->residuals->global->num_eqs();
   disc->build_data(ngr, neqs);
   m_state->la->build_data(disc);
+  auto global = m_state->residuals->global;
+  auto d_global = m_state->d_residuals->global;
+  global->set_stabilization_h(CURRENT);
+  d_global->set_stabilization_h(CURRENT);
 }
 
 static void write_primal_files(RCP<State> state, int cycle, RCP<ParameterList> p) {
