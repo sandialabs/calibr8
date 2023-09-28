@@ -108,6 +108,7 @@ void Driver::prepare_fine_space() {
   disc->destroy_data();
   m_nested = rcp(new NestedDisc(disc));
   auto global = m_state->residuals->global;
+  auto d_global = m_state->d_residuals->global;
 
   int const nr = global->num_residuals();
   Array1D<int> const neq = global->num_eqs();
@@ -116,6 +117,7 @@ void Driver::prepare_fine_space() {
   m_state->la->build_data(m_nested);
 
   global->set_stabilization_h(BASE);
+  d_global->set_stabilization_h(BASE);
 }
 
 static apf::Field* interpolate_to_cell_center(
@@ -532,6 +534,10 @@ void Driver::rebuild_coarse_space() {
   Array1D<int> const neqs = m_state->residuals->global->num_eqs();
   disc->build_data(ngr, neqs);
   m_state->la->build_data(disc);
+  auto global = m_state->residuals->global;
+  auto d_global = m_state->d_residuals->global;
+  global->set_stabilization_h(CURRENT);
+  d_global->set_stabilization_h(CURRENT);
 }
 
 void Driver::print_final_summary() {
