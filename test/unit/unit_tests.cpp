@@ -1,4 +1,4 @@
-#include <gtest.h>
+#include <gtest/gtest.h>
 #include <control.hpp>
 
 int main(int argc, char** argv) {

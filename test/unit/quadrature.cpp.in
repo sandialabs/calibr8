@@ -1,4 +1,4 @@
-#include <gtest.h>
+#include <gtest/gtest.h>
 #include <gmi_mesh.h>
 #include <control.hpp>
 #include <disc.hpp>

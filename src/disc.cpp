@@ -335,7 +335,7 @@ Array1D<size_t> Disc::compute_nentries(int i, int j) {
   int const num_j_eqs = num_eqs(j);
   RCP<const MapT> map_i = m_maps[GHOST][i];
   RCP<const MapT> map_j = m_maps[GHOST][j];
-  Array1D<size_t> num_entries_per_row(map_i->getNodeNumElements(), 0);
+  Array1D<size_t> num_entries_per_row(map_i->getLocalNumElements(), 0);
   apf::MeshEntity* elem;
   apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
   while ((elem = m_mesh->iterate(elems))) {
@@ -361,8 +361,7 @@ void Disc::compute_ghost_graph(int i, int j) {
   RCP<const MapT> map_j = m_maps[GHOST][j];
   Array1D<size_t> nentries = compute_nentries(i, j);
   Teuchos::ArrayView<const size_t> nentries_per_row(nentries);
-  m_graphs[GHOST][i][j] = rcp(new GraphT(
-        map_i, map_j, nentries_per_row, Tpetra::StaticProfile));
+  m_graphs[GHOST][i][j] = rcp(new GraphT(map_i, map_j, nentries_per_row));
   RCP<GraphT> graph = m_graphs[GHOST][i][j];
   apf::MeshEntity* elem;
   apf::MeshIterator* elems = m_mesh->begin(m_num_dims);

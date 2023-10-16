@@ -9,6 +9,9 @@
 
 namespace calibr8 {
 
+using indices_type = typename MatrixT::nonconst_local_inds_host_view_type;
+using entries_type = typename MatrixT::nonconst_values_host_view_type;
+
 static double get_val(
     RCP<Disc> disc,
     std::string const& val,
@@ -79,7 +82,9 @@ void apply_expression_primal_dbcs(
         size_t num_cols = dR_dx[i][j]->getNumEntriesInLocalRow(row);
         indices.resize(num_cols);
         entries.resize(num_cols);
-        dR_dx[i][j]->getLocalRowCopy(row, indices(), entries(), num_cols);
+        indices_type indices_view(indices.getRawPtr(), num_cols);
+        entries_type entries_view(entries.getRawPtr(), num_cols);
+        dR_dx[i][j]->getLocalRowCopy(row, indices_view, entries_view, num_cols);
 
         // if we are at the diagonal block
         if (i == j) {
@@ -186,7 +191,9 @@ void apply_field_primal_dbcs(
         size_t num_cols = dR_dx[i][j]->getNumEntriesInLocalRow(row);
         indices.resize(num_cols);
         entries.resize(num_cols);
-        dR_dx[i][j]->getLocalRowCopy(row, indices(), entries(), num_cols);
+        indices_type indices_view(indices.getRawPtr(), num_cols);
+        entries_type entries_view(entries.getRawPtr(), num_cols);
+        dR_dx[i][j]->getLocalRowCopy(row, indices_view, entries_view, num_cols);
 
         // if we are at the diagonal block
         if (i == j) {

@@ -6,7 +6,7 @@ include(CTest)
 enable_testing()
 
 function(set_code_standards target_name)
-  set_property(TARGET ${target_name} PROPERTY CXX_STANDARD "14")
+  set_property(TARGET ${target_name} PROPERTY CXX_STANDARD 14)
   set_property(TARGET ${target_name} PROPERTY CXX_STANDARD_REQUIRED ON)
   set_property(TARGET ${target_name} PROPERTY CXX_EXTENSIONS OFF)
 endfunction()
