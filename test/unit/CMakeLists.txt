@@ -13,7 +13,7 @@ set(CALIBR8_UNIT_TEST_SOURCES
 
 add_executable(calibr8_unit_tests ${CALIBR8_UNIT_TEST_SOURCES})
 target_link_libraries(calibr8_unit_tests PRIVATE calibr8)
-target_link_libraries(calibr8_unit_tests PRIVATE my_gtest)
+target_link_libraries(calibr8_unit_tests PRIVATE gtest)
 set_code_standards(calibr8_unit_tests)
 
 add_test(NAME unit_tests COMMAND "./calibr8_unit_tests")
