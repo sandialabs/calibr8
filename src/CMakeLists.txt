@@ -124,3 +124,8 @@ add_executable(virtual_fields_method main_virtual_fields_method.cpp)
 target_link_libraries(virtual_fields_method PRIVATE calibr8)
 install(TARGETS virtual_fields_method)
 set_code_standards(virtual_fields_method)
+
+add_executable(primal_multiple main_primal_multiple.cpp)
+target_link_libraries(primal_multiple PRIVATE calibr8)
+install(TARGETS primal_multiple)
+set_code_standards(primal_multiple)
