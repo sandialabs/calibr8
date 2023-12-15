@@ -237,13 +237,14 @@ int HypoHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
       double alpha_j = 1.;
       double alpha_diff = alpha_j - alpha_prev;
       double R_j = this->norm_residual();
-      double psi_prev = psi_0;
       double psi_j = 0.5 * R_j * R_j;
 
-      while (psi_j >= ((1. - 2. * m_ls_beta * alpha_j) * psi_prev)) {
+      while (psi_j >= ((1. - 2. * m_ls_beta * alpha_j) * psi_0)) {
 
         alpha_prev = alpha_j;
-        alpha_j  = std::max(m_ls_eta * alpha_j, psi_0 / (psi_0 + psi_j));
+        alpha_j  = std::max(m_ls_eta * alpha_j,
+            -(std::pow(alpha_j, 2) * psi_0_deriv) /
+             (2. * (psi_j - psi_0 - alpha_j * psi_0_deriv)));
 
         if (m_ls_print) {
           print(" > (local) residual increase -- line search alpha_%d = %.2e",
@@ -264,7 +265,6 @@ int HypoHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
         path = this->evaluate(global, true, path);
 
         R_j = this->norm_residual();
-        psi_prev = psi_j;
         psi_j = 0.5 * R_j * R_j;
 
       }
@@ -353,22 +353,25 @@ int HypoHosford<T>::evaluate(
   Tensor<T> n = zero<T>(3);
   evaluate_phi_and_normal(a, phi, n);
 
+  T const scale_factor = 2. * mu;
+
   T const flow_stress = Y + S * (1. - std::exp(-D * alpha));
-  T const f = (phi - flow_stress) / (2. * val(mu));
+  T const f = (phi - flow_stress) / scale_factor;
 
   Tensor<T> R_TC;
   T R_alpha;
 
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const d = eval_d(global);
-  R_TC = TC - TC_old - lambda * trace(d) * I - 2. * mu * d;
+  R_TC = (TC - TC_old - lambda * trace(d) * I - 2. * mu * d) / scale_factor;
 
 
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
       T const dgam = alpha - alpha_old;
-      R_TC += 2. * mu * dgam * n;
+      // scale_factor in R_TC removes the (2. * mu) multiplier
+      R_TC += dgam * n;
       R_alpha = f;
       path = PLASTIC;
     }
@@ -385,7 +388,8 @@ int HypoHosford<T>::evaluate(
     // plastic step
     if (path == PLASTIC) {
       T const dgam = alpha - alpha_old;
-      R_TC += 2. * mu * dgam * n;
+      // scale_factor in R_TC removes the (2. * mu) multiplier
+      R_TC += dgam * n;
       R_alpha = f;
     }
     // elastic step
