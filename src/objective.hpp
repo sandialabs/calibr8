@@ -42,6 +42,7 @@ class Objective : public ROL::Objective<double> {
     RCP<ParameterList> m_params;
     Array1D<RCP<Primal>> m_primal;
     Array1D<RCP<State>> m_state;
+    Array1D<RCP<ParameterList>> m_prob_params;
 
     bool param_diff(std::vector<double> const&);
 

@@ -10,7 +10,7 @@ Adjoint_Objective::Adjoint_Objective(RCP<ParameterList> params) :
     Objective(params) {
   m_adjoint.resize(m_num_problems);
   for (int prob = 0; prob < m_num_problems; ++prob) {
-    m_adjoint[prob] = rcp(new Adjoint(m_params, m_state[prob],
+    m_adjoint[prob] = rcp(new Adjoint(m_prob_params[prob], m_state[prob],
         m_state[prob]->disc));
   }
 }
@@ -60,7 +60,6 @@ void Adjoint_Objective::gradient(
     m_state[prob]->residuals->local[m_model_form]->set_params(unscaled_params);
     m_state[prob]->d_residuals->local[m_model_form]->set_params(unscaled_params);
 
-    ParameterList problem_params = m_params->sublist("problem", true);
     int const nsteps = m_state[prob]->disc->num_time_steps();
 
     Array1D<double> grad_at_step(m_num_opt_params);

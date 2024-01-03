@@ -1,15 +1,15 @@
 tdd 2probs:
 
   problems:
-   
+
     problem 1:
       problem:
         name: J2
 
       discretization:
-        geom file: '/Users/dtseidl/char/calibr8/calibr8-build//source/calibr8/test/mesh/notch2D/notch2D.dmg'
-        mesh file: '/Users/dtseidl/char/calibr8/calibr8-build/source/calibr8/test/mesh/notch2D/notch2D.smb'
-        assoc file: '/Users/dtseidl/char/calibr8/calibr8-build/source/calibr8/test/mesh/notch2D/notch2D.txt'
+        geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'
+        mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.smb'
+        assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.txt'
         num steps: 4
         step size: 1.
 
@@ -95,9 +95,9 @@ tdd 2probs:
         name: J2
 
       discretization:
-        geom file: '/Users/dtseidl/char/calibr8/calibr8-build//source/calibr8/test/mesh/notch2D/notch2D.dmg'
-        mesh file: '/Users/dtseidl/char/calibr8/calibr8-build/source/calibr8/test/mesh/notch2D/notch2D.smb'
-        assoc file: '/Users/dtseidl/char/calibr8/calibr8-build/source/calibr8/test/mesh/notch2D/notch2D.txt'
+        geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'
+        mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.smb'
+        assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.txt'
         num steps: 4
         step size: 1.
 
@@ -178,10 +178,8 @@ tdd 2probs:
                   'relaxation: type': "Gauss-Seidel"
 
   inverse:
-    objective type: "FEMU"
-    check gradient: false
-    #objective type: "adjoint"
-    #check gradient: true
+    objective type: "adjoint"
+    check gradient: true
     iteration limit: 0
     materials:
       body:

@@ -13,6 +13,7 @@ Objective::Objective(RCP<ParameterList> params) {
       auto problem_list = Teuchos::getValue<ParameterList>(problem_entry.second);
       auto rcp_prob_list = RCP(new ParameterList);
       *rcp_prob_list = problem_list;
+      m_prob_params.push_back(rcp_prob_list);
       auto state = rcp(new State(problem_list));
       auto primal = rcp(new Primal(rcp_prob_list, state, state->disc));
       m_state.push_back(state);
@@ -23,8 +24,10 @@ Objective::Objective(RCP<ParameterList> params) {
     m_num_problems = 1;
     m_state.resize(1);
     m_primal.resize(1);
+    m_prob_params.resize(1);
     m_state[0] = rcp(new State(*m_params));
     m_primal[0] = rcp(new Primal(m_params, m_state[0], m_state[0]->disc));
+    m_prob_params[0] = m_params;
   }
   setup_opt_params(params->sublist("inverse", true));
 }
@@ -101,8 +104,11 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
       }
     }
   }
-  m_state[0]->residuals->local[m_model_form]->set_active_indices(active_indices);
-  m_state[0]->d_residuals->local[m_model_form]->set_active_indices(active_indices);
+
+  for (int prob = 0; prob < m_num_problems; ++prob) {
+    m_state[prob]->residuals->local[m_model_form]->set_active_indices(active_indices);
+    m_state[prob]->d_residuals->local[m_model_form]->set_active_indices(active_indices);
+  }
 
   // initialize p_old
   m_p_old.resize(m_num_opt_params);
