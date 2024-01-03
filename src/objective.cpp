@@ -4,15 +4,38 @@
 
 namespace calibr8 {
 
+// notes
+//
+//  if (single) {
+//    m_states[0] = rcp(new State(*m_params));
+//    m_primals[0] = rcp(new Primal(m_params, m_state, m_state->disc));
+//  } else {
+//    // do what's in the multi-primal exe for parsing here...
+//    // also modify value() and gradient() overloads to loop
+//    // over num problems
+//    // could put in weights for each problem here too..
+//  }
+
 Objective::Objective(RCP<ParameterList> params) {
   m_params = params;
-  m_state = rcp(new State(*m_params));
-  m_primal = rcp(new Primal(m_params, m_state, m_state->disc));
-  setup_opt_params(params->sublist("inverse", true));
+  bool const is_multiple = params->isSublist("problems");
+  if (is_multiple) {
+    m_num_problems = 0;
+    throw std::runtime_error("whoops, I didn't do that yet");
+  } else {
+    m_num_problems = 1;
+    m_state.resize(1);
+    m_primal.resize(1);
+    m_state[0] = rcp(new State(*m_params));
+    m_primal[0] = rcp(new Primal(m_params, m_state[0], m_state[0]->disc));
+    setup_opt_params(params->sublist("inverse", true));
+  }
 }
 
 Objective::~Objective() {
-  m_state->disc->destroy_primal();
+  for (int prob = 0; prob < m_num_problems; ++prob) {
+    m_state[prob]->disc->destroy_primal();
+  }
 }
 
 Array1D<double> Objective::transform_params(Array1D<double> const& params,
@@ -38,22 +61,22 @@ Array1D<double> Objective::transform_params(Array1D<double> const& params,
 }
 
 Array1D<double> Objective::active_params() const {
-  return m_state->residuals->local[m_model_form]->active_params();
+  return m_state[0]->residuals->local[m_model_form]->active_params();
 }
 
 Array2D<std::string> Objective::active_param_names() const {
-  return m_state->residuals->local[m_model_form]->active_param_names();
+  return m_state[0]->residuals->local[m_model_form]->active_param_names();
 }
 
 Array1D<std::string> Objective::elem_set_names() const {
-  return m_state->residuals->local[m_model_form]->elem_set_names();
+  return m_state[0]->residuals->local[m_model_form]->elem_set_names();
 }
 
 void Objective::setup_opt_params(ParameterList const& inverse_params) {
   Array1D<std::string> const& elem_set_names =
-      m_state->residuals->local[m_model_form]->elem_set_names();
+      m_state[0]->residuals->local[m_model_form]->elem_set_names();
   Array1D<std::string> const& param_names =
-      m_state->residuals->local[m_model_form]->param_names();
+      m_state[0]->residuals->local[m_model_form]->param_names();
 
   ParameterList const& all_material_params =
       inverse_params.sublist("materials");
@@ -81,8 +104,8 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
       }
     }
   }
-  m_state->residuals->local[m_model_form]->set_active_indices(active_indices);
-  m_state->d_residuals->local[m_model_form]->set_active_indices(active_indices);
+  m_state[0]->residuals->local[m_model_form]->set_active_indices(active_indices);
+  m_state[0]->d_residuals->local[m_model_form]->set_active_indices(active_indices);
 
   // initialize p_old
   m_p_old.resize(m_num_opt_params);

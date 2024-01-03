@@ -38,9 +38,10 @@ class Objective : public ROL::Objective<double> {
     ROL::Ptr<Array1D<double> const> getVector(V const& vec);
     ROL::Ptr<Array1D<double>> getVector(V& vec);
 
+    int m_num_problems = 0;
     RCP<ParameterList> m_params;
-    RCP<Primal> m_primal;
-    RCP<State> m_state;
+    Array1D<RCP<Primal>> m_primal;
+    Array1D<RCP<State>> m_state;
 
     bool param_diff(std::vector<double> const&);
 
