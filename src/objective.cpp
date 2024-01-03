@@ -4,32 +4,29 @@
 
 namespace calibr8 {
 
-// notes
-//
-//  if (single) {
-//    m_states[0] = rcp(new State(*m_params));
-//    m_primals[0] = rcp(new Primal(m_params, m_state, m_state->disc));
-//  } else {
-//    // do what's in the multi-primal exe for parsing here...
-//    // also modify value() and gradient() overloads to loop
-//    // over num problems
-//    // could put in weights for each problem here too..
-//  }
-
 Objective::Objective(RCP<ParameterList> params) {
   m_params = params;
   bool const is_multiple = params->isSublist("problems");
   if (is_multiple) {
-    m_num_problems = 0;
-    throw std::runtime_error("whoops, I didn't do that yet");
+    auto problems_list = params->sublist("problems");
+    for (auto problem_entry : problems_list) {
+      auto problem_list = Teuchos::getValue<ParameterList>(problem_entry.second);
+      auto rcp_prob_list = RCP(new ParameterList);
+      *rcp_prob_list = problem_list;
+      auto state = rcp(new State(problem_list));
+      auto primal = rcp(new Primal(rcp_prob_list, state, state->disc));
+      m_state.push_back(state);
+      m_primal.push_back(primal);
+    }
+    m_num_problems = m_state.size();
   } else {
     m_num_problems = 1;
     m_state.resize(1);
     m_primal.resize(1);
     m_state[0] = rcp(new State(*m_params));
     m_primal[0] = rcp(new Primal(m_params, m_state[0], m_state[0]->disc));
-    setup_opt_params(params->sublist("inverse", true));
   }
+  setup_opt_params(params->sublist("inverse", true));
 }
 
 Objective::~Objective() {

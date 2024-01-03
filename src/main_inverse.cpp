@@ -28,6 +28,7 @@ void set_default_rol_params(Teuchos::RCP<ParameterList> rol_params) {
 
 static ParameterList get_valid_params() {
   ParameterList p;
+  p.sublist("problems");
   p.sublist("discretization");
   p.sublist("residuals");
   p.sublist("problem");

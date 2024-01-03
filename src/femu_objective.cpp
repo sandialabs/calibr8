@@ -14,25 +14,22 @@ double FEMU_Objective::value(ROL::Vector<double> const& p, double&) {
 
   ROL::Ptr<Array1D<double> const> xp = getVector(p);
 
-  //TODO: generalize to multiple problems
-  // m_primal and m_state should be looped over
   if (param_diff(*xp)) {
-    Array1D<double> const unscaled_params = transform_params(*xp, false);
-    m_state[0]->residuals->local[m_model_form]->set_params(unscaled_params);
-    m_state[0]->d_residuals->local[m_model_form]->set_params(unscaled_params);
-
-    ParameterList problem_params = m_params->sublist("problem", true);
-    int const nsteps = m_state[0]->disc->num_time_steps();
+    // loop over the problems described in the input
     double J = 0.;
-    m_state[0]->disc->destroy_primal();
-    for (int step = 1; step <= nsteps; ++step) {
-      m_primal[0]->solve_at_step(step);
-      J += eval_qoi(m_state[0], m_state[0]->disc, step);
+    for (int prob = 0; prob < m_num_problems; ++prob) {
+      Array1D<double> const unscaled_params = transform_params(*xp, false);
+      m_state[prob]->residuals->local[m_model_form]->set_params(unscaled_params);
+      m_state[prob]->d_residuals->local[m_model_form]->set_params(unscaled_params);
+      int const nsteps = m_state[prob]->disc->num_time_steps();
+      m_state[prob]->disc->destroy_primal();
+      for (int step = 1; step <= nsteps; ++step) {
+        m_primal[prob]->solve_at_step(step);
+        J += eval_qoi(m_state[prob], m_state[prob]->disc, step);
+      }
     }
-
     PCU_Add_Double(J);
     m_J_old = J;
-
   }
 
   return m_J_old;
