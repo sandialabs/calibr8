@@ -17,8 +17,8 @@ double FEMU_Objective::value(ROL::Vector<double> const& p, double&) {
   if (param_diff(*xp)) {
     // loop over the problems described in the input
     double J = 0.;
+    Array1D<double> const unscaled_params = transform_params(*xp, false);
     for (int prob = 0; prob < m_num_problems; ++prob) {
-      Array1D<double> const unscaled_params = transform_params(*xp, false);
       m_state[prob]->residuals->local[m_model_form]->set_params(unscaled_params);
       m_state[prob]->d_residuals->local[m_model_form]->set_params(unscaled_params);
       int const nsteps = m_state[prob]->disc->num_time_steps();

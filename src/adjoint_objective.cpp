@@ -7,38 +7,36 @@
 namespace calibr8 {
 
 Adjoint_Objective::Adjoint_Objective(RCP<ParameterList> params) :
-  //TODO: generalize this to multiple problems
-  // add multiple adjoints
-  Objective(params) {
-  m_adjoint = rcp(new Adjoint(m_params, m_state[0], m_state[0]->disc));
+    Objective(params) {
+  m_adjoint.resize(m_num_problems);
+  for (int prob = 0; prob < m_num_problems; ++prob) {
+    m_adjoint[prob] = rcp(new Adjoint(m_params, m_state[prob],
+        m_state[prob]->disc));
+  }
 }
 
 Adjoint_Objective::~Adjoint_Objective() {}
 
 double Adjoint_Objective::value(ROL::Vector<double> const& p, double&) {
 
-  //TODO: generalize this to multiple problems
-
   ROL::Ptr<Array1D<double> const> xp = getVector(p);
 
   if (param_diff(*xp)) {
-    Array1D<double> const unscaled_params = transform_params(*xp, false);
-    m_state[0]->residuals->local[m_model_form]->set_params(unscaled_params);
-    m_state[0]->d_residuals->local[m_model_form]->set_params(unscaled_params);
-
-    ParameterList problem_params = m_params->sublist("problem", true);
-    int const nsteps = m_state[0]->disc->num_time_steps();
+    // loop over the problems described in the input
     double J = 0.;
-    m_state[0]->disc->destroy_primal();
-
-    for (int step = 1; step <= nsteps; ++step) {
-      m_primal[0]->solve_at_step(step);
-      J += eval_qoi(m_state[0], m_state[0]->disc, step);
+    for (int prob = 0; prob < m_num_problems; ++prob) {
+      Array1D<double> const unscaled_params = transform_params(*xp, false);
+      m_state[prob]->residuals->local[m_model_form]->set_params(unscaled_params);
+      m_state[prob]->d_residuals->local[m_model_form]->set_params(unscaled_params);
+      int const nsteps = m_state[prob]->disc->num_time_steps();
+      m_state[prob]->disc->destroy_primal();
+      for (int step = 1; step <= nsteps; ++step) {
+        m_primal[prob]->solve_at_step(step);
+        J += eval_qoi(m_state[prob], m_state[prob]->disc, step);
+      }
     }
-
-    J = PCU_Add_Double(J);
+    PCU_Add_Double(J);
     m_J_old = J;
-
   }
 
   return m_J_old;
@@ -52,45 +50,52 @@ void Adjoint_Objective::gradient(
   //TODO: generalize this to multiple problems
 
   ROL::Ptr<Array1D<double>> gp = getVector(g);
-
   ROL::Ptr<Array1D<double> const> xp = getVector(p);
   Array1D<double> const unscaled_params = transform_params(*xp, false);
-  m_state[0]->residuals->local[m_model_form]->set_params(unscaled_params);
-  m_state[0]->d_residuals->local[m_model_form]->set_params(unscaled_params);
-
-  ParameterList problem_params = m_params->sublist("problem", true);
-  int const nsteps = m_state[0]->disc->num_time_steps();
-
-  Array1D<double> grad_at_step(m_num_opt_params);
   Array1D<double> grad(m_num_opt_params, 0.);
+  double J = 0.;
 
-  if (param_diff(*xp)) {
+  for (int prob = 0; prob < m_num_problems; ++prob) {
 
-    m_state[0]->disc->destroy_primal();
-    double J = 0.;
+    m_state[prob]->residuals->local[m_model_form]->set_params(unscaled_params);
+    m_state[prob]->d_residuals->local[m_model_form]->set_params(unscaled_params);
 
-    for (int step = 1; step <= nsteps; ++step) {
-      m_primal[0]->solve_at_step(step);
-      J += eval_qoi(m_state[0], m_state[0]->disc, step);
+    ParameterList problem_params = m_params->sublist("problem", true);
+    int const nsteps = m_state[prob]->disc->num_time_steps();
+
+    Array1D<double> grad_at_step(m_num_opt_params);
+
+    if (param_diff(*xp)) {
+
+      m_state[prob]->disc->destroy_primal();
+
+      for (int step = 1; step <= nsteps; ++step) {
+        m_primal[prob]->solve_at_step(step);
+        J += eval_qoi(m_state[prob], m_state[prob]->disc, step);
+      }
     }
 
-    J = PCU_Add_Double(J);
-    m_J_old = J;
+    // create adjoint variables
+    m_state[prob]->disc->create_adjoint(m_state[prob]->residuals, nsteps);
+
+    // solve the adjoint problem
+    for (int step = nsteps; step > 0; --step) {
+      // TODO: put time dependence in adjoint
+      //t += dt;
+      m_adjoint[prob]->solve_at_step(step);
+      grad_at_step = eval_qoi_gradient(m_state[prob], step);
+      for (int i = 0; i < m_num_opt_params; ++i) {
+        grad[i] += grad_at_step[i];
+      }
+    }
+
+    m_state[prob]->disc->destroy_adjoint();
 
   }
 
-  // create adjoint variables
-  m_state[0]->disc->create_adjoint(m_state[0]->residuals, nsteps);
-
-  // solve the adjoint problem
-  for (int step = nsteps; step > 0; --step) {
-    // TODO: put time dependence in adjoint
-    //t += dt;
-    m_adjoint->solve_at_step(step);
-    grad_at_step = eval_qoi_gradient(m_state[0], step);
-    for (int i = 0; i < m_num_opt_params; ++i) {
-      grad[i] += grad_at_step[i];
-    }
+  if (param_diff(*xp)) {
+    J = PCU_Add_Double(J);
+    m_J_old = J;
   }
 
   PCU_Add_Doubles(grad.data(), m_num_opt_params);
@@ -101,7 +106,6 @@ void Adjoint_Objective::gradient(
     (*gp)[i] = canonical_grad[i];
   }
 
-  m_state[0]->disc->destroy_adjoint();
 
 }
 

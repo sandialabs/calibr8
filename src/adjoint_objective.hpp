@@ -19,7 +19,7 @@ class Adjoint_Objective: public Objective {
         double&);
 
   private:
-    RCP<Adjoint> m_adjoint;
+    Array1D<RCP<Adjoint>> m_adjoint;
 
 };
 
