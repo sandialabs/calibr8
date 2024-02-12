@@ -8,6 +8,7 @@ set(CALIBR8_UNIT_TEST_SOURCES
   ${CMAKE_BINARY_DIR}/test/unit/quadrature.cpp
   ${CMAKE_BINARY_DIR}/test/unit/disc.cpp
   global_residual.cpp
+  nn.cpp
   unit_tests.cpp
 )
 
