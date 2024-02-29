@@ -33,8 +33,8 @@ set(CALIBR8_SOURCES
   mechanics_plane_stress.cpp
   mesh_size.cpp
   nested.cpp
+  NN_old.cpp
   NN.cpp
-  NN2.cpp
   normal_traction.cpp
   objective.cpp
   point_wise.cpp

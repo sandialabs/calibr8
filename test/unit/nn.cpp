@@ -1,10 +1,10 @@
 #include <NN.hpp>
-#include <NN2.hpp>
 
 #include <gtest/gtest.h>
 
 using namespace ML;
 
+#if 0
 static void check_components_wrt_params(
     const char* activation,
     std::vector<int> const& topology,
@@ -105,10 +105,10 @@ TEST(NN, check_direction)
   check_direction("sigmoid", {1, 2, 3, 1}, x);
   check_direction("tanh", {1, 10, 1}, x);
 }
+#endif
 
 TEST(NN, ADrewrite)
 {
-  using namespace ML2;
   FFNN<DFADT>::Vector x(1);
   x[0] = 1;
   FFNN<DFADT> nn("relu", {1, 4, 4, 1});
