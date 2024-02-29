@@ -34,6 +34,7 @@ set(CALIBR8_SOURCES
   mesh_size.cpp
   nested.cpp
   NN.cpp
+  NN2.cpp
   normal_traction.cpp
   objective.cpp
   point_wise.cpp
