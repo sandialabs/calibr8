@@ -120,6 +120,41 @@ typename FFNN<T>::Vector FFNN<T>::evaluate(Vector const& x_in)
   return x[end];
 }
 
+template <class T>
+typename FFNN<T>::Vector const& FFNN<T>::get_params()
+{
+  int idx = 0;
+  for (size_t i = 0; i < W.size(); ++i) {
+    for (int j = 0; j < W[i].rows(); ++j) {
+      for (int k = 0; k < W[i].cols(); ++k) {
+        params[idx++] = W[i](j,k);
+      }
+    }
+    for (int j = 0; j < b[i].size(); ++j) {
+      params[idx++] = b[i][j];
+    }
+  }
+  return params;
+}
+
+template <class T>
+void FFNN<T>::set_params(Vector const& p)
+{
+  params = p;
+  int idx = 0;
+  for (size_t i = 0; i < W.size(); ++i) {
+    for (int j = 0; j < W[i].rows(); ++j) {
+      for (int k = 0; k < W[i].cols(); ++k) {
+        W[i](j,k) = params[idx++];
+      }
+    }
+    for (int j = 0; j < b[i].size(); ++j) {
+      b[i][j] = params[idx++];
+    }
+  }
+  ffnn_seed(num_params, W, b);
+}
+
 template class FFNN<double>;
 template class FFNN<SFADT>;
 template class FFNN<DFADT>;
