@@ -188,6 +188,11 @@ int SmallHill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
 }
 
+template <>
+int SmallHill<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
+  return 0;
+}
+
 template <typename T>
 int SmallHill<T>::evaluate(
     RCP<GlobalResidual<T>> global,
@@ -317,5 +322,6 @@ T SmallHill<T>::pressure_scale_factor() {
 
 template class SmallHill<double>;
 template class SmallHill<FADT>;
+template class SmallHill<DFADT>;
 
 }

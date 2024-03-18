@@ -22,6 +22,7 @@ Primal::Primal(
     int const model_form = m_state->model_form;
     m_state->residuals->local[model_form]->init_variables(m_state, false);
     m_state->d_residuals->local[model_form]->init_variables(m_state);
+    m_state->dfad_residuals->local[model_form]->init_variables(m_state);
   }
 }
 

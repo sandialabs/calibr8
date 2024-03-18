@@ -282,6 +282,11 @@ int HypoHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
   return path;
 }
 
+template <>
+int HypoHosford<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
+  return 0;
+}
+
 template <typename T>
 void HypoHosford<T>::evaluate_phi_and_normal(
     T const& a,
@@ -452,5 +457,6 @@ T HypoHosford<T>::pressure_scale_factor() {
 
 template class HypoHosford<double>;
 template class HypoHosford<FADT>;
+template class HypoHosford<DFADT>;
 
 }

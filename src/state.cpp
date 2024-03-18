@@ -38,6 +38,7 @@ State::State(ParameterList const& params) {
   la = rcp(new LinearAlg);
   residuals = create_residuals<double>(resid_params, disc->num_dims());
   d_residuals = create_residuals<FADT>(resid_params, disc->num_dims());
+  dfad_residuals = create_residuals<DFADT>(resid_params, disc->num_dims());
   qoi = create_qois<double>(params);
   d_qoi = create_qois<FADT>(params);
   disc->build_data(residuals->global->num_residuals(), residuals->global->num_eqs());

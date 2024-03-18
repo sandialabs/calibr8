@@ -20,6 +20,9 @@ inline double val<double>(double const& x) { return x; }
 
 template <>
 inline double val<FADT>(FADT const& x) { return x.val(); }
+
+template <>
+inline double val<DFADT>(DFADT const& x) { return x.val(); }
 //! \endcond
 
 //! \brief Get the derivative value of a scalar type
@@ -36,6 +39,9 @@ inline double dx<double>(double const&, int) { return 0.; }
 
 template <>
 inline double dx<FADT>(FADT const& x, int i) { return x.fastAccessDx(i); }
+
+template <>
+inline double dx<DFADT>(DFADT const& x, int i) { return x.fastAccessDx(i); }
 //! \endcond
 
 }

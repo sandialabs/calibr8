@@ -91,5 +91,6 @@ void MechanicsPlaneStress<T>::evaluate(
 
 template class MechanicsPlaneStress<double>;
 template class MechanicsPlaneStress<FADT>;
+template class MechanicsPlaneStress<DFADT>;
 
 }

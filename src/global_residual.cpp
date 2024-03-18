@@ -174,6 +174,9 @@ void GlobalResidual<FADT>::zero_residual() {
   }
 }
 
+template <>
+void GlobalResidual<DFADT>::zero_residual() {}
+
 template <typename T>
 void GlobalResidual<T>::gather(
     Array1D<apf::Field*> const& x,
@@ -213,6 +216,11 @@ int GlobalResidual<FADT>::seed_wrt_x() {
 }
 
 template <>
+int GlobalResidual<DFADT>::seed_wrt_x() {
+  return -1;
+}
+
+template <>
 void GlobalResidual<double>::unseed_wrt_x() {}
 
 template <>
@@ -229,6 +237,9 @@ void GlobalResidual<FADT>::unseed_wrt_x() {
     }
   }
 }
+
+template <>
+void GlobalResidual<DFADT>::unseed_wrt_x() {}
 
 template <>
 int GlobalResidual<double>::seed_wrt_x_prev() {
@@ -249,6 +260,11 @@ int GlobalResidual<FADT>::seed_wrt_x_prev() {
 }
 
 template <>
+int GlobalResidual<DFADT>::seed_wrt_x_prev() {
+  return -1;
+}
+
+template <>
 void GlobalResidual<double>::unseed_wrt_x_prev() {}
 
 template <>
@@ -265,6 +281,9 @@ void GlobalResidual<FADT>::unseed_wrt_x_prev() {
     }
   }
 }
+
+template <>
+void GlobalResidual<DFADT>::unseed_wrt_x_prev() {}
 
 template <typename T>
 void GlobalResidual<T>::interpolate(apf::Vector3 const& iota) {
@@ -382,6 +401,12 @@ EMatrix GlobalResidual<FADT>::eigen_jacobian(int nderivs) const {
     }
   }
   return J;
+}
+
+template <>
+EMatrix GlobalResidual<DFADT>::eigen_jacobian(int) const {
+  EMatrix empty;
+  return empty;
 }
 
 template <typename T>
@@ -529,6 +554,12 @@ void GlobalResidual<FADT>::scatter_lhs(
 
 }
 
+template <>
+void GlobalResidual<DFADT>::scatter_lhs(
+    RCP<Disc>,
+    EMatrix const&,
+    Array2D<RCP<MatrixT>>&) {}
+
 template <typename T>
 void GlobalResidual<T>::unset_elem() {
   m_mesh_elem = nullptr;
@@ -586,12 +617,16 @@ void GlobalResidual<T>::set_time_info(double time, double dt) {
 
 template class GlobalResidual<double>;
 template class GlobalResidual<FADT>;
+template class GlobalResidual<DFADT>;
 
 template RCP<GlobalResidual<double>>
 create_global_residual<double>(ParameterList const&, int);
 
 template RCP<GlobalResidual<FADT>>
 create_global_residual<FADT>(ParameterList const&, int);
+
+template RCP<GlobalResidual<DFADT>>
+create_global_residual<DFADT>(ParameterList const&, int);
 
 
 }

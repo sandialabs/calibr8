@@ -186,6 +186,11 @@ int SmallHillPlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global
 
 }
 
+template <>
+int SmallHillPlaneStress<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
+  return 0;
+}
+
 template <typename T>
 int SmallHillPlaneStress<T>::evaluate(
     RCP<GlobalResidual<T>> global,
@@ -323,5 +328,6 @@ T SmallHillPlaneStress<T>::epsilon_zz(RCP<GlobalResidual<T>> global) {
 
 template class SmallHillPlaneStress<double>;
 template class SmallHillPlaneStress<FADT>;
+template class SmallHillPlaneStress<DFADT>;
 
 }

@@ -5,6 +5,7 @@
 
 #include <MatrixMarket_Tpetra.hpp>
 #include <MiniTensor.h>
+#include <Sacado_Fad_DFad.hpp>
 #include <Sacado_Fad_SLFad.hpp>
 #include <Teuchos_DefaultComm.hpp>
 #include <Tpetra_CrsMatrix.hpp>
@@ -21,8 +22,11 @@ using GO = long long;
 //! \brief The number of maximum derivatives for the FAD type
 static constexpr int nmax_derivs = 16;
 
-//! \brief Forward automatic differention type
+//! \brief Forward automatic differention type (static)
 using FADT = Sacado::Fad::SLFad<double, nmax_derivs>;
+
+//! \brief Forward automatic differention type (dynamic)
+using DFADT = Sacado::Fad::DFad<double>;
 
 //! \brief The small dense linear algebra vector type
 template <typename T>

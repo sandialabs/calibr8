@@ -215,5 +215,6 @@ void Mechanics<T>::evaluate(
 
 template class Mechanics<double>;
 template class Mechanics<FADT>;
+template class Mechanics<DFADT>;
 
 }

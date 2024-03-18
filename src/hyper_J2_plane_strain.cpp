@@ -219,6 +219,11 @@ int HyperJ2PlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) 
 
 }
 
+template <>
+int HyperJ2PlaneStrain<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
+  return 0;
+}
+
 template <typename T>
 int HyperJ2PlaneStrain<T>::evaluate(
     RCP<GlobalResidual<T>> global,
@@ -364,5 +369,6 @@ T HyperJ2PlaneStrain<T>::pressure_scale_factor() {
 
 template class HyperJ2PlaneStrain<double>;
 template class HyperJ2PlaneStrain<FADT>;
+template class HyperJ2PlaneStrain<DFADT>;
 
 }

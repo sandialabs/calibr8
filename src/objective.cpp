@@ -108,6 +108,7 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
   for (int prob = 0; prob < m_num_problems; ++prob) {
     m_state[prob]->residuals->local[m_model_form]->set_active_indices(active_indices);
     m_state[prob]->d_residuals->local[m_model_form]->set_active_indices(active_indices);
+    m_state[prob]->dfad_residuals->local[m_model_form]->set_active_indices(active_indices);
   }
 
   // initialize p_old
