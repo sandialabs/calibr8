@@ -402,6 +402,8 @@ class LocalResidual {
     Array2D<int> m_active_indices;
     int m_num_active_params = -1;
 
+    int m_num_embedded_params = -1;
+
     Array1D<std::string> m_elem_set_names;
 
     int m_num_dims = -1;

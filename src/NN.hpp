@@ -80,6 +80,7 @@ class FFNN
   public:
     FFNN(const char* activation, std::vector<int> const& topology);
     Vector const& get_params();
+    int get_num_params() {return num_params;}
     void set_params(Vector const& p);
     Vector evaluate(Vector const& x);
   private:
