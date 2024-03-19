@@ -44,4 +44,22 @@ template <>
 inline double dx<DFADT>(DFADT const& x, int i) { return x.fastAccessDx(i); }
 //! \endcond
 
+//! \brief Get the number of derivatives of a scalar type
+//! \tparam T The scalar type
+//! \param x The input to number of derivatives for
+template <typename T>
+double num_derivs(T const& x);
+
+//! \cond
+// template specializations below
+template <>
+inline double num_derivs<double>(double const&) { return 0.; }
+
+template <>
+inline double num_derivs<FADT>(FADT const& x) { return x.size(); }
+
+template <>
+inline double num_derivs<DFADT>(DFADT const& x) { return x.size(); }
+//! \endcond
+
 }

@@ -146,8 +146,13 @@ EMatrix LocalResidual<DFADT>::eigen_jacobian(int nderivs) const {
   for (int i = 0; i < m_num_residuals; ++i) {
     for (int i_eq = 0; i_eq < m_num_eqs[i]; ++i_eq) {
       int const i_idx = dxi_idx(i, i_eq);
-      for (int j = 0; j < nderivs; ++j) {
-        J(i_idx, j) = m_R[i][i_eq].fastAccessDx(j);
+      int const num_dfad_derivs = num_derivs(m_R[i][i_eq]);
+      if (num_dfad_derivs == 0) {
+        J.row(i_idx).setZero();
+      } else {
+        for (int j = 0; j < nderivs; ++j) {
+          J(i_idx, j) = m_R[i][i_eq].fastAccessDx(j);
+        }
       }
     }
   }
