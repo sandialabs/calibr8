@@ -22,12 +22,12 @@ double Adjoint_Objective::value(ROL::Vector<double> const& p, double&) {
   ROL::Ptr<Array1D<double> const> xp = getVector(p);
 
   if (param_diff(*xp)) {
-    // loop over the problems described in the input
     double J = 0.;
     for (int prob = 0; prob < m_num_problems; ++prob) {
       Array1D<double> const unscaled_params = transform_params(*xp, false);
       m_state[prob]->residuals->local[m_model_form]->set_params(unscaled_params);
       m_state[prob]->d_residuals->local[m_model_form]->set_params(unscaled_params);
+      m_state[prob]->dfad_residuals->local[m_model_form]->set_params(unscaled_params);
       int const nsteps = m_state[prob]->disc->num_time_steps();
       m_state[prob]->disc->destroy_primal();
       for (int step = 1; step <= nsteps; ++step) {
@@ -46,8 +46,6 @@ void Adjoint_Objective::gradient(
     ROL::Vector<double>& g,
     ROL::Vector<double> const& p,
     double&) {
-  
-  //TODO: generalize this to multiple problems
 
   ROL::Ptr<Array1D<double>> gp = getVector(g);
   ROL::Ptr<Array1D<double> const> xp = getVector(p);
@@ -59,6 +57,7 @@ void Adjoint_Objective::gradient(
 
     m_state[prob]->residuals->local[m_model_form]->set_params(unscaled_params);
     m_state[prob]->d_residuals->local[m_model_form]->set_params(unscaled_params);
+    m_state[prob]->dfad_residuals->local[m_model_form]->set_params(unscaled_params);
 
     int const nsteps = m_state[prob]->disc->num_time_steps();
 

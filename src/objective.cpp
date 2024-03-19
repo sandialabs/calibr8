@@ -105,6 +105,14 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
     }
   }
 
+  int const num_embedded_params = m_state[0]->residuals->local[m_model_form]->num_embedded_params();
+
+  for (int i = 0; i < num_embedded_params; ++i) {
+    m_lower_bounds.push_back(0.);
+    m_upper_bounds.push_back(50.);
+  }
+  m_num_opt_params += num_embedded_params;
+
   for (int prob = 0; prob < m_num_problems; ++prob) {
     m_state[prob]->residuals->local[m_model_form]->set_active_indices(active_indices);
     m_state[prob]->d_residuals->local[m_model_form]->set_active_indices(active_indices);

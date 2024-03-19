@@ -63,6 +63,10 @@ class HybridHyperJ2PlaneStress : public LocalResidual<T> {
     //! \param global The global residual equations
     T pressure_scale_factor();
 
+    EVector get_embedded_params() const;
+
+    void set_embedded_params(EVector const& nn_values);
+
   private:
 
     int m_max_iters;

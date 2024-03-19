@@ -103,15 +103,30 @@ void HybridHyperJ2PlaneStress<T>::init_params() {
   Array1D<int> const topology = embedded_model_params.get<Teuchos::Array<int>>("topology").toVector();
   m_nn_input_scale = embedded_model_params.get<double>("input scale");
   m_nn_output_scale = embedded_model_params.get<double>("output scale");
-  m_neural_network = rcp(new ML::FFNN<T>(activation, topology));
+  bool positive_weights = true;
+  m_neural_network = rcp(new ML::FFNN<T>(activation, topology, positive_weights));
   this->m_num_embedded_params = m_neural_network->get_num_params();
+}
 
-  Eigen::Matrix<T, Eigen::Dynamic, 1> nn_params(4);
-  nn_params[0] = 3.34794074;
-  nn_params[1] = 0.19927066;
-  nn_params[2] = 23.66934635;
-  nn_params[3] = 2.71828183;
+template <typename T>
+void HybridHyperJ2PlaneStress<T>::set_embedded_params(EVector const& nn_values) {
+  int const num_embedded_params = this->m_num_embedded_params;
+  Eigen::Matrix<T, Eigen::Dynamic, 1> nn_params(num_embedded_params);
+  for (int i = 0; i < num_embedded_params; ++i) {
+    nn_params(i) = nn_values(i);
+  }
   m_neural_network->set_params(nn_params);
+}
+
+template <typename T>
+EVector HybridHyperJ2PlaneStress<T>::get_embedded_params() const {
+  int const num_embedded_params = this->m_num_embedded_params;
+  EVector nn_values(num_embedded_params);
+  auto const& nn_params = m_neural_network->get_params();
+  for (int i = 0; i < num_embedded_params; ++i) {
+    nn_values(i) = val(nn_params(i));
+  }
+  return nn_values;
 }
 
 template <typename T>
