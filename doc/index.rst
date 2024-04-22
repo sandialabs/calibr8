@@ -10,4 +10,5 @@ Welcome to the Calibr8 documentation.
     :maxdepth: 1
     :caption: Table of Contents:
 
+    theory/theory
     usage/usage
