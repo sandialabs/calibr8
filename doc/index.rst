@@ -12,3 +12,4 @@ Welcome to the Calibr8 documentation.
 
     theory/theory
     usage/usage
+    compilation/compilation
