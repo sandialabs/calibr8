@@ -68,6 +68,9 @@ class HypoHillPlaneStress : public LocalResidual<T> {
     //! \param global The global residual equations
     Tensor<T> rotated_cauchy(RCP<GlobalResidual<T>> global);
 
+    //! \brief Get the rotation matrix from the material to global coordinates
+    Tensor<T> compute_Q();
+
     int m_max_iters;
     double m_abs_tol;
     double m_rel_tol;

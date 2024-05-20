@@ -35,6 +35,10 @@ static ParameterList get_valid_material_params() {
   p.set<double>("R11", 0.);
   p.set<double>("R22", 0.);
   p.set<double>("R01", 0.);
+  p.set<double>("Q00", 0.);
+  p.set<double>("Q01", 0.);
+  p.set<double>("Q10", 0.);
+  p.set<double>("Q11", 0.);
   return p;
 }
 
@@ -51,7 +55,7 @@ HypoHillPlaneStress<T>::HypoHillPlaneStress(ParameterList const& inputs, int ndi
   this->m_var_types.resize(num_residuals);
   this->m_resid_names.resize(num_residuals);
 
-  // unrotated Cauchy stress
+  // unrotated, material Cauchy stress
   this->m_resid_names[0] = "TC";
   this->m_var_types[0] = SYM_TENSOR;
   this->m_num_eqs[0] = get_num_eqs(SYM_TENSOR, ndims);
@@ -80,7 +84,7 @@ HypoHillPlaneStress<T>::~HypoHillPlaneStress() {
 template <typename T>
 void HypoHillPlaneStress<T>::init_params() {
 
-  int const num_params = 9;
+  int const num_params = 13;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
 
@@ -94,6 +98,10 @@ void HypoHillPlaneStress<T>::init_params() {
   this->m_param_names[6] = "R11";
   this->m_param_names[7] = "R22";
   this->m_param_names[8] = "R01";
+  this->m_param_names[9] = "Q00";
+  this->m_param_names[10] = "Q01";
+  this->m_param_names[11] = "Q10";
+  this->m_param_names[12] = "Q11";
 
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
@@ -115,6 +123,10 @@ void HypoHillPlaneStress<T>::init_params() {
     this->m_param_values[es][6] = material_params.get<double>("R11");
     this->m_param_values[es][7] = material_params.get<double>("R22");
     this->m_param_values[es][8] = material_params.get<double>("R01");
+    this->m_param_values[es][9] = material_params.get<double>("Q00");
+    this->m_param_values[es][10] = material_params.get<double>("Q01");
+    this->m_param_values[es][11] = material_params.get<double>("Q10");
+    this->m_param_values[es][12] = material_params.get<double>("Q11");
   }
 
   this->m_active_indices.resize(1);
@@ -141,7 +153,17 @@ void HypoHillPlaneStress<T>::init_variables_impl() {
 }
 
 template <typename T>
-Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
+Tensor<T> HypoHillPlaneStress<T>::compute_Q() {
+  Tensor<T> Q = minitensor::zero<T>(this->m_num_dims);
+  Q(0, 0) = this->m_params[9];
+  Q(0, 1) = this->m_params[10];
+  Q(1, 0) = this->m_params[11];
+  Q(1, 1) = this->m_params[12];
+  return Q;
+}
+
+template <typename T>
+Tensor<T> eval_d(RCP<GlobalResidual<T>> global, Tensor<T> const& Q) {
   int const ndims = global->num_dims();
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const grad_u = global->grad_vector_x(0);
@@ -152,7 +174,7 @@ Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
   Tensor<T> const R = minitensor::polar_rotation(F);
   Tensor<T> const L = (F - F_prev) * Finv;
   Tensor<T> const D = 0.5 * (L + transpose(L));
-  Tensor<T> const d = transpose(R) * D * R;
+  Tensor<T> const d = transpose(Q) * transpose(R) * D * R * Q;
   return d;
 }
 
@@ -177,7 +199,8 @@ int HypoHillPlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global)
     Tensor<FADT> const TC_old = this->sym_tensor_xi_prev(0);
     FADT const alpha_old = this->scalar_xi_prev(1);
     FADT const lambda_z_old = this->scalar_xi_prev(2);
-    Tensor<FADT> const d = eval_d(global);
+    Tensor<FADT> const Q = compute_Q();
+    Tensor<FADT> const d = eval_d(global, Q);
     FADT const d_zz = -lambda * trace(d) / (lambda + 2. * mu);
     Tensor<FADT> const TC = TC_old + lambda * (trace(d) + d_zz) * I + 2. * mu * d;
     FADT const alpha = alpha_old;
@@ -276,7 +299,8 @@ int HypoHillPlaneStress<T>::evaluate(
   T R_lambda_z;
 
   Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const d = eval_d(global);
+  Tensor<T> const Q = compute_Q();
+  Tensor<T> const d = eval_d(global, Q);
   T const d_zz = -lambda * trace(d) / (lambda +  2. * mu);
   R_TC = TC - TC_old - lambda * (trace(d) + d_zz) * I - 2. * mu * d;
 
@@ -342,12 +366,13 @@ int HypoHillPlaneStress<T>::evaluate(
 template <typename T>
 Tensor<T> HypoHillPlaneStress<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = this->m_num_dims;
+  Tensor<T> const Q = this->compute_Q();
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const grad_u = global->grad_vector_x(0);
   Tensor<T> const F = grad_u + I;
   Tensor<T> const TC = this->sym_tensor_xi(0);
   Tensor<T> const R = minitensor::polar_rotation(F);
-  Tensor<T> const RC = R * TC * transpose(R);
+  Tensor<T> const RC = R * Q * TC * transpose(Q) * transpose(R);
   return RC;
 }
 
