@@ -25,6 +25,7 @@ double Adjoint_Objective::value(ROL::Vector<double> const& p, double&) {
     // loop over the problems described in the input
     double J = 0.;
     for (int prob = 0; prob < m_num_problems; ++prob) {
+      double J_prob = 0.;
       Array1D<double> const unscaled_params = transform_params(*xp, false);
       m_state[prob]->residuals->local[m_model_form]->set_params(unscaled_params);
       m_state[prob]->d_residuals->local[m_model_form]->set_params(unscaled_params);
@@ -32,10 +33,11 @@ double Adjoint_Objective::value(ROL::Vector<double> const& p, double&) {
       m_state[prob]->disc->destroy_primal();
       for (int step = 1; step <= nsteps; ++step) {
         m_primal[prob]->solve_at_step(step);
-        J += eval_qoi(m_state[prob], m_state[prob]->disc, step);
+        J_prob += eval_qoi(m_state[prob], m_state[prob]->disc, step);
       }
+      J_prob = PCU_Add_Double(J_prob);
+      J += J_prob;
     }
-    PCU_Add_Double(J);
     m_J_old = J;
   }
 
@@ -56,6 +58,7 @@ void Adjoint_Objective::gradient(
   double J = 0.;
 
   for (int prob = 0; prob < m_num_problems; ++prob) {
+    double J_prob = 0.;
 
     m_state[prob]->residuals->local[m_model_form]->set_params(unscaled_params);
     m_state[prob]->d_residuals->local[m_model_form]->set_params(unscaled_params);
@@ -70,7 +73,7 @@ void Adjoint_Objective::gradient(
 
       for (int step = 1; step <= nsteps; ++step) {
         m_primal[prob]->solve_at_step(step);
-        J += eval_qoi(m_state[prob], m_state[prob]->disc, step);
+        J_prob += eval_qoi(m_state[prob], m_state[prob]->disc, step);
       }
     }
 
@@ -90,10 +93,14 @@ void Adjoint_Objective::gradient(
 
     m_state[prob]->disc->destroy_adjoint();
 
+    if (param_diff(*xp)) {
+      J_prob = PCU_Add_Double(J_prob);
+      J += J_prob;
+    }
+
   }
 
   if (param_diff(*xp)) {
-    J = PCU_Add_Double(J);
     m_J_old = J;
   }
 
