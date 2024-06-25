@@ -1,1 +1,6 @@
-build
+flavor/*/build/
+flavor/*/install/
+flavor/*/venv/
+source/calibr8
+source/gtest
+source/zlib-ng
