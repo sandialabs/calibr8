@@ -2,5 +2,8 @@ flavor/*/build/
 flavor/*/install/
 flavor/*/venv/
 source/calibr8
+source/eigen
+source/gmodel
 source/gtest
+source/hdf5
 source/zlib-ng

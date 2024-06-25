@@ -1,6 +1,9 @@
 capp_app(
   ROOT_PACKAGES
+  eigen
+  gmodel
   gtest
+  hdf5
   zlib-ng
 )
 
