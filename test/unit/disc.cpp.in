@@ -1,4 +1,4 @@
-#include <gtest.h>
+#include <gtest/gtest.h>
 #include <Teuchos_YamlParameterListHelpers.hpp>
 #include <disc.hpp>
 #include <nested.hpp>
