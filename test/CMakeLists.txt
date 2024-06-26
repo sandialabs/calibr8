@@ -2,6 +2,7 @@ if(NOT BUILD_TESTING)
   return()
 endif()
 
+add_subdirectory(gtest)
 add_subdirectory(unit)
 add_subdirectory(primal)
 add_subdirectory(adjoint)

@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+#include <gtest.h>
 #include <global_residual.hpp>
 
 #include <mechanics.hpp>

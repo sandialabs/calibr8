@@ -1,6 +1,6 @@
 #include <NN.hpp>
 
-#include <gtest/gtest.h>
+#include <gtest.h>
 
 using namespace ML;
 
