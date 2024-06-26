@@ -1,0 +1,16 @@
+capp_package(
+  GIT_URL https://github.com:/bgranzow/omega_h.git
+  COMMIT 6dec0822c4ab01979b73c2e516caee9ed98fd239
+  OPTIONS
+  "-DCMAKE_C_COMPILER=${CALIBR8_MPICC}"
+  "-DCMAKE_CXX_COMPILER=${CALIBR8_MPICXX}"
+  "-DBUILD_TESTING=OFF"
+  "-DOmega_h_USE_SEACASExodus=ON"
+  "-DOmega_h_USE_MPI=ON"
+  "-DHDF5_PREFIX=${CAPP_INSTALL_ROOT}/hdf5"
+  "-DTrilinos_PREFIX=${CAPP_INSTALL_ROOT}/trilinos"
+  "-DZLIB_ROOT=${CAPP_INSTALL_ROOT}/zlib-ng"
+  DEPENDENCIES 
+  trilinos
+  IGNORE_UNCOMMITTED
+)

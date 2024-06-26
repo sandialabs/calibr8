@@ -2,8 +2,8 @@ set(HDF5_LIBRARIES "hdf5_hl\;hdf5\;z")
 set(NETCDF_LIBRARIES "netcdf")
 
 capp_package(
-  GIT_URL git@github.com:trilinos/trilinos.git
-  COMMIT 77005adad6d625dbf62009620ffdc4ffa06b9fac
+  GIT_URL https://github.com/dtseidl/trilinos.git
+  COMMIT 4f6cf4e1aa78a823b9af82ecd3b06b083039d1d2
   OPTIONS
   "-DTrilinos_DISABLE_ENABLED_FORWARD_DEP_PACKAGES=ON"
   "-DTPL_ENABLE_MPI=ON"
