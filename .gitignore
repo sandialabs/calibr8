@@ -6,4 +6,7 @@ source/eigen
 source/gmodel
 source/gtest
 source/hdf5
+source/netcdf-c
+source/parmetis
+source/trilinos
 source/zlib-ng
