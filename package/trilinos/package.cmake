@@ -57,6 +57,7 @@ capp_package(
   "-DTrilinos_ENABLE_Kokkos=ON"
   "-DKokkos_ENABLE_SERIAL=ON"
   "-DKokkos_ENABLE_OPENMP=OFF"
+  ${TRILINOS_EXTRA_LINK_FLAGS}
   "-DTPL_ENABLE_ParMETIS=ON"
   "-DParMETIS_INCLUDE_DIRS=${CAPP_INSTALL_ROOT}/parmetis/include"
   "-DParMETIS_LIBRARY_DIRS=${CAPP_INSTALL_ROOT}/parmetis/lib"
