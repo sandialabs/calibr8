@@ -1,0 +1,19 @@
+Required software:
+  - git
+  - cmake
+  - gcc, g++ and MPI compiler wrappers (e.g. openmpi, mpich)
+
+Installation:
+- Choose a "flavor" that suites your environment and installation preferences:
+  - The convention for a flavor name is "target_platform-libraries_type":
+    - osx-static or osx-shared (for Mac OSX)
+    - cee-static or toss3-static (for Linux; the differences are minor)
+    (still working on shared libraries flavors for Linux)
+
+- Run the following commands in the root directory for your flavor
+  (cee-static in this example) to build and install Calibr8 and all
+  of its dependencies using 4 processors
+    > source capp-setup.sh
+    > source flavor/cee-static/flavor.cmake
+    > capp load
+    > capp build -f cee-static -j 4
