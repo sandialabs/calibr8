@@ -1,0 +1,5 @@
+set(NETCDF_OSX_OPTIONS "-DNC_M4=/Library/Developer/CommandLineTools/usr/bin/gm4")
+set(CALIBR8_ZLIB_PATH "${CAPP_INSTALL_ROOT}/zlib-ng/lib/libz.a")
+set(CALIBR8_ZOLTAN_PATH "${CAPP_INSTALL_ROOT}/trilinos/lib/libzoltan.a")
+set(CALIBR8_METIS_PATH "${CAPP_INSTALL_ROOT}/parmetis/lib/libmetis.a")
+set(CALIBR8_PARMETIS_PATH "${CAPP_INSTALL_ROOT}/parmetis/lib/libparmetis.a")
