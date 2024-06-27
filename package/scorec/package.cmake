@@ -19,6 +19,7 @@ capp_package(
   "-DIS_TESTING=OFF"
   "-DZLIB_ROOT=${CAPP_INSTALL_ROOT}/zlib-ng"
   "-DZLIB_LIBRARY=${CALIBR8_ZLIB_PATH}"
+  ${TRILINOS_CMAKE_EXE_LINKER_FLAGS}
   DEPENDENCIES 
   trilinos
   omega_h
