@@ -14,7 +14,6 @@ capp_package(
   "-DCMAKE_INSTALL_RPATH=${CAPP_INSTALL_ROOT}/calibr8/lib"
   "-DGTest_ROOT=${CAPP_INSTALL_ROOT}/gtest"
   ${CALIBR8_OSX_RPATH_OPTIONS}
-  ${TRILINOS_CMAKE_EXE_LINKER_FLAGS}
   DEPENDENCIES 
   scorec
   trilinos

@@ -1,6 +1,32 @@
 set(HDF5_LIBRARIES "hdf5_hl\;hdf5\;z")
 set(NETCDF_LIBRARIES "netcdf")
 
+set(TRILINOS_SEACAS_OPTIONS
+  "-DTrilinos_ENABLE_SEACAS=ON"
+  "-DSEACAS_ENABLE_TESTS=OFF"
+  "-DTrilinos_ENABLE_SEACASExodus=ON"
+  "-DTrilinos_ENABLE_SEACASIoss=ON"
+  "-DTrilinos_ENABLE_SEACASSupes=OFF"
+  "-DTrilinos_ENABLE_SEACASNemesis=OFF"
+  "-DTrilinos_ENABLE_SEACASChaco=OFF"
+  "-DTrilinos_ENABLE_SEACASAprepro_lib=OFF"
+  "-DTrilinos_ENABLE_SEACASSuplibC=OFF"
+  "-DTrilinos_ENABLE_SEACASSuplibCpp=OFF"
+  "-DTrilinos_ENABLE_SEACASAprepro=OFF"
+  "-DTrilinos_ENABLE_SEACASConjoin=OFF"
+  "-DTrilinos_ENABLE_SEACASEjoin=OFF"
+  "-DTrilinos_ENABLE_SEACASEpu=OFF"
+  "-DTrilinos_ENABLE_SEACASCpup=OFF"
+  "-DTrilinos_ENABLE_SEACASExodiff=OFF"
+  "-DTrilinos_ENABLE_SEACASExomatlab=OFF"
+  "-DTrilinos_ENABLE_SEACASExo_format=OFF"
+  "-DTrilinos_ENABLE_SEACASNas2exo=OFF"
+  "-DTrilinos_ENABLE_SEACASZellij=OFF"
+  "-DTrilinos_ENABLE_SEACASNemslice=OFF"
+  "-DTrilinos_ENABLE_SEACASNemspread=OFF"
+  "-DTrilinos_ENABLE_SEACASSlice=OFF"
+)
+
 capp_package(
   GIT_URL https://github.com/dtseidl/trilinos.git
   COMMIT 4f6cf4e1aa78a823b9af82ecd3b06b083039d1d2
@@ -39,11 +65,6 @@ capp_package(
   "-DTrilinos_ENABLE_ThyraEpetraAdapters=OFF"
   "-DTrilinos_ENABLE_ThyraEpetraExtAdapters=OFF"
   "-DTrilinos_ENABLE_ThyraTpetraAdapters=ON"
-  "-DTrilinos_ENABLE_SEACAS=ON"
-  "-DSEACAS_ENABLE_TESTS=OFF"
-  "-DTrilinos_ENABLE_SEACASExodus=ON"
-  "-DTrilinos_ENABLE_SEACASIoss=ON"
-  "-DTrilinos_ENABLE_SEACASSupes=OFF"
   "-DTrilinos_ENABLE_Phalanx=OFF"
   "-DTrilinos_ENABLE_STKIO=OFF"
   "-DTrilinos_ENABLE_STKMesh=OFF"
@@ -61,6 +82,7 @@ capp_package(
   "-DTPL_ENABLE_ParMETIS=ON"
   ${TRILINOS_EXTRA_LINK_FLAGS}
   ${TRILINOS_CMAKE_EXE_LINKER_FLAGS}
+  ${TRILINOS_SEACAS_OPTIONS}
   "-DParMETIS_INCLUDE_DIRS=${CAPP_INSTALL_ROOT}/parmetis/include"
   "-DParMETIS_LIBRARY_DIRS=${CAPP_INSTALL_ROOT}/parmetis/lib"
   "-DTPL_ENABLE_METIS=ON"
@@ -89,3 +111,4 @@ capp_package(
   netcdf-c
   parmetis
 )
+#  ${HDF5_STATIC_CMAKE_EXE_LINKER_FLAGS}
