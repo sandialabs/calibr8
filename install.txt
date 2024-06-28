@@ -14,6 +14,6 @@ Installation:
   (cee-static in this example) to build and install Calibr8 and all
   of its dependencies using 4 processors
     > source capp-setup.sh
-    > source env/cee-static
+    > source env/cee-static.sh
     > capp load
     > capp build -f cee-static -j 4
