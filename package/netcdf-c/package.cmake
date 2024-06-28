@@ -7,7 +7,7 @@ set(NETCDF_HDF5_OPTIONS
   "-DHAS_READCHUNKS=TRUE"
   "-DHAS_HDF5_ROS3=FALSE"
   "-DHAVE_HDF5_ZLIB=TRUE"
-  "-DHDF5_USE_STATIC_LIBRARIES=TRUE")
+)
 
 capp_package(
   GIT_URL git@github.com:Unidata/netcdf-c.git
