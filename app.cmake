@@ -1,4 +1,6 @@
 capp_app(
+  BUILD_TYPE
+  ${CALIBR8_BUILD_TYPE}
   ROOT_PACKAGES
   calibr8
 )
