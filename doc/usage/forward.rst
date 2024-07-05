@@ -141,6 +141,10 @@ boundary conditions at load increments. (THIS SYNTAX MAY CHANGE AS
 WE MOVE TO CONSIDER TRUE TRANSIENT PHYSICS AND NOT QUASI-STATIC
 BEHAVIOR).
 
+Additionally, there are some pre-included geometries and meshes
+for use in testing CALIBR8 available in the
+`repository <https://github.com/sandialabs/calibr8/tree/main/source/calibr8/test/mesh>`_.
+
 .. code-block:: yaml
 
     discretization:
