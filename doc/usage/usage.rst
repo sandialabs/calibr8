@@ -4,12 +4,12 @@
 Usage
 =====
 
-This page documents some intended use cases of Calibr8.
-
-.. code-block:: c++
-
-  a = b + 2
+This page documents intended use cases of the CALIBR8
+code. The most basic building block of CALIBR8 is the
+forward model problem.
 
 .. toctree::
     :maxdepth: 1
     :caption: Table of Contents:
+
+    forward.rst
