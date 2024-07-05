@@ -18,4 +18,3 @@ and how to use it.
 ##
 
 At Sandia, Calibr8 is SCR# 2690.0
-![alt text](doc/xspec.png "xspec")
