@@ -24,6 +24,7 @@ endfunction()
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(MPI)
+find_package(GTest REQUIRED)
 
 include(cmake/dependencies.cmake)
 add_subdirectory(doc)

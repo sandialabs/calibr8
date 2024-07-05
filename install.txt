@@ -1,62 +1,16 @@
-export CALIBR8DIR to base directory
+Required software:
+  - git
+  - cmake
+  - C and C++ compilers and MPI wrappers (e.g. openmpi or mpich)
 
-cd $CALIBR8DIR
-git clone git@github.com:ibaned/gmodel
-cd gmodel
-mkdir build
-cd build
-./do-config-gmodel.sh
-make install -j 4
+Installation:
+- Choose a "flavor" that suites your environment and installation preferences:
+  e.g. linux-shared, osx-static
 
-cd $CALIBR8DIR
-git clone git@github.com:ibaned/parmetis
-cd parmetis
-mkdir build
-cd build
-./do-config-parmetis.sh
-make install -j 4
-
-cd $CALIBR8DIR
-wget https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz
-tar -xzvf boost_1_68_0.tar.gz
-mv boost_1_67_0 boost
-mv boost_1_68_0.tar.gz boost
-cd boost
-echo "using mpi : mpicxx ;" >> $HOME/user-config.jam
-./bootstrap.sh --with-libraries=signals,regex,filesystem,system,mpi,serialization,thread,program_options,exception --prefix=$CALIBR8/install/boost
-./b2 install
-
-cd $CALIBR8DIR
-git clone git@github.com:trilinos/trilinos
-cd trilinos
-mkdir build
-cd build
-./do-config-trilinos.sh
-make install -j 4
-
-cd $CALIBR8DIR
-git clone git@github.com:scorec/core scorec
-cd scorec
-mkdir build
-cd build
-./do-config-scorec.sh
-make install -j 4
-
-cd $CALIBR8DIR
-git clone git@cee-gitlab.sandia.gov:calibr8/calibr8
-cd calibr8
-mkdir build
-cd build
-./do-config-calibr8.sh
-make install -j 4
-
-cd $CALIBR8DIR
-wget https://gitlab.com/libeigen/eigen/-/archive/3.3.9/eigen-3.3.9.tar.gz
-tar -xzvf eigen-3.3.9.tar.gz
-mv eigen-3.3.9 eigen
-mv eigen-3.3.9.tar.gz eigen
-cd eigen
-mkdir build
-cd build
-./do-config-eigen.sh
-make install -j 4
+- Run the following commands in the root directory for your flavor
+  (linux-shared in this example) to build and install Calibr8 and all
+  of its dependencies using 4 processors
+    > source capp-setup.sh
+    > source env/linux-shared.sh
+    > capp load
+    > capp build -f linux-shared -j 4

@@ -11,7 +11,6 @@ endfunction()
 
 assert_trilinos_pkg(Amesos2)
 assert_trilinos_pkg(Belos)
-assert_trilinos_pkg(Gtest)
 assert_trilinos_pkg(MueLu)
 assert_trilinos_pkg(Pamgen)
 assert_trilinos_pkg(Sacado)

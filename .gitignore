@@ -1,1 +1,13 @@
-build
+flavor/*/build/
+flavor/*/install/
+flavor/*/venv/
+source/eigen
+source/gmodel
+source/gtest
+source/hdf5
+source/netcdf-c
+source/omega_h
+source/parmetis
+source/scorec
+source/trilinos
+source/zlib-ng

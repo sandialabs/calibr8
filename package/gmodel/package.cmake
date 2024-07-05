@@ -1,0 +1,8 @@
+capp_package(
+  GIT_URL https://github.com/dtseidl/gmodel
+  COMMIT 22db986786748657b2c6fdb8c2f127b495b5f92a
+  OPTIONS
+  "-DBUILD_SHARED_LIBS=${CALIBR8_BUILD_SHARED_LIBS}"
+  DEPENDENCIES 
+  IGNORE_UNCOMMITTED
+)
