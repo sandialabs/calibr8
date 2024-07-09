@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Running a forward problem &mdash; Calibr8 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=8d563738"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Theory" href="../theory/theory.html" />
+    <link rel="prev" title="Usage" href="usage.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Calibr8
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Table of Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../compilation/compilation.html">Compiliation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="usage.html">Usage</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Running a forward problem</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#example-input-yaml-file">Example Input YAML FILE</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#problem">Problem</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#discretization">Discretization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#residuals">Residuals</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#boundary-conditions">Boundary Conditions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#linear-algebra">Linear Algebra</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../theory/theory.html">Theory</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Calibr8</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="usage.html">Usage</a></li>
+      <li class="breadcrumb-item active">Running a forward problem</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/usage/forward.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="running-a-forward-problem">
+<span id="forward"></span><h1>Running a forward problem<a class="headerlink" href="#running-a-forward-problem" title="Link to this heading"></a></h1>
+<p>Once the CALIBR8 project has been compiled and the environment
+has been loaded with the command <cite>capp load</cite> (see the instructions
+<a class="reference internal" href="../compilation/compilation.html#compilation"><span class="std std-ref">Compiliation</span></a>.), running a forward problem is as simple as
+calling the CALIBR8 executable <cite>primal</cite>, which should now exist in
+your <cite>PATH</cite> with an input YAML file.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>primal<span class="w"> </span>&lt;input.yaml&gt;
+</pre></div>
+</div>
+<section id="example-input-yaml-file">
+<h2>Example Input YAML FILE<a class="headerlink" href="#example-input-yaml-file" title="Link to this heading"></a></h2>
+<p>Below are the contents of an example input YAML file, that we will
+go through line by line in subsequent sections:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">example_input</span><span class="p">:</span>
+
+<span class="w">  </span><span class="nt">problem</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">J2_finite_2D</span>
+
+<span class="w">  </span><span class="nt">discretization</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">geom file</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;notch2D.dmg&#39;</span>
+<span class="w">    </span><span class="nt">mesh file</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;notch2D.smb&#39;</span>
+<span class="w">    </span><span class="nt">assoc file</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;notch2D.txt&#39;</span>
+<span class="w">    </span><span class="nt">num steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<span class="w">    </span><span class="nt">step size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.</span>
+
+<span class="w">  </span><span class="nt">residuals</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">global residual</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;mechanics&#39;</span>
+<span class="w">      </span><span class="nt">nonlinear max iters</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+<span class="w">      </span><span class="nt">nonlinear absolute tol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.e-12</span>
+<span class="w">      </span><span class="nt">nonlinear relative tol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.e-12</span>
+<span class="w">      </span><span class="nt">print convergence</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">local residual</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;hyper_J2_plane_strain&#39;</span>
+<span class="w">      </span><span class="nt">nonlinear max iters</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span>
+<span class="w">      </span><span class="nt">nonlinear absolute tol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.e-12</span>
+<span class="w">      </span><span class="nt">nonlinear relative tol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.e-12</span>
+<span class="w">      </span><span class="nt">materials</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">body</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">E</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000.</span>
+<span class="w">          </span><span class="nt">nu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span>
+<span class="w">          </span><span class="nt">K</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100.</span>
+<span class="w">          </span><span class="nt">Y</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.</span>
+<span class="w">          </span><span class="nt">Y_inf</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.</span>
+<span class="w">          </span><span class="nt">delta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.</span>
+
+<span class="w">  </span><span class="c1"># bc name: [resid_idx, eq, node_set_name, value]</span>
+<span class="w">  </span><span class="nt">dirichlet bcs</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">expression</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">bc 1</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">xmin</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">bc 2</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">ymin</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">bc 3</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">ymax</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.001 * t</span><span class="p p-Indicator">]</span>
+
+<span class="w">  </span><span class="nt">linear algebra</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">Linear Solver Type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Belos&quot;</span>
+<span class="w">    </span><span class="nt">Preconditioner Type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Teko&quot;</span>
+<span class="w">    </span><span class="nt">Linear Solver Types</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">Belos</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">Solver Type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Block</span><span class="nv"> </span><span class="s">GMRES&quot;</span>
+<span class="w">        </span><span class="nt">Solver Types</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">Block GMRES</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">Convergence Tolerance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.e-12</span>
+<span class="w">            </span><span class="nt">Output Frequency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">            </span><span class="nt">Output Style</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">            </span><span class="nt">Verbosity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">33</span>
+<span class="w">            </span><span class="nt">Maximum Iterations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+<span class="w">            </span><span class="nt">Block Size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">            </span><span class="nt">Num Blocks</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">200</span>
+<span class="w">            </span><span class="nt">Flexibile Gmres</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">        </span><span class="nt">VerboseObject</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">Output File</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;none&quot;</span>
+<span class="w">          </span><span class="nt">Verbosity Level</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;none&quot;</span>
+<span class="w">    </span><span class="nt">Preconditioner Types</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">Teko</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">Inverse Type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;BGS2x2&quot;</span>
+<span class="w">        </span><span class="nt">Write Block Operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">        </span><span class="nt">Test Block Operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">        </span><span class="nt">Inverse Factory Library</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">BGS2x2</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">Type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Block</span><span class="nv"> </span><span class="s">Gauss-Seidel&quot;</span>
+<span class="w">            </span><span class="nt">Use Upper Triangle</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">            </span><span class="nt">Inverse Type 1</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;AMG2&quot;</span>
+<span class="w">            </span><span class="nt">Inverse Type 2</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;AMG1&quot;</span>
+<span class="w">          </span><span class="nt">AMG2</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">Type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;MueLu&quot;</span>
+<span class="w">            </span><span class="nt">number of equations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">            </span><span class="nt">verbosity</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;none&quot;</span>
+<span class="w">            </span><span class="s">&#39;problem:</span><span class="nv"> </span><span class="s">symmetric&#39;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">          </span><span class="nt">AMG1</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">Type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;MueLu&quot;</span>
+<span class="w">            </span><span class="nt">verbosity</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;none&quot;</span>
+<span class="w">            </span><span class="nt">number of equations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">            </span><span class="s">&#39;problem:</span><span class="nv"> </span><span class="s">symmetric&#39;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">          </span><span class="nt">GS</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">Type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Ifpack2&quot;</span>
+<span class="w">            </span><span class="nt">Overlap</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">            </span><span class="nt">Ifpack2 Settings</span><span class="p">:</span>
+<span class="w">              </span><span class="s">&#39;relaxation:</span><span class="nv"> </span><span class="s">type&#39;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">&quot;Gauss-Seidel&quot;</span>
+</pre></div>
+</div>
+<section id="problem">
+<h3>Problem<a class="headerlink" href="#problem" title="Link to this heading"></a></h3>
+<p>The problem block will specify various aspects of the problem that
+you are about to run. In this case, we are only specifying a variable
+called <cite>name</cite>, which will uniquely name the primal run. All output
+from this run will be output to the directory <cite>name</cite>.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">problem</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">J2_finite_2D</span>
+</pre></div>
+</div>
+</section>
+<section id="discretization">
+<h3>Discretization<a class="headerlink" href="#discretization" title="Link to this heading"></a></h3>
+<p>The discretization block will specify all aspects of an individual
+problem’s discretization. For all problems, we require a geometric
+model, a mesh of that geometric model, and an associations file
+linking together collections of geometric objects to a unique string.
+The generation and usage of these files is nontrivial and is
+covered in depth in a different section (TODO PUT A REFERENCE HERE
+ONCE THIS IS DOCUMENTED).</p>
+<p>The number of steps and the step size determines how the problem
+is loaded. In this example, we take 8 load steps with a psuedo-time
+increment of <span class="math notranslate nohighlight">\(\Delta t = 1.0\)</span>. Later on, in the boundary
+conditions block, this pseudo-time <span class="math notranslate nohighlight">\(t\)</span> will be used to specify
+boundary conditions at load increments. (THIS SYNTAX MAY CHANGE AS
+WE MOVE TO CONSIDER TRUE TRANSIENT PHYSICS AND NOT QUASI-STATIC
+BEHAVIOR).</p>
+<p>Additionally, there are some pre-included geometries and meshes
+for use in testing CALIBR8 available in the
+<a class="reference external" href="https://github.com/sandialabs/calibr8/tree/main/source/calibr8/test/mesh">repository</a>.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">discretization</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">geom file</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;notch2D.dmg&#39;</span>
+<span class="w">  </span><span class="nt">mesh file</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;notch2D.smb&#39;</span>
+<span class="w">  </span><span class="nt">assoc file</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;notch2D.txt&#39;</span>
+<span class="w">  </span><span class="nt">num steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8</span>
+<span class="w">  </span><span class="nt">step size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.</span>
+</pre></div>
+</div>
+</section>
+<section id="residuals">
+<h3>Residuals<a class="headerlink" href="#residuals" title="Link to this heading"></a></h3>
+<p>In general, CALIBR8 considers the coupling of two residual systems:
+a <cite>global</cite> residual and a <cite>local</cite> residual. In this case, the global
+residual corresponds to the overall governing kinematic equations
+(the balance of linear momentum in the absence of inertial terms)
+and the local residual corresponds to the constitutive model equations
+solved at each integration point inside of an element. Here, we
+have specified some parameters that are largely self explanatory.</p>
+<p>Of note, perhaps, is that we have chosen a 2D plane strain finite
+deformation plasticity model. For this model, we have chosen
+some benign material parameters for the elastic modulus <span class="math notranslate nohighlight">\(E\)</span>,
+Poisson’s ratio <span class="math notranslate nohighlight">\(\nu\)</span>, the yield strength <span class="math notranslate nohighlight">\(Y\)</span>, the
+linear hardening modulus <span class="math notranslate nohighlight">\(K\)</span>, and have set other parameters
+to <span class="math notranslate nohighlight">\(0\)</span>.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">residuals</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">global residual</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;mechanics&#39;</span>
+<span class="w">    </span><span class="nt">nonlinear max iters</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+<span class="w">    </span><span class="nt">nonlinear absolute tol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.e-12</span>
+<span class="w">    </span><span class="nt">nonlinear relative tol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.e-12</span>
+<span class="w">    </span><span class="nt">print convergence</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">local residual</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;hyper_J2_plane_strain&#39;</span>
+<span class="w">    </span><span class="nt">nonlinear max iters</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span>
+<span class="w">    </span><span class="nt">nonlinear absolute tol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.e-12</span>
+<span class="w">    </span><span class="nt">nonlinear relative tol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.e-12</span>
+<span class="w">    </span><span class="nt">materials</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">body</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">E</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000.</span>
+<span class="w">        </span><span class="nt">nu</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span>
+<span class="w">        </span><span class="nt">K</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100.</span>
+<span class="w">        </span><span class="nt">Y</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.</span>
+<span class="w">        </span><span class="nt">Y_inf</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.</span>
+<span class="w">        </span><span class="nt">delta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.</span>
+</pre></div>
+</div>
+</section>
+<section id="boundary-conditions">
+<h3>Boundary Conditions<a class="headerlink" href="#boundary-conditions" title="Link to this heading"></a></h3>
+<p>In the dirichlet bcs block, we set up some simple boundary conditions
+to constrain rigid body rotations/translations, and pull our geometry
+at an increment of <span class="math notranslate nohighlight">\(0.01*t\)</span> on the top <cite>y</cite> face of the notch
+specimen domain.</p>
+<p>Note that, as the comment suggests, the DBC input structure has
+the form: [residual index, equation index, node set name, value as a string].
+The node set name comes from the associations file <cite>assoc.txt</cite> set in
+the discretization block, and the value is a run-time-compiled string
+expression that can be fairly sophisticated.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># bc name: [resid_idx, eq, node_set_name, value]</span>
+<span class="nt">dirichlet bcs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">expression</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">bc 1</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">xmin</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">bc 2</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">ymin</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">bc 3</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">ymax</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.001 * t</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+</section>
+<section id="linear-algebra">
+<h3>Linear Algebra<a class="headerlink" href="#linear-algebra" title="Link to this heading"></a></h3>
+<p>The linear algebra block should remain largely untouched unless
+you are an experienced user. Of particular note, however, is that the
+block below should change from <cite>2</cite> to <cite>3</cite> when switching from a 2D to
+a 3D problem.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">AMG2</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">Type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;MueLu&quot;</span>
+<span class="w">  </span><span class="nt">number of equations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">verbosity</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;none&quot;</span>
+<span class="w">  </span><span class="s">&#39;problem:</span><span class="nv"> </span><span class="s">symmetric&#39;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="usage.html" class="btn btn-neutral float-left" title="Usage" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../theory/theory.html" class="btn btn-neutral float-right" title="Theory" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright Sandia National Laboratories.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
