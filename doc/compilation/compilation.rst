@@ -62,7 +62,7 @@ export this environment variable
 
 .. code-block:: bash
 
-  export CAPP_FLAVOR=linx-shared
+  export CAPP_FLAVOR=linux-shared
 
 Source the CApp setup script
 ----------------------------

@@ -28,8 +28,8 @@ set(TRILINOS_SEACAS_OPTIONS
 )
 
 capp_package(
-  GIT_URL https://github.com/dtseidl/trilinos.git
-  COMMIT 4f6cf4e1aa78a823b9af82ecd3b06b083039d1d2
+  GIT_URL https://github.com/trilinos/Trilinos.git
+  COMMIT 9b42dd24264587914627a034fddbfffee2b41a2d
   OPTIONS
   "-DTrilinos_DISABLE_ENABLED_FORWARD_DEP_PACKAGES=ON"
   "-DBUILD_SHARED_LIBS=${CALIBR8_BUILD_SHARED_LIBS}"

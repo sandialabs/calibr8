@@ -27,6 +27,5 @@ find_package(MPI)
 find_package(GTest REQUIRED)
 
 include(cmake/dependencies.cmake)
-add_subdirectory(doc)
 add_subdirectory(src)
 add_subdirectory(test)
