@@ -107,6 +107,11 @@ target_link_libraries(model_form_error_verify PRIVATE calibr8)
 set_code_standards(model_form_error_verify)
 install(TARGETS model_form_error_verify)
 
+add_executable(objective main_objective.cpp)
+target_link_libraries(objective PRIVATE calibr8)
+set_code_standards(objective)
+install(TARGETS objective)
+
 add_executable(perturber perturber.cpp)
 target_link_libraries(perturber PRIVATE calibr8)
 set_code_standards(perturber)
