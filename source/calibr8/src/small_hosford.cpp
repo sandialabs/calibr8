@@ -241,6 +241,11 @@ int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
 }
 
+template <>
+int SmallHosford<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
+  return 0;
+}
+
 template <typename T>
 void SmallHosford<T>::evaluate_phi_and_normal(
     RCP<GlobalResidual<T>> global,
@@ -402,5 +407,6 @@ T SmallHosford<T>::pressure_scale_factor() {
 
 template class SmallHosford<double>;
 template class SmallHosford<FADT>;
+template class SmallHosford<DFADT>;
 
 }

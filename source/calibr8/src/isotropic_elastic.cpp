@@ -126,6 +126,11 @@ int IsotropicElastic<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
 }
 
+template <>
+int IsotropicElastic<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
+  return 0;
+}
+
 template <typename T>
 int IsotropicElastic<T>::evaluate(
     RCP<GlobalResidual<T>> global,
@@ -203,5 +208,6 @@ Tensor<T> IsotropicElastic<T>::cauchy_mixed(RCP<GlobalResidual<T>> global) {
 
 template class IsotropicElastic<double>;
 template class IsotropicElastic<FADT>;
+template class IsotropicElastic<DFADT>;
 
 }

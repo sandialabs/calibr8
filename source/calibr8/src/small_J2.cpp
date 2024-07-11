@@ -172,6 +172,11 @@ int SmallJ2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
 }
 
+template <>
+int SmallJ2<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
+  return 0;
+}
+
 template <typename T>
 int SmallJ2<T>::evaluate(
     RCP<GlobalResidual<T>> global,
@@ -293,5 +298,6 @@ T SmallJ2<T>::pressure_scale_factor() {
 
 template class SmallJ2<double>;
 template class SmallJ2<FADT>;
+template class SmallJ2<DFADT>;
 
 }

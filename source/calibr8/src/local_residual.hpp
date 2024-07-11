@@ -340,9 +340,12 @@ class LocalResidual {
     //! \brief Get the number of active optimization parameters
     int num_active_params() const { return m_num_active_params; }
 
+    //! \brief Get the number of dfad model parameters
+    int num_dfad_params() const { return m_num_dfad_params; }
+
     //! \brief Get the active optimization parameters
     Array1D<double> active_params() const {
-      Array1D<double> active_params(m_num_active_params);;
+      Array1D<double> active_params(m_num_active_params + m_num_dfad_params);
       int const num_elem_sets = m_elem_set_names.size();
 
       int p = 0;
@@ -352,6 +355,12 @@ class LocalResidual {
           active_params[p] = m_param_values[es][active_idx];
           ++p;
         }
+      }
+
+      EVector dfad_params = get_dfad_params();
+      for (int i = 0; i < m_num_dfad_params; ++i) {
+        active_params[p] = dfad_params(i);
+        ++p;
       }
       return active_params;
     }
@@ -381,7 +390,20 @@ class LocalResidual {
           ++p;
         }
       }
+      EVector dfad_param_values(m_num_dfad_params);
+      for (int i = 0; i < m_num_dfad_params; ++i) {
+        dfad_param_values[i] = params[p];
+        ++p;
+      }
+      set_dfad_params(dfad_param_values);
     }
+
+    virtual EVector get_dfad_params() const {
+      EVector empty;
+      return empty;
+    }
+
+    virtual void set_dfad_params(EVector const&) {};
 
     int z_stretch_idx() const { return m_z_stretch_idx; }
 
@@ -401,6 +423,8 @@ class LocalResidual {
     Array1D<std::string> m_param_names;
     Array2D<int> m_active_indices;
     int m_num_active_params = -1;
+
+    int m_num_dfad_params = 0;
 
     Array1D<std::string> m_elem_set_names;
 

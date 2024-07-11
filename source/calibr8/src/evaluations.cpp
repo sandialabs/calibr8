@@ -970,8 +970,11 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
 
   int const model_form = state->model_form;
   int const num_active_params = state->residuals->local[model_form]->num_active_params();
-  Array1D<double> grad(num_active_params);
+  int const num_dfad_params = state->residuals->local[model_form]->num_dfad_params();
+  int const num_params = num_active_params + num_dfad_params;
+  Array1D<double> grad(num_params);
   EVector Egrad = EVector::Zero(num_active_params);
+  EVector Egrad_dfad = EVector::Zero(num_dfad_params);
 
   // gather discretization information
   RCP<Disc> disc = state->disc;
@@ -979,8 +982,11 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
 
   // preprocess the QoI
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
+  RCP<LocalResidual<DFADT>> dfad_local = state->dfad_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  RCP<GlobalResidual<DFADT>> dfad_global = state->dfad_residuals->global;
   global->set_time_info(state->disc->time(step), state->disc->dt(step));
+  dfad_global->set_time_info(state->disc->time(step), state->disc->dt(step));
   RCP<QoI<FADT>> qoi = state->d_qoi;
   preprocess_qoi(qoi, local, global, state, disc, step);
 
@@ -995,6 +1001,8 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   // perform initializations of the residual objects
   global->before_elems(disc);
   qoi->before_elems(disc, step);
+  if (num_dfad_params > 0)
+    dfad_global->before_elems(disc);
 
   // variable telling us the current number of derivatives
   int nderivs = -1;
@@ -1003,6 +1011,8 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
 
     local->before_elems(es, disc);
+    if (num_dfad_params > 0)
+      dfad_local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -1020,6 +1030,12 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
       local->set_elem(me);
       qoi->set_elem(me);
       global->gather(x, x_prev);
+
+      if (num_dfad_params > 0) {
+        dfad_global->set_elem(me);
+        dfad_local->set_elem(me);
+        dfad_global->gather(x, x_prev);
+      }
 
       // grab the adjoint nodal solution at the element
       EVector const z_nodes = global->gather_adjoint(z);
@@ -1063,6 +1079,14 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
             EVector const dJ_dp = qoi->eigen_dvector(nderivs);
             Egrad += dJ_dp;
 
+            if (num_dfad_params > 0) {
+              dfad_global->interpolate(iota);
+              dfad_local->gather(pt, xi, xi_prev);
+              dfad_local->evaluate(dfad_global);
+              EMatrix const dC_dpT_dfad = dfad_local->eigen_jacobian(num_dfad_params).transpose();
+              Egrad_dfad += dC_dpT_dfad * phi_pt;
+            }
+
           }
 
           global->evaluate(local, iota, w, dv, ip_set);
@@ -1079,6 +1103,10 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
       global->unset_elem();
       local->unset_elem();
       qoi->unset_elem();
+      if (num_dfad_params > 0) {
+        dfad_global->unset_elem();
+        dfad_local->unset_elem();
+      }
 
     }
 
@@ -1088,8 +1116,16 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   local->after_elems();
   global->after_elems();
   qoi->after_elems();
+  if (num_dfad_params > 0) {
+    dfad_local->after_elems();
+    dfad_global->after_elems();
+  }
 
-  EVector::Map(&grad[0], num_active_params) = Egrad;
+  // concatenate conventional and dfad parameter gradients
+  EVector Egrad_total(num_params);
+  Egrad_total << Egrad, Egrad_dfad;
+
+  EVector::Map(&grad[0], num_params) = Egrad_total;
 
   return grad;
 }

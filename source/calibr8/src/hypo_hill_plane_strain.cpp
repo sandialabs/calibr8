@@ -226,6 +226,11 @@ int HypoHillPlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global)
 
 }
 
+template <>
+int HypoHillPlaneStrain<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
+  return 0;
+}
+
 template <typename T>
 int HypoHillPlaneStrain<T>::evaluate(
     RCP<GlobalResidual<T>> global,
@@ -374,5 +379,6 @@ T HypoHillPlaneStrain<T>::pressure_scale_factor() {
 
 template class HypoHillPlaneStrain<double>;
 template class HypoHillPlaneStrain<FADT>;
+template class HypoHillPlaneStrain<DFADT>;
 
 }

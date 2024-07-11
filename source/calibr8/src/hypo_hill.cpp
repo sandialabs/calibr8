@@ -221,6 +221,11 @@ int HypoHill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
 }
 
+template <>
+int HypoHill<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
+  return 0;
+}
+
 template <typename T>
 int HypoHill<T>::evaluate(
     RCP<GlobalResidual<T>> global,
@@ -350,5 +355,6 @@ T HypoHill<T>::pressure_scale_factor() {
 
 template class HypoHill<double>;
 template class HypoHill<FADT>;
+template class HypoHill<DFADT>;
 
 }

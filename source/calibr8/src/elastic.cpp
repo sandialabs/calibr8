@@ -137,5 +137,6 @@ T Elastic<T>::pressure_scale_factor() {
 
 template class Elastic<double>;
 template class Elastic<FADT>;
+template class Elastic<DFADT>;
 
 }

@@ -52,8 +52,11 @@ class State {
     //! \brief The residual data structures
     RCP<Residuals<double>> residuals;
 
-    //! \brief The residual data structures with derivative information
+    //! \brief The residual data structures with static derivative information
     RCP<Residuals<FADT>> d_residuals;
+
+    //! \brief The residual data structures with dynamic derivative information
+    RCP<Residuals<DFADT>> dfad_residuals;
 
     //! \brief The quantity of interest data structure
     RCP<QoI<double>> qoi;

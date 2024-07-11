@@ -138,6 +138,26 @@ EMatrix LocalResidual<FADT>::eigen_jacobian(int nderivs) const {
   return J;
 }
 
+template <>
+EMatrix LocalResidual<DFADT>::eigen_jacobian(int nderivs) const {
+  EMatrix J(m_num_dofs, nderivs);
+  J.setZero();
+  for (int i = 0; i < m_num_residuals; ++i) {
+    for (int i_eq = 0; i_eq < m_num_eqs[i]; ++i_eq) {
+      int const i_idx = dxi_idx(i, i_eq);
+      int const num_dfad_derivs = num_derivs(m_R[i][i_eq]);
+      if (num_dfad_derivs == 0) {
+        J.row(i_idx).setZero();
+      } else {
+        for (int j = 0; j < nderivs; ++j) {
+          J(i_idx, j) = m_R[i][i_eq].fastAccessDx(j);
+        }
+      }
+    }
+  }
+  return J;
+}
+
 template <typename T>
 EVector LocalResidual<T>::eigen_residual() const {
   EVector R(m_num_dofs);
@@ -274,6 +294,12 @@ void LocalResidual<FADT>::set_scalar_xi(int i, FADT const& xi) {
 }
 
 template <>
+void LocalResidual<DFADT>::set_scalar_xi(int i, DFADT const& xi) {
+  DEBUG_ASSERT(m_var_types[i] == SCALAR);
+  m_xi[i][0].val() = xi.val();
+}
+
+template <>
 void LocalResidual<double>::set_vector_xi(int i, Vector<double> const& xi) {
   DEBUG_ASSERT(m_var_types[i] == VECTOR);
   for (int k = 0; k < m_num_dims; ++k) {
@@ -283,6 +309,14 @@ void LocalResidual<double>::set_vector_xi(int i, Vector<double> const& xi) {
 
 template <>
 void LocalResidual<FADT>::set_vector_xi(int i, Vector<FADT> const& xi) {
+  DEBUG_ASSERT(m_var_types[i] == VECTOR);
+  for (int k = 0; k < m_num_dims; ++k) {
+    m_xi[i][k].val() = xi(k).val();
+  }
+}
+
+template <>
+void LocalResidual<DFADT>::set_vector_xi(int i, Vector<DFADT> const& xi) {
   DEBUG_ASSERT(m_var_types[i] == VECTOR);
   for (int k = 0; k < m_num_dims; ++k) {
     m_xi[i][k].val() = xi(k).val();
@@ -324,6 +358,23 @@ void LocalResidual<FADT>::set_sym_tensor_xi(int i, Tensor<FADT> const& xi) {
 }
 
 template <>
+void LocalResidual<DFADT>::set_sym_tensor_xi(int i, Tensor<DFADT> const& xi) {
+  DEBUG_ASSERT(m_var_types[i] == SYM_TENSOR);
+  if (m_num_dims == 2) {
+    m_xi[i][0].val() = xi(0, 0).val();
+    m_xi[i][1].val() = xi(0, 1).val();
+    m_xi[i][2].val() = xi(1, 1).val();
+  } else {
+    m_xi[i][0].val() = xi(0, 0).val();
+    m_xi[i][1].val() = xi(0, 1).val();
+    m_xi[i][2].val() = xi(0, 2).val();
+    m_xi[i][3].val() = xi(1, 1).val();
+    m_xi[i][4].val() = xi(1, 2).val();
+    m_xi[i][5].val() = xi(2, 2).val();
+  }
+}
+
+template <>
 void LocalResidual<double>::set_tensor_xi(int i, Tensor<double> const& xi) {
   DEBUG_ASSERT(m_var_types[i] == TENSOR);
   int eq = 0;
@@ -336,6 +387,17 @@ void LocalResidual<double>::set_tensor_xi(int i, Tensor<double> const& xi) {
 
 template <>
 void LocalResidual<FADT>::set_tensor_xi(int i, Tensor<FADT> const& xi) {
+  DEBUG_ASSERT(m_var_types[i] == TENSOR);
+  int eq = 0;
+  for (int k = 0; k < m_num_dims; ++k) {
+    for (int l = 0; l < m_num_dims; ++l) {
+      m_xi[i][eq++].val() = xi(k, l).val();
+    }
+  }
+}
+
+template <>
+void LocalResidual<DFADT>::set_tensor_xi(int i, Tensor<DFADT> const& xi) {
   DEBUG_ASSERT(m_var_types[i] == TENSOR);
   int eq = 0;
   for (int k = 0; k < m_num_dims; ++k) {
@@ -360,6 +422,13 @@ void LocalResidual<FADT>::add_to_scalar_xi(int i, EVector const& dxi) {
 }
 
 template <>
+void LocalResidual<DFADT>::add_to_scalar_xi(int i, EVector const& dxi) {
+  DEBUG_ASSERT(m_var_types[i] == SCALAR);
+  int const idx = dxi_idx(i, 0);
+  m_xi[i][0].val() += dxi(idx);
+}
+
+template <>
 void LocalResidual<double>::add_to_vector_xi(int i, EVector const& dxi) {
   DEBUG_ASSERT(m_var_types[i] == VECTOR);
   for (int k = 0; k < m_num_dims; ++k) {
@@ -370,6 +439,15 @@ void LocalResidual<double>::add_to_vector_xi(int i, EVector const& dxi) {
 
 template <>
 void LocalResidual<FADT>::add_to_vector_xi(int i, EVector const& dxi) {
+  DEBUG_ASSERT(m_var_types[i] == VECTOR);
+  for (int k = 0; k < m_num_dims; ++k) {
+    int const idx = dxi_idx(i, k);
+    m_xi[i][k].val() += dxi(idx);
+  }
+}
+
+template <>
+void LocalResidual<DFADT>::add_to_vector_xi(int i, EVector const& dxi) {
   DEBUG_ASSERT(m_var_types[i] == VECTOR);
   for (int k = 0; k < m_num_dims; ++k) {
     int const idx = dxi_idx(i, k);
@@ -412,6 +490,23 @@ void LocalResidual<FADT>::add_to_sym_tensor_xi(int i, EVector const& dxi) {
 }
 
 template <>
+void LocalResidual<DFADT>::add_to_sym_tensor_xi(int i, EVector const& dxi) {
+  DEBUG_ASSERT(m_var_types[i] == SYM_TENSOR);
+  if (m_num_dims == 2) {
+    m_xi[i][0].val() += dxi( dxi_idx(i, 0) );
+    m_xi[i][1].val() += dxi( dxi_idx(i, 1) );
+    m_xi[i][2].val() += dxi( dxi_idx(i, 2) );
+  } else {
+    m_xi[i][0].val() += dxi( dxi_idx(i, 0) );
+    m_xi[i][1].val() += dxi( dxi_idx(i, 1) );
+    m_xi[i][2].val() += dxi( dxi_idx(i, 2) );
+    m_xi[i][3].val() += dxi( dxi_idx(i, 3) );
+    m_xi[i][4].val() += dxi( dxi_idx(i, 4) );
+    m_xi[i][5].val() += dxi( dxi_idx(i, 5) );
+  }
+}
+
+template <>
 void LocalResidual<double>::add_to_tensor_xi(int i, EVector const& dxi) {
   DEBUG_ASSERT(m_var_types[i] == TENSOR);
   int eq = 0;
@@ -426,6 +521,19 @@ void LocalResidual<double>::add_to_tensor_xi(int i, EVector const& dxi) {
 
 template <>
 void LocalResidual<FADT>::add_to_tensor_xi(int i, EVector const& dxi) {
+  DEBUG_ASSERT(m_var_types[i] == TENSOR);
+  int eq = 0;
+  for (int k = 0; k < m_num_dims; ++k) {
+    for (int l = 0; l < m_num_dims; ++l) {
+      int const idx = dxi_idx(i, eq);
+      m_xi[i][eq].val() += dxi(idx);
+      eq++;
+    }
+  }
+}
+
+template <>
+void LocalResidual<DFADT>::add_to_tensor_xi(int i, EVector const& dxi) {
   DEBUG_ASSERT(m_var_types[i] == TENSOR);
   int eq = 0;
   for (int k = 0; k < m_num_dims; ++k) {
@@ -520,6 +628,10 @@ void LocalResidual<FADT>::scatter(int pt, Array1D<apf::Field*>& xi) {
   }
 }
 
+template <>
+void LocalResidual<DFADT>::scatter(int, Array1D<apf::Field*>&) {
+}
+
 template <typename T>
 void LocalResidual<T>::scatter_adjoint(
     int pt,
@@ -597,6 +709,11 @@ int LocalResidual<FADT>::seed_wrt_xi() {
 }
 
 template <>
+int LocalResidual<DFADT>::seed_wrt_xi() {
+  return -1;
+}
+
+template <>
 void LocalResidual<double>::unseed_wrt_xi() {
 }
 
@@ -611,6 +728,10 @@ void LocalResidual<FADT>::unseed_wrt_xi() {
       }
     }
   }
+}
+
+template <>
+void LocalResidual<DFADT>::unseed_wrt_xi() {
 }
 
 template <>
@@ -630,6 +751,11 @@ int LocalResidual<FADT>::seed_wrt_xi_prev() {
 }
 
 template <>
+int LocalResidual<DFADT>::seed_wrt_xi_prev() {
+  return -1;
+}
+
+template <>
 void LocalResidual<double>::unseed_wrt_xi_prev() {
 }
 
@@ -644,6 +770,10 @@ void LocalResidual<FADT>::unseed_wrt_xi_prev() {
       }
     }
   }
+}
+
+template <>
+void LocalResidual<DFADT>::unseed_wrt_xi_prev() {
 }
 
 template <>
@@ -668,6 +798,10 @@ void LocalResidual<FADT>::seed_wrt_x(EMatrix const& dxi_dx) {
 }
 
 template <>
+void LocalResidual<DFADT>::seed_wrt_x(EMatrix const&) {
+}
+
+template <>
 int LocalResidual<double>::seed_wrt_params(int const es) {
   return -1;
 }
@@ -680,6 +814,12 @@ int LocalResidual<FADT>::seed_wrt_params(int const es) {
     m_params[active_idx].diff(p, num_es_active_params);
   }
   return num_es_active_params;
+}
+
+// seed dfad model params
+template <>
+int LocalResidual<DFADT>::seed_wrt_params(int const es) {
+  return -1;
 }
 
 template <>
@@ -701,6 +841,11 @@ void LocalResidual<FADT>::unseed_wrt_params(int const es) {
       }
     }
   }
+}
+
+// unseed dfad model params
+template <>
+void LocalResidual<DFADT>::unseed_wrt_params(int const es) {
 }
 
 template <typename T>
@@ -759,11 +904,15 @@ RCP<LocalResidual<T>> create_local_residual(
 
 template class LocalResidual<double>;
 template class LocalResidual<FADT>;
+template class LocalResidual<DFADT>;
 
 template RCP<LocalResidual<double>>
 create_local_residual(ParameterList const&, int);
 
 template RCP<LocalResidual<FADT>>
+create_local_residual(ParameterList const&, int);
+
+template RCP<LocalResidual<DFADT>>
 create_local_residual(ParameterList const&, int);
 
 }
