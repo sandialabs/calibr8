@@ -43,10 +43,11 @@ void eval_measured_residual_and_grad(
 //! \param state The application state object
 //! \param disc The discretization object
 //! \param step The current load/time step
-//! \details This will populate:
+//! \details Returns 0 if all local residual nonlinear solves succeed and -1 otherwise
+//!   This will populate:
 //!   state->la->A[GHOST] as the Jacobian dR_dx
 //!   state->la->b[GHOST] as the residual R
-void eval_forward_jacobian(
+int eval_forward_jacobian(
     RCP<State> state,
     RCP<Disc> disc,
     int step);

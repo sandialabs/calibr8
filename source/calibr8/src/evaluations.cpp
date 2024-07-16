@@ -229,7 +229,7 @@ void eval_measured_residual(RCP<State> state, RCP<Disc> disc, int step) {
   global->after_elems();
 }
 
-void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
+int eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
@@ -311,6 +311,9 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
             local->gather(pt, xi, xi_prev);
             nderivs = local->seed_wrt_xi();
             int path = local->solve_nonlinear(global);
+            if (path == -1) {
+              return path;
+            }
             if (is_verification) {
               disc->branch_paths()[step][es][elem] = path;
             }
@@ -363,6 +366,8 @@ void eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
   // perform clean-ups of the residual objects
   local->after_elems();
   global->after_elems();
+
+  return 0;
 
 }
 

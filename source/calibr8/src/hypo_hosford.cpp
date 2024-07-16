@@ -274,9 +274,9 @@ int HypoHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   }
 
-  // fail if convergence was not achieved
   if ((iter > m_max_iters) && (!converged)) {
-    fail("HypoHosford:solve_nonlinear failed in %d iterations", m_max_iters);
+    std::cout << "HypoHosford:solve_nonlinear failed in "  << iter << " iterations\n";
+    return -1;
   }
 
   return path;
