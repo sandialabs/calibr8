@@ -78,8 +78,11 @@ class FFNN
     using Vector = Eigen::Matrix<ScalarT, Eigen::Dynamic, 1>;
     using Matrix = Eigen::Matrix<ScalarT, Eigen::Dynamic, Eigen::Dynamic>;
   public:
-    FFNN(const char* activation, std::vector<int> const& topology);
+    FFNN(const char* activation,
+         std::vector<int> const& topology,
+         bool positive_weights=false);
     Vector const& get_params();
+    int get_num_params() {return num_params;}
     void set_params(Vector const& p);
     Vector evaluate(Vector const& x);
   private:

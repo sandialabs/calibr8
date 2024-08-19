@@ -64,7 +64,7 @@ void ffnn_seed(
 }
 
 template <class T>
-FFNN<T>::FFNN(const char* act, std::vector<int> const& topo)
+FFNN<T>::FFNN(const char* act, std::vector<int> const& topo, bool positive_weights)
 {
   ffnn_check_topo(topo);
   srand(10);
@@ -86,6 +86,13 @@ FFNN<T>::FFNN(const char* act, std::vector<int> const& topo)
     x[i] = Vector(n_i);
     for (int j = 0; j < W[i].rows(); ++j) {
       for (int k = 0; k < W[i].cols(); ++k) {
+        double weight = ((double) rand() / (RAND_MAX));
+        if (positive_weights) {
+          W[i](j, k) = std::abs(weight);
+        } else {
+          W[i](j, k) = weight;
+        }
+
         W[i](j,k) = ((double) rand() / (RAND_MAX));
       }
     }

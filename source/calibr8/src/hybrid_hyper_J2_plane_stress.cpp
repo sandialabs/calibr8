@@ -1,9 +1,13 @@
+#include <iomanip>
+#include <fstream>
 #include <Eigen/Dense>
+#include <PCU.h>
 #include "control.hpp"
 #include "defines.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
-#include "hyper_J2_plane_stress.hpp"
+#include "hybrid_hyper_J2_plane_stress.hpp"
+#include "macros.hpp"
 #include "material_params.hpp"
 #include "yield_functions.hpp"
 
@@ -16,6 +20,7 @@ static ParameterList get_valid_local_residual_params() {
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
   p.sublist("materials");
+  p.sublist("embedded model");
   return p;
 }
 
@@ -24,13 +29,12 @@ static ParameterList get_valid_material_params() {
   p.set<double>("E", 0.);
   p.set<double>("nu", 0.);
   p.set<double>("Y", 0.);
-  p.set<double>("S", 0.);
-  p.set<double>("D", 0.);
   return p;
 }
 
+
 template <typename T>
-HyperJ2PlaneStress<T>::HyperJ2PlaneStress(ParameterList const& inputs, int ndims) {
+HybridHyperJ2PlaneStress<T>::HybridHyperJ2PlaneStress(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
   this->m_params_list.validateParameters(get_valid_local_residual_params(), 0);
@@ -66,9 +70,9 @@ HyperJ2PlaneStress<T>::HyperJ2PlaneStress(ParameterList const& inputs, int ndims
 }
 
 template <typename T>
-void HyperJ2PlaneStress<T>::init_params() {
+void HybridHyperJ2PlaneStress<T>::init_params() {
 
-  int const num_params = 5;
+  int const num_params = 3;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
 
@@ -76,8 +80,6 @@ void HyperJ2PlaneStress<T>::init_params() {
   this->m_param_names[0] = "E";
   this->m_param_names[1] = "nu";
   this->m_param_names[2] = "Y";
-  this->m_param_names[3] = "S";
-  this->m_param_names[4] = "D";
 
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
@@ -93,21 +95,76 @@ void HyperJ2PlaneStress<T>::init_params() {
     this->m_param_values[es][0] = material_params.get<double>("E");
     this->m_param_values[es][1] = material_params.get<double>("nu");
     this->m_param_values[es][2] = material_params.get<double>("Y");
-    this->m_param_values[es][3] = material_params.get<double>("S");
-    this->m_param_values[es][4] = material_params.get<double>("D");
   }
 
   this->m_active_indices.resize(1);
   this->m_active_indices[0].resize(1);
   this->m_active_indices[0][0] = 0;
+
+  ParameterList& embedded_model_params =
+      this->m_params_list.sublist("embedded model", true);
+  const char* activation = embedded_model_params.get<std::string>("activation function").c_str();
+  Array1D<int> const topology = embedded_model_params.get<Teuchos::Array<int>>("topology").toVector();
+  m_nn_input_scale = embedded_model_params.get<double>("input scale");
+  m_nn_output_scale = embedded_model_params.get<double>("output scale");
+  bool write_nn_params = embedded_model_params.get<bool>("write parameters", false);
+  bool read_nn_params = embedded_model_params.get<bool>("read parameters", false);
+  ALWAYS_ASSERT((write_nn_params + read_nn_params) < 2);
+  bool positive_weights = true;
+  m_neural_network = rcp(new ML::FFNN<T>(activation, topology, positive_weights));
+  this->m_num_dfad_params = m_neural_network->get_num_params();
+  if (write_nn_params && PCU_Comm_Self() == 0) {
+    auto& nn_params = m_neural_network->get_params();
+    std::string const nn_params_filename = "nn_params.out";
+    std::ofstream nn_params_file;
+    nn_params_file.open(nn_params_filename);
+    nn_params_file << std::scientific << std::setprecision(17);
+    for (int i = 0; i < this->m_num_dfad_params; ++i) {
+      nn_params_file << val(nn_params(i)) << "\n";
+    }
+    nn_params_file.close();
+  }
+  if (read_nn_params) {
+    Eigen::Matrix<T, Eigen::Dynamic, 1> nn_params(this->m_num_dfad_params);
+    std::string const nn_params_filename = "nn_params.in";
+    std::ifstream nn_params_file(nn_params_filename);
+    std::string line;
+    int i = 0;
+    while (getline(nn_params_file, line)) {
+      nn_params(i) = std::stod(line);
+      ++i;
+    }
+    m_neural_network->set_params(nn_params);
+  }
 }
 
 template <typename T>
-HyperJ2PlaneStress<T>::~HyperJ2PlaneStress() {
+void HybridHyperJ2PlaneStress<T>::set_embedded_params(EVector const& nn_values) {
+  int const num_embedded_params = this->m_num_dfad_params;
+  Eigen::Matrix<T, Eigen::Dynamic, 1> nn_params(num_embedded_params);
+  for (int i = 0; i < num_embedded_params; ++i) {
+    nn_params(i) = nn_values(i);
+  }
+  m_neural_network->set_params(nn_params);
 }
 
 template <typename T>
-void HyperJ2PlaneStress<T>::init_variables_impl() {
+EVector HybridHyperJ2PlaneStress<T>::get_embedded_params() const {
+  int const num_embedded_params = this->m_num_dfad_params;
+  EVector nn_values(num_embedded_params);
+  auto const& nn_params = m_neural_network->get_params();
+  for (int i = 0; i < num_embedded_params; ++i) {
+    nn_values(i) = val(nn_params(i));
+  }
+  return nn_values;
+}
+
+template <typename T>
+HybridHyperJ2PlaneStress<T>::~HybridHyperJ2PlaneStress() {
+}
+
+template <typename T>
+void HybridHyperJ2PlaneStress<T>::init_variables_impl() {
 
   int const ndims = this->m_num_dims;
   int const zeta_idx = 0;
@@ -124,9 +181,18 @@ void HyperJ2PlaneStress<T>::init_variables_impl() {
   this->set_scalar_xi(Ie_idx, Ie);
   this->set_scalar_xi(lambda_z_idx, lambda_z);
   this->set_scalar_xi(alpha_idx, alpha);
-
 }
 
+template <typename T>
+T HybridHyperJ2PlaneStress<T>::nn_hardening(T alpha) {
+  Eigen::Matrix<T, Eigen::Dynamic, 1> input_vec(1);
+  Eigen::Matrix<T, Eigen::Dynamic, 1> zero_vec(1);
+  input_vec(0) = m_nn_input_scale * alpha;
+  zero_vec(0) = 0. * alpha;
+
+  return m_nn_output_scale * (m_neural_network->evaluate(input_vec)[0]
+      - m_neural_network->evaluate(zero_vec)[0]);
+}
 
 template <typename T>
 void eval_be_bar_plane_stress(
@@ -160,12 +226,12 @@ void eval_be_bar_plane_stress(
 }
 
 template <>
-int HyperJ2PlaneStress<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
+int HybridHyperJ2PlaneStress<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
   return 0;
 }
 
 template <>
-int HyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
+int HybridHyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
 
@@ -226,7 +292,7 @@ int HyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) 
   }
 
   if ((iter > m_max_iters) && (!converged)) {
-    std::cout << "HyperJ2PlaneStress:solve_nonlinear failed in "  << iter << " iterations\n";
+    std::cout << "HybridHyperJ2PlaneStress:solve_nonlinear failed in "  << iter << " iterations\n";
     return -1;
   }
 
@@ -235,12 +301,12 @@ int HyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) 
 }
 
 template <>
-int HyperJ2PlaneStress<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
+int HybridHyperJ2PlaneStress<DFADT>::solve_nonlinear(RCP<GlobalResidual<DFADT>>) {
   return 0;
 }
 
 template <typename T>
-int HyperJ2PlaneStress<T>::evaluate(
+int HybridHyperJ2PlaneStress<T>::evaluate(
     RCP<GlobalResidual<T>> global,
     bool force_path,
     int path_in) {
@@ -253,8 +319,6 @@ int HyperJ2PlaneStress<T>::evaluate(
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
   T const Y = this->m_params[2];
-  T const S = this->m_params[3];
-  T const D = this->m_params[4];
   T const mu = compute_mu(E, nu);
   T const kappa = compute_kappa(E, nu);
 
@@ -285,7 +349,7 @@ int HyperJ2PlaneStress<T>::evaluate(
 
   Tensor<T> const s = mu * zeta_3D;
   T const s_mag = minitensor::norm(s);
-  T const sigma_yield = Y + S * (1. - std::exp(-D * alpha));
+  T const sigma_yield = Y + nn_hardening(alpha);
   T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
   Tensor<T> R_zeta;
@@ -345,7 +409,7 @@ int HyperJ2PlaneStress<T>::evaluate(
 }
 
 template <typename T>
-Tensor<T> HyperJ2PlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HybridHyperJ2PlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -361,7 +425,7 @@ Tensor<T> HyperJ2PlaneStress<T>::cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-Tensor<T> HyperJ2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
+Tensor<T> HybridHyperJ2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -376,7 +440,7 @@ Tensor<T> HyperJ2PlaneStress<T>::dev_cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-T HyperJ2PlaneStress<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
+T HybridHyperJ2PlaneStress<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -390,10 +454,10 @@ T HyperJ2PlaneStress<T>::hydro_cauchy(RCP<GlobalResidual<T>> global) {
 }
 
 template <typename T>
-T HyperJ2PlaneStress<T>::pressure_scale_factor() { return 0.; }
+T HybridHyperJ2PlaneStress<T>::pressure_scale_factor() { return 0.; }
 
-template class HyperJ2PlaneStress<double>;
-template class HyperJ2PlaneStress<FADT>;
-template class HyperJ2PlaneStress<DFADT>;
+template class HybridHyperJ2PlaneStress<double>;
+template class HybridHyperJ2PlaneStress<FADT>;
+template class HybridHyperJ2PlaneStress<DFADT>;
 
 }

@@ -1,3 +1,4 @@
+#include <PCU.h>
 #include "control.hpp"
 #include "dbcs.hpp"
 #include "evaluations.hpp"
@@ -43,6 +44,7 @@ void Primal::solve_at_step(int step) {
   double const rel_tol = global.get<double>("nonlinear relative tol");
   bool const do_print = global.get<bool>("print convergence");
   int const max_line_search_evals = global.get<int>("max line search evals", 5);
+  double const eta = global.get<double>("line search eta", 0.5);
   double const t = m_state->disc->time(step);
 
   // print the step information
@@ -110,7 +112,6 @@ void Primal::solve_at_step(int step) {
     {
       // backtracking line search parameters
       double const beta = 1.0e-4;
-      double const eta = 0.5;
 
       // check the current residual value
       // this is not optimized in any sense
@@ -157,14 +158,20 @@ void Primal::solve_at_step(int step) {
         m_state->la->resume_fill_A();
         m_state->la->zero_A();
         m_state->la->zero_b();
-        eval_forward_jacobian(m_state, m_disc, step);
-        apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
-        m_state->la->gather_A();
-        m_state->la->gather_b();
-        apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t, step);
 
-        R_j = m_state->la->norm_b();
-        psi_j = 0.5 * R_j * R_j;
+        int status = eval_forward_jacobian(m_state, m_disc, step);
+        status = PCU_Add_Int(status);
+        if (status == 0) {
+          apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
+          m_state->la->gather_A();
+          m_state->la->gather_b();
+          apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t, step);
+
+          R_j = m_state->la->norm_b();
+          psi_j = 0.5 * R_j * R_j;
+        } else {
+          psi_j = psi_0;
+        }
 
       }
     }
