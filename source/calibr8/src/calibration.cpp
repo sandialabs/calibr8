@@ -63,7 +63,7 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
   if (!is_initd_disp) {
     m_area = 0.;
     apf::Field* f_dist = this->m_mesh->findField(m_distance_field_name.c_str());
-    ALWAYS_ASSERT(f_dist);
+    if (m_has_distance_threshold) ALWAYS_ASSERT(f_dist);
     Array1D<double> distance(1);
     apf::Vector3 iota;
     m_mapping_disp.resize(disc->num_elem_sets());
@@ -79,17 +79,24 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
           m_mapping_disp[es][elem] = -1;
           apf::MeshEntity* elem_entity = elems[elem];
           apf::MeshElement* me = apf::createMeshElement(this->m_mesh, elem_entity);
-          apf::Element* e_dist = createElement(f_dist, me);
           apf::getIntPoint(me, 1, 0, iota);
-          apf::getComponents(e_dist, iota, &(distance[0]));
-          if (distance[0] > m_distance_threshold) {
+          if (f_dist) {
+            apf::Element* e_dist = createElement(f_dist, me);
+            apf::getComponents(e_dist, iota, &(distance[0]));
+            if (distance[0] > m_distance_threshold) {
+              m_mapping_disp[es][elem] = 1;
+              w = apf::getIntWeight(me, 0, 0);
+              dv = apf::getDV(me, iota);
+              m_area += w * dv;
+            }
+            apf::destroyElement(e_dist);
+          } else {
             m_mapping_disp[es][elem] = 1;
             w = apf::getIntWeight(me, 0, 0);
             dv = apf::getDV(me, iota);
             m_area += w * dv;
           }
           apf::destroyMeshElement(me);
-          apf::destroyElement(e_dist);
         }
       }
     } else if (ndims == 3) {
@@ -108,17 +115,24 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
             for (apf::MeshEntity* side : sides) {
               if (side == downward_entity) {
                 apf::MeshElement* me = apf::createMeshElement(this->m_mesh, side);
-                apf::Element* e_dist = createElement(f_dist, me);
                 apf::getIntPoint(me, 1, 0, iota);
-                apf::getComponents(e_dist, iota, &(distance[0]));
-                if (distance[0] > m_distance_threshold) {
+                if (f_dist) {
+                  apf::Element* e_dist = createElement(f_dist, me);
+                  apf::getComponents(e_dist, iota, &(distance[0]));
+                  if (distance[0] > m_distance_threshold) {
+                    m_mapping_disp[es][elem] = down;
+                    w = apf::getIntWeight(me, 0, 0);
+                    dv = apf::getDV(me, iota);
+                    m_area += w * dv;
+                  }
+                  apf::destroyElement(e_dist);
+                } else {
                   m_mapping_disp[es][elem] = down;
                   w = apf::getIntWeight(me, 0, 0);
                   dv = apf::getDV(me, iota);
                   m_area += w * dv;
                 }
                 apf::destroyMeshElement(me);
-                apf::destroyElement(e_dist);
               }
             }
           }
