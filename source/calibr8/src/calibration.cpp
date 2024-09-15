@@ -339,6 +339,8 @@ T Calibration<T>::compute_load(
     load_pt += global->R_nodal(disp_idx, node_id, m_reaction_force_comp);
   }
 
+  global->zero_residual();
+
   return load_pt;
 }
 

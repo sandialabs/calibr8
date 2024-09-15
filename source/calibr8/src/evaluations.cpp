@@ -104,6 +104,11 @@ void eval_measured_residual_and_grad(
         nderivs = local->seed_wrt_params(es);
         local->evaluate(global);
         EMatrix const dC_dp = local->eigen_jacobian(nderivs);
+
+        global->zero_residual();
+        global->evaluate(local, iota, w, dv, ip_set);
+        EMatrix const dR_dp = global->eigen_jacobian(nderivs);
+
         local->unseed_wrt_params(es);
 
         EMatrix const local_sens_pt_prev = local_sens[es][elem][pt];
@@ -111,10 +116,10 @@ void eval_measured_residual_and_grad(
         EMatrix const dxi_dp = dC_dxi.fullPivLu().solve(local_sens_rhs);
         local_sens[es][elem][pt] = dxi_dp;
 
-        EMatrix const dR_dp = dR_dxi * dxi_dp;
+        EMatrix const dR_dp_total = dR_dxi * dxi_dp + dR_dp;
 
         global->scatter_rhs(disc, elem_resid, RHS);
-        global->scatter_sens(disc, dR_dp, dR);
+        global->scatter_sens(disc, dR_dp_total, dR);
       }
 
       // perform operations on element output
@@ -1069,7 +1074,6 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
           // and dot with the corresponding adjoint solutions to
           // compute gradient contributions
           global->interpolate(iota);
-          global->zero_residual();
           nderivs = local->seed_wrt_params(es);
 
           if (ip_set == 0) {
@@ -1094,6 +1098,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
 
           }
 
+          global->zero_residual();
           global->evaluate(local, iota, w, dv, ip_set);
           EMatrix const dR_dpT = global->eigen_jacobian(nderivs).transpose();
           Egrad += dR_dpT * z_nodes;

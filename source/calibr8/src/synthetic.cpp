@@ -12,6 +12,7 @@ void write_synthetic(
 
   // copy the mesh to a whole other mesh
   apf::Mesh* base_mesh = disc->apf_mesh();
+  disc->destroy_data();
   auto model = base_mesh->getModel();
   apf::Mesh2* synth_mesh = apf::createMdsMesh(model, base_mesh);
   apf::disownMdsModel(synth_mesh);
