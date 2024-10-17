@@ -1,6 +1,5 @@
 #include <Teuchos_YamlParameterListHelpers.hpp>
 #include <PCU.h>
-#include "adjoint.hpp"
 #include "arrays.hpp"
 #include "control.hpp"
 #include "defines.hpp"
@@ -9,6 +8,7 @@
 #include "macros.hpp"
 #include "primal.hpp"
 #include "state.hpp"
+#include "virtual_power.hpp"
 
 using namespace calibr8;
 
@@ -17,17 +17,14 @@ static ParameterList get_valid_params() {
   p.sublist("discretization");
   p.sublist("residuals");
   p.sublist("problem");
-  p.sublist("dirichlet bcs");
-  p.sublist("traction bcs");
-  p.sublist("linear algebra");
-  p.sublist("quantity of interest");
   p.sublist("inverse");
+  p.sublist("virtual fields");
   return p;
 }
 
-class Objective {
+class VFM_Objective {
   public:
-    Objective(std::string const& input_file, bool evaluate_gradient);
+    VFM_Objective(std::string const& input_file, bool evaluate_gradient);
     void evaluate();
   private:
     void setup_opt_params(ParameterList const& inverse_params);
@@ -35,14 +32,16 @@ class Objective {
     RCP<ParameterList> m_params;
     Array1D<RCP<State>> m_state;
     Array1D<RCP<Primal>> m_primal;
-    Array1D<RCP<Adjoint>> m_adjoint;
     Array1D<RCP<ParameterList>> m_prob_params;
     int m_num_problems;
     int m_num_opt_params;
     int m_model_form = 0;
+    RCP<VirtualPower> m_virtual_power;
+    std::string m_load_in_file;
+    Array1D<double> m_load_data;
 };
 
-Objective::Objective(std::string const& input_file, bool evaluate_gradient) {
+VFM_Objective::VFM_Objective(std::string const& input_file, bool evaluate_gradient) {
   m_params = rcp(new ParameterList);
   Teuchos::updateParametersFromYamlFile(input_file, m_params.ptr());
   m_params->validateParameters(get_valid_params(), 0);
@@ -50,6 +49,7 @@ Objective::Objective(std::string const& input_file, bool evaluate_gradient) {
 
   bool const is_multiple = m_params->isSublist("problems");
   if (is_multiple) {
+    fail("VFM not set up for multiple problems");
     auto problems_list = m_params->sublist("problems");
     for (auto problem_entry : problems_list) {
       auto problem_list = Teuchos::getValue<ParameterList>(problem_entry.second);
@@ -71,18 +71,24 @@ Objective::Objective(std::string const& input_file, bool evaluate_gradient) {
     m_primal[0] = rcp(new Primal(m_params, m_state[0], m_state[0]->disc));
     m_prob_params[0] = m_params;
   }
+
   setup_opt_params(m_params->sublist("inverse", true));
 
-  if (evaluate_gradient) {
-    m_adjoint.resize(m_num_problems);
-    for (int prob = 0; prob < m_num_problems; ++prob) {
-      m_adjoint[prob] = rcp(new Adjoint(m_prob_params[prob], m_state[prob],
-          m_state[prob]->disc));
-    }
+  //TODO: generalize to multiple problems
+  m_virtual_power = rcp(new VirtualPower(m_params, m_state[0], m_state[0]->disc,
+      m_num_opt_params));
+  ParameterList& inverse_params = m_params->sublist("inverse", true);
+  std::string load_in_file = inverse_params.get<std::string>("load input file");
+  std::ifstream in_file(load_in_file);
+  std::string line;
+  while (getline(in_file, line)) {
+    m_load_data.push_back(std::stod(line));
   }
+
+
 }
 
-void Objective::setup_opt_params(ParameterList const& inverse_params) {
+void VFM_Objective::setup_opt_params(ParameterList const& inverse_params) {
   Array1D<std::string> const& elem_set_names =
       m_state[0]->residuals->local[m_model_form]->elem_set_names();
   Array1D<std::string> const& param_names =
@@ -119,19 +125,48 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
 }
 
 
-void Objective::evaluate() {
+void VFM_Objective::evaluate() {
+
+  ParameterList& inverse_params = m_params->sublist("inverse", true);
+  double const thickness = inverse_params.get<double>("thickness", 1.);
+  double const obj_scale_factor = inverse_params.get<double>("objective scale factor");
+  double dt;
+  double internal_virtual_power;
+  double load_at_step;
+  double virtual_power_mismatch;
+  double volume_internal_virtual_power;
+
   double J = 0.;
+  Array1D<double> grad_at_step(m_num_opt_params);
+  Array1D<double> grad(m_num_opt_params, 0.);
+
   for (int prob = 0; prob < m_num_problems; ++prob) {
     double J_prob = 0.;
     int const nsteps = m_state[prob]->disc->num_time_steps();
-    // solve the primal problem
-    for (int step = 1; step <= nsteps; ++step) {
-      m_primal[prob]->solve_at_step(step);
-      J_prob += eval_qoi(m_state[prob], m_state[prob]->disc, step);
-    }
+    double const total_time = m_state[prob]->disc->time(nsteps) - m_state[prob]->disc->time(0);
+
+    m_state[prob]->disc->destroy_primal();
+
+      for (int step = 1; step <= nsteps; ++step) {
+        dt = m_state[0]->disc->dt(step);
+        m_virtual_power->compute_at_step(step, internal_virtual_power, grad_at_step);
+        load_at_step = m_load_data[step - 1];
+        volume_internal_virtual_power = thickness * internal_virtual_power;
+        virtual_power_mismatch = volume_internal_virtual_power - load_at_step;
+        J_prob += 0.5 * obj_scale_factor * dt / total_time
+            * std::pow(virtual_power_mismatch, 2);
+
+        for (int i = 0; i < m_num_opt_params; ++i) {
+          grad[i] += grad_at_step[i] * virtual_power_mismatch
+              * obj_scale_factor * dt / total_time;
+        }
+      }
+
     J_prob = PCU_Add_Double(J_prob);
     J += J_prob;
   }
+
+  PCU_Add_Doubles(grad.data(), m_num_opt_params);
 
   if (PCU_Comm_Self() == 0) {
     std::ofstream obj_file;
@@ -140,27 +175,7 @@ void Objective::evaluate() {
     obj_file << std::scientific << std::setprecision(17);
     obj_file << J << "\n";
     obj_file.close();
-  }
-
-  if (m_evaluate_gradient) {
-    Array1D<double> grad(m_num_opt_params, 0.);
-    for (int prob = 0; prob < m_num_problems; ++prob) {
-      Array1D<double> grad_at_step(m_num_opt_params);
-      int const nsteps = m_state[prob]->disc->num_time_steps();
-      m_state[prob]->disc->create_adjoint(m_state[prob]->residuals, nsteps);
-      // solve the adjoint problem
-      for (int step = nsteps; step > 0; --step) {
-        m_adjoint[prob]->solve_at_step(step);
-        grad_at_step = eval_qoi_gradient(m_state[prob], step);
-        for (int i = 0; i < m_num_opt_params; ++i) {
-          grad[i] += grad_at_step[i];
-        }
-      }
-      m_state[prob]->disc->destroy_adjoint();
-    }
-    PCU_Add_Doubles(grad.data(), m_num_opt_params);
-
-    if (PCU_Comm_Self() == 0) {
+    if (m_evaluate_gradient) {
       std::ofstream grad_file;
       std::string const grad_filename = "objective_gradient.txt";
       grad_file.open(grad_filename);
@@ -189,7 +204,7 @@ int main(int argc, char** argv) {
     } else {
       eval_grad = false;
     }
-    Objective objective(yaml_input, eval_grad);
+    VFM_Objective objective(yaml_input, eval_grad);
     objective.evaluate();
   }
   finalize();

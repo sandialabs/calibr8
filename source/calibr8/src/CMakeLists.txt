@@ -137,3 +137,8 @@ add_executable(primal_multiple main_primal_multiple.cpp)
 target_link_libraries(primal_multiple PRIVATE calibr8)
 install(TARGETS primal_multiple)
 set_code_standards(primal_multiple)
+
+add_executable(vfm_objective main_vfm_objective.cpp)
+target_link_libraries(vfm_objective PRIVATE calibr8)
+set_code_standards(vfm_objective)
+install(TARGETS vfm_objective)

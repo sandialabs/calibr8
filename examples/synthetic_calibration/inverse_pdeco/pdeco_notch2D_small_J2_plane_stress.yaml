@@ -1,0 +1,108 @@
+pdeco_notch2D_small_J2_plane_stress:
+
+  problem:
+    name: pdeco_notch2D_small_J2_plane_stress
+
+  discretization:
+    geom file: '../../../source/calibr8/test/mesh/notch2D/notch2D.dmg'
+    mesh file: '../forward/notch2D_small_J2_plane_stress_synthetic/'
+    assoc file: '../../../source/calibr8/test/mesh/notch2D/notch2D.txt'
+    num steps: 4
+    step size: 1.
+
+  residuals:
+    global residual:
+      type: 'mechanics_plane_stress'
+      nonlinear max iters: 30
+      nonlinear absolute tol: 1.e-12
+      nonlinear relative tol: 1.e-12
+      print convergence: false
+    local residual:
+      type: 'small_hill_plane_stress'
+      nonlinear max iters: 20
+      nonlinear absolute tol: 1.e-12
+      nonlinear relative tol: 1.e-12
+      materials:
+        body:
+          E: 1000.
+          nu: 0.25
+          Y: 2.2
+          S: 8.
+          D: 60.
+          R00: 1.
+          R11: 1.
+          R22: 1.
+          R01: 1.
+
+  # bc name: [resid_idx, eq, node_set_name, value]
+  dirichlet bcs:
+    expression:
+      bc 1: [0, 0, xmin, 0.0]
+      bc 2: [0, 1, ymin, 0.0]
+      bc 3: [0, 1, ymax, 0.01 * t]
+
+  quantity of interest:
+    type: 'calibration'
+    coordinate index: 1
+    coordinate value: 1.
+    load input file: "../forward/load.dat"
+    #objective out file: "objective.dat"
+    reaction force component: 1
+    displacement weights: [1e8, 1e8]
+    balance factor: 1e2
+
+  inverse:
+    objective type: "adjoint"
+    #check gradient: true
+    #iteration limit: 0
+    check gradient: false
+    iteration limit: 50
+    gradient tolerance: 1e-8
+    max line search evals: 10
+    materials:
+      body:
+       #E: [900., 1200.]
+       #nu: [0.2, 0.3]
+       Y: [1., 3.]
+       S: [5., 15.]
+       D: [40., 80.]
+
+  linear algebra:
+    Linear Solver Type: "Belos"
+    Preconditioner Type: "Teko"
+    Linear Solver Types:
+      Belos:
+        Solver Type: "Block GMRES"
+        Solver Types:
+          Block GMRES:
+            Convergence Tolerance: 1.e-12
+            Output Frequency: 10
+            Output Style: 1
+            Verbosity: 33
+            Maximum Iterations: 200
+            Block Size: 1
+            Num Blocks: 200
+            Flexibile Gmres: false
+        VerboseObject:
+          Output File: "none"
+          Verbosity Level: "none"
+    Preconditioner Types:
+      Teko:
+        Inverse Type: "BGS2x2"
+        Write Block Operator: false
+        Test Block Operator: false
+        Inverse Factory Library:
+          BGS2x2:
+            Type: "Block Gauss-Seidel"
+            Use Upper Triangle: false
+            Inverse Type 1: "AMG2"
+          AMG2:
+            Type: "MueLu"
+            number of equations: 2
+            verbosity: "none"
+            'problem: symmetric': false
+          GS:
+            Type: "Ifpack2"
+            Overlap: 1
+            Ifpack2 Settings:
+              'relaxation: type': "Gauss-Seidel"
