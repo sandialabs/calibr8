@@ -10,13 +10,13 @@ class IndentDumper(yaml.Dumper):
         return super(IndentDumper, self).increase_indent(flow, False)
 
 
-def build_run_command(calibr8_root, flavor, num_proc):
-    command = f"cd {calibr8_root} && " \
-              f"source env/{flavor}.sh && " \
-              f"source capp-setup.sh && " \
-              "capp load && " \
-              "cd - > /dev/null &&" \
-              "mpiexec -n {num_proc} objective run.yaml"
+def cleanup_files():
+    files = ["run.yaml", "objective_value.txt", "objective_gradient.txt"]
+    subprocess.run(["rm"] + files)
+
+
+def get_run_command(num_proc):
+    command = "mpiexec -n {num_proc} objective run.yaml"
 
     return command
 
@@ -74,14 +74,14 @@ def update_yaml_input_file_parameters(local_residual_params_block,
 # 1. get optimizer options from inverse block
 # 2. parameter scaling and unscaling
 # 3. put optimizer in
-# 4. cleanup function (remove run.yaml, objective*.txt files)
+# x. cleanup function (remove run.yaml, objective*.txt files)
 # 5. make script callable + input parsing
 
 
 # these will be input arguments:
 input_file = "pdeco_notch2D_small_J2_plane_stress.yaml"
-calibr8_root = "/Users/dtseidl/char/calibr8/github-calibr8"
-flavor = "osx-shared"
+#calibr8_root = "/Users/dtseidl/char/calibr8/github-calibr8"
+#flavor = "osx-shared"
 num_proc = 1
 
 with open(input_file, "r") as file:
@@ -104,7 +104,10 @@ with open("run.yaml", "w") as file:
     yaml.dump(input_yaml, file, default_flow_style=False, sort_keys=False,
         Dumper=IndentDumper)
 
-run_command = build_run_command(calibr8_root, flavor, num_proc)
+#run_command = build_run_command(calibr8_root, flavor, num_proc)
+run_command = get_run_command(num_proc)
 eval_obj_and_grad_str = "true"
 run_command += f" {eval_obj_and_grad_str}"
 subprocess.run(["bash", "-c", run_command])
+
+cleanup_files()
