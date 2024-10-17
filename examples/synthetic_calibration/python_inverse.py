@@ -1,7 +1,7 @@
 import numpy as np
 
+import argparse
 import subprocess
-
 import yaml
 
 from functools import partial
@@ -13,10 +13,8 @@ class IndentDumper(yaml.Dumper):
         return super(IndentDumper, self).increase_indent(flow, False)
 
 
-def get_run_command(num_proc):
-    command = f"mpiexec -n {num_proc} objective run.yaml true"
-
-    return command
+def get_run_command(num_proc, obj_exe):
+    return f"mpiexec -n {num_proc} {obj_exe} run.yaml true"
 
 
 def transform_parameters(values, scales, transform_from_canonical):
@@ -132,20 +130,19 @@ def get_opt_options(entire_yaml_input_file):
     yaml_input_file = entire_yaml_input_file[top_key]
     inverse_block = yaml_input_file["inverse"]
 
+    obj_type = inverse_block["objective type"]
+    if obj_type == "adjoint":
+        obj_exe = "objective"
+    elif obj_type == "FS_VFM":
+        obj_exe = "vfm_objective"
+    else:
+        raise ValueError("objective type not supported")
+
     num_iterations = inverse_block["iteration limit"]
     gradient_tol = float(inverse_block["gradient tolerance"])
     max_ls_evals = inverse_block["max line search evals"]
 
-    return num_iterations, gradient_tol, max_ls_evals
-
-
-def update_yaml_input_file_parameters(input_yaml, param_names, param_values):
-
-    local_residual_params_block, _ = \
-        get_materials_and_inverse_blocks(input_yaml)
-
-    for param_name, param_value in zip(param_names, param_values):
-        local_residual_params_block[param_name] = float(param_value)
+    return obj_exe, num_iterations, gradient_tol, max_ls_evals
 
 
 def setup_opt_params(input_yaml):
@@ -161,6 +158,25 @@ def setup_opt_params(input_yaml):
     opt_bounds = get_opt_bounds(opt_param_scales)
 
     return opt_param_names, opt_param_scales, initial_opt_params, opt_bounds
+
+
+def update_yaml_input_file_parameters(input_yaml, param_names, param_values):
+
+    local_residual_params_block, _ = \
+        get_materials_and_inverse_blocks(input_yaml)
+
+    for param_name, param_value in zip(param_names, param_values):
+        local_residual_params_block[param_name] = float(param_value)
+
+
+def write_output_file(opt_params, opt_param_scales, param_names,
+        output_file):
+
+    unscaled_opt_params = \
+        transform_parameters(opt_params, opt_param_scales, True)
+    with open(f"{output_file}", "w") as file:
+        for name, value in zip(param_names, unscaled_opt_params):
+            file.write(f"{name}: {value:.12e}\n")
 
 
 def cleanup_files():
@@ -189,41 +205,49 @@ def objective_and_gradient(params, scales, param_names,
 
     return J, grad
 
-# TODO:
-# x. get optimizer options from inverse block
-# x. parameter scaling and unscaling
-# x. put optimizer in
-# x. cleanup function (remove run.yaml, objective*.txt files)
-# 5. make script callable + input parsing
+
+def main():
+    parser = \
+        argparse.ArgumentParser(description="calibrate with a python optimizer")
+    parser.add_argument("input_file", type=str, help="inverse input yaml file")
+    parser.add_argument("-n", "--num_procs", type=int, default=1,
+        help="number of MPI ranks")
+    parser.add_argument("-o", "--output_file", type=str,
+        default="calibrated_params.txt",
+        help="output file that contains the calibrated parameters")
+
+    args = parser.parse_args()
+
+    input_file = args.input_file
+    num_procs = args.num_procs
+    output_file = args.output_file
+
+    with open(input_file, "r") as file:
+        input_yaml = yaml.safe_load(file)
+
+    opt_param_names, opt_param_scales, opt_init_params, opt_bounds = \
+        setup_opt_params(input_yaml)
+
+    obj_exe, num_iters, gradient_tol, max_ls_evals = get_opt_options(input_yaml)
+
+    run_command = get_run_command(num_procs, obj_exe)
+
+    pt_objective_and_grad = partial(objective_and_gradient,
+        scales=opt_param_scales, param_names=opt_param_names,
+        input_yaml=input_yaml, run_command=run_command)
+
+    opt_params, fun_vals, cvg_dict = fmin_l_bfgs_b(
+        pt_objective_and_grad, opt_init_params,
+        bounds=opt_bounds,
+        maxiter=num_iters, pgtol=gradient_tol, maxls=max_ls_evals,
+        iprint=1, factr=10
+    )
+
+    write_output_file(opt_params, opt_param_scales, opt_param_names,
+        output_file)
+
+    cleanup_files()
 
 
-# these will be input arguments:
-input_file = "pdeco_notch2D_small_J2_plane_stress.yaml"
-num_proc = 1
-
-with open(input_file, "r") as file:
-    input_yaml = yaml.safe_load(file)
-
-opt_param_names, opt_param_scales, initial_opt_params, opt_bounds = \
-    setup_opt_params(input_yaml)
-
-run_command = get_run_command(num_proc)
-
-pt_objective_and_grad = partial(objective_and_gradient,
-    scales=opt_param_scales, param_names=opt_param_names,
-    input_yaml=input_yaml, run_command=run_command)
-
-num_iters, gradient_tol, max_ls_evals = get_opt_options(input_yaml)
-
-opt_params, fun_vals, cvg_dict = fmin_l_bfgs_b(
-    pt_objective_and_grad, initial_opt_params,
-    bounds=opt_bounds,
-    maxiter=num_iters, pgtol=gradient_tol, maxls=max_ls_evals,
-    iprint=1, factr=10
-)
-
-unscaled_opt_params = transform_parameters(opt_params, opt_param_scales, True)
-np.savetxt("calibrated_params.txt", unscaled_opt_params)
-print(f"opt params = {unscaled_opt_params}")
-
-cleanup_files()
+if __name__ == "__main__":
+    main()
