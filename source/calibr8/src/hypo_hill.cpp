@@ -268,13 +268,14 @@ int HypoHill<T>::evaluate(
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const d = eval_d(global);
   R_TC = TC - TC_old - lambda * trace(d) * I - 2. * mu * d;
+  R_TC /= val(mu);
 
   if (!force_path) {
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
       T const dgam = alpha - alpha_old;
       Tensor<T> const n = compute_hill_normal(TC, hill_params, hill);
-      R_TC += 2. * mu * dgam * n;
+      R_TC += (2. * mu * dgam * n) / val(mu);
       R_alpha = f;
       path = PLASTIC;
     }
@@ -292,7 +293,7 @@ int HypoHill<T>::evaluate(
     if (path == PLASTIC) {
       T const dgam = alpha - alpha_old;
       Tensor<T> const n = compute_hill_normal(TC, hill_params, hill);
-      R_TC += 2. * mu * dgam * n;
+      R_TC += (2. * mu * dgam * n) / val(mu);
       R_alpha = f;
     }
     // elastic step
