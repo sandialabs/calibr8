@@ -4,13 +4,8 @@ Required software:
   - C and C++ compilers and MPI wrappers (e.g. openmpi or mpich)
 
 Installation:
-- Choose a "flavor" that suites your environment and installation preferences:
-  e.g. linux-shared, osx-static
+  - Choose a "flavor" (e.g. osx-shared, cee-static) that suites your
+    environment (or create your own) and edit the install.sh script accordingly.
 
-- Run the following commands in the root directory for your flavor
-  (linux-shared in this example) to build and install Calibr8 and all
-  of its dependencies using 4 processors
-    > source capp-setup.sh
-    > source env/linux-shared.sh
-    > capp load
-    > capp build -f linux-shared -j 4
+  - Run the install script in the root directory:
+    > bash install.sh
