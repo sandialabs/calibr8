@@ -1,0 +1,59 @@
+vfm_notch2D_small_J2_plane_stress:
+
+  problem:
+    name: vfm_notch2D_small_J2_plane_stress
+
+  discretization:
+    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'
+    mesh file: './notch2D_small_J2_plane_stress_synthetic/'
+    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.txt'
+    num steps: 4
+    step size: 1.
+
+  residuals:
+    global residual:
+      type: 'mechanics_plane_stress'
+      nonlinear max iters: 30
+      nonlinear absolute tol: 1.e-12
+      nonlinear relative tol: 1.e-12
+      print convergence: false
+    local residual:
+      type: 'small_hill_plane_stress'
+      nonlinear max iters: 20
+      nonlinear absolute tol: 1.e-12
+      nonlinear relative tol: 1.e-12
+      materials:
+        body:
+          E: 1000.
+          nu: 0.25
+          Y: 2.2
+          S: 8.
+          D: 60.
+          R00: 1.
+          R11: 1.
+          R22: 1.
+          R01: 1.
+
+  inverse:
+    objective type: "FS_VFM"
+    check gradient: true
+    iteration limit: 0
+    print vfm mismatch: false
+    internal power scale factor: 1.
+    objective scale factor: 1e2
+    thickness: 1.
+    load input file: "./load.dat"
+    gradient tolerance: 1e-8
+    max line search evals: 20
+    step tolerance: 1e-15
+    materials:
+      body:
+       #E: [900., 1200.]
+       #nu: [0.2, 0.3]
+       Y: [1., 3.]
+       S: [5., 15.]
+       D: [40., 80.]
+
+  virtual fields:
+    w_x: 'cos(4. * atan(1.) * (y - 0.5) / 1.) * x'
+    w_y: '(y * (2 * (y - 0.5) + 1.) / (2 * 1.))'

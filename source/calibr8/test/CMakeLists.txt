@@ -8,6 +8,7 @@ add_subdirectory(adjoint)
 add_subdirectory(femu)
 add_subdirectory(error)
 add_subdirectory(verify)
+add_subdirectory(vfm)
 
 add_executable(vectorize vectorize.cpp)
 target_link_libraries(vectorize PRIVATE calibr8)
