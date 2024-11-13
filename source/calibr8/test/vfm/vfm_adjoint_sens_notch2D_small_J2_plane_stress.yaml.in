@@ -34,6 +34,10 @@ vfm_notch2D_small_J2_plane_stress:
           R22: 1.
           R01: 1.
 
+  regression:
+    log10 drop expected: 7.6799236451528792e+00
+    log10 drop tolerance: 1.e-08
+
   inverse:
     objective type: "Adjoint_VFM"
     check gradient: true

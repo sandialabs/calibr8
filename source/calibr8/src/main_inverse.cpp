@@ -37,7 +37,7 @@ static ParameterList get_valid_params() {
   p.sublist("traction bcs");
   p.sublist("linear algebra");
   p.sublist("quantity of interest");
-  //p.sublist("regression");
+  p.sublist("regression");
   p.sublist("inverse");
   p.sublist("virtual fields");
   return p;
@@ -75,7 +75,9 @@ int main(int argc, char** argv) {
     set_default_rol_params(rol_params);
 
     ParameterList& inverse_params = params->sublist("inverse", true);
-    //ParameterList& regression_params = params->sublist("regression", false);
+    bool eval_regression = false;
+    if (params->isSublist("regression")) eval_regression = true;
+
     std::string const obj_type = inverse_params.get<std::string>("objective type");
 
     bool check_gradient  = inverse_params.get<bool>("check gradient", false);
@@ -120,6 +122,7 @@ int main(int argc, char** argv) {
 
     bool isProcZero = (PCU_Comm_Self() == 0);
 
+    // if gradient check
     if (((obj_type == "adjoint") || (obj_type == "FS_VFM") || (obj_type == "Adjoint_VFM")) && check_gradient) {
       int const num_steps = 13;
       Array2D<double> fd_results;
@@ -135,6 +138,24 @@ int main(int argc, char** argv) {
       }
       double log10_mag_drop = std::log10(max_error / min_error);
       print("log10 of FD error magnitude drop = %.16e", log10_mag_drop);
+      if (eval_regression) {
+        ParameterList& regression_params = params->sublist("regression", false);
+        double const drop_expected = regression_params.get<double>("log10 drop expected");
+        double const drop_tol = regression_params.get<double>("log10 drop tolerance");
+        double const err = std::abs((drop_expected - log10_mag_drop)/drop_expected);
+        std::cout << std::scientific << std::setprecision(17);
+        std::cout << "------ regression summary -----\n";
+        std::cout << "FD log10 computed drop: " << log10_mag_drop << "\n";
+        std::cout << "FD log10 expected drop: " << drop_expected << "\n";
+        std::cout << "relative error: " << err << "\n";
+        if (err < drop_tol) {
+          std::cout << " PASS\n";
+        } else {
+          std::cout << " FAIL\n";
+          abort();
+        }
+        std::cout << "-------------------------------\n";
+      }
     }
 
     Array1D<std::string> output;
