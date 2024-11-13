@@ -8,6 +8,7 @@
 #include <Teuchos_YamlParameterListHelpers.hpp>
 #include "arrays.hpp"
 #include "adjoint_objective.hpp"
+#include "adjoint_sens_vfm_objective.hpp"
 #include "control.hpp"
 #include "defines.hpp"
 #include "fd_vfm_objective.hpp"
@@ -51,6 +52,8 @@ RCP<Objective> create_rol_objective(
     return rcp(new FEMU_Objective(params));
   } else if (obj_type == "FS_VFM") {
     return rcp(new FS_VFM_Objective(params));
+  } else if (obj_type == "Adjoint_VFM") {
+    return rcp(new Adjoint_VFM_Objective(params));
   } else if (obj_type == "VFM") {
     return rcp(new FD_VFM_Objective(params));
   } else {
@@ -117,7 +120,7 @@ int main(int argc, char** argv) {
 
     bool isProcZero = (PCU_Comm_Self() == 0);
 
-    if ((obj_type == "adjoint" || obj_type == "FS_VFM") && check_gradient) {
+    if (((obj_type == "adjoint") || (obj_type == "FS_VFM") || (obj_type == "Adjoint_VFM")) && check_gradient) {
       int const num_steps = 13;
       Array2D<double> fd_results;
       ROL::Ptr<Array1D<double>> d_ptr = ROL::makePtr<Array1D<double>>(dim, 0.1);
