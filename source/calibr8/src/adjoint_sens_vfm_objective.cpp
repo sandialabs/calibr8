@@ -35,8 +35,6 @@ double Adjoint_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
     int const nsteps = m_state[0]->disc->num_time_steps();
     double const total_time = m_state[0]->disc->time(nsteps) - m_state[0]->disc->time(0);
     double const thickness = inverse_params.get<double>("thickness", 1.);
-    double const internal_power_scale_factor
-      = inverse_params.get<double>("internal power scale factor", 1.);
     bool const print_vfm_mismatch
       = inverse_params.get<bool>("print vfm mismatch", false);
     double dt = 0.;
@@ -47,8 +45,7 @@ double Adjoint_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
     m_state[0]->disc->destroy_primal();
     for (int step = 1; step <= nsteps; ++step) {
       dt = m_state[0]->disc->dt(step);
-      internal_virtual_power = m_virtual_power->compute_at_step(step)
-        * internal_power_scale_factor;
+      internal_virtual_power = m_virtual_power->compute_at_step(step);
       load_at_step = m_load_data[step - 1];
       PCU_Add_Double(internal_virtual_power);
       volume_internal_virtual_power = thickness * internal_virtual_power;
@@ -89,10 +86,6 @@ void Adjoint_VFM_Objective::gradient(
   int const nsteps = m_state[0]->disc->num_time_steps();
   double const total_time = m_state[0]->disc->time(nsteps) - m_state[0]->disc->time(0);
   double const thickness = inverse_params.get<double>("thickness", 1.);
-  double const internal_power_scale_factor
-    = inverse_params.get<double>("internal power scale factor", 1.);
-  bool const print_vfm_mismatch
-    = inverse_params.get<bool>("print vfm mismatch", false);
   double dt = 0.;
   double J = 0.;
   double internal_virtual_power;
@@ -100,28 +93,27 @@ void Adjoint_VFM_Objective::gradient(
   double virtual_power_mismatch;
   double volume_internal_virtual_power;
   m_state[0]->disc->destroy_primal();
-  Array1D<double> int_virtual_power_vec(nsteps);
-  double vp_mismatch_scaled;
+  Array1D<double> internal_virtual_power_vec(nsteps - 1);
+  double scaled_virtual_power_mismatch;
 
   for (int step = 1; step <= nsteps; ++step) {
     dt = m_state[0]->disc->dt(step);
     internal_virtual_power = m_virtual_power->compute_at_step(step);
-    int_virtual_power_vec[step - 1] =  internal_virtual_power * internal_power_scale_factor;
+    internal_virtual_power_vec[step - 1] = internal_virtual_power;
   }
 
   for (int step = nsteps; step > 0; --step) {
     dt = m_state[0]->disc->dt(step);
     load_at_step = m_load_data[step - 1];
-    virtual_power_mismatch = int_virtual_power_vec[step - 1] * thickness - load_at_step;
-    vp_mismatch_scaled = virtual_power_mismatch * obj_scale_factor * dt / total_time;
 
-    m_virtual_power->compute_at_step_grad(step, vp_mismatch_scaled, grad_at_step);
+    virtual_power_mismatch = internal_virtual_power_vec[step - 1] * thickness - load_at_step;
+    scaled_virtual_power_mismatch = virtual_power_mismatch * obj_scale_factor * dt / total_time;
+    J += 0.5 * virtual_power_mismatch * scaled_virtual_power_mismatch;
 
-    J += 0.5 * obj_scale_factor * dt / total_time
-      * std::pow(virtual_power_mismatch, 2);
+    m_virtual_power->compute_at_step_adjoint(step, scaled_virtual_power_mismatch, grad_at_step);
 
     for (int i = 0; i < m_num_opt_params; ++i) {
-      grad[i] +=   grad_at_step[i];
+      grad[i] += grad_at_step[i];
     }
   }
   m_J_old = J;

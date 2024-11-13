@@ -35,10 +35,7 @@ double FS_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
     int const nsteps = m_state[0]->disc->num_time_steps();
     double const total_time = m_state[0]->disc->time(nsteps) - m_state[0]->disc->time(0);
     double const thickness = inverse_params.get<double>("thickness", 1.);
-    double const internal_power_scale_factor
-        = inverse_params.get<double>("internal power scale factor", 1.);
-    bool const print_vfm_mismatch
-        = inverse_params.get<bool>("print vfm mismatch", false);
+    bool const print_vfm_mismatch = inverse_params.get<bool>("print vfm mismatch", false);
     double dt = 0.;
     double J = 0.;
     double internal_virtual_power;
@@ -47,8 +44,7 @@ double FS_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
     m_state[0]->disc->destroy_primal();
     for (int step = 1; step <= nsteps; ++step) {
       dt = m_state[0]->disc->dt(step);
-      internal_virtual_power = m_virtual_power->compute_at_step(step)
-          * internal_power_scale_factor;
+      internal_virtual_power = m_virtual_power->compute_at_step(step);
       load_at_step = m_load_data[step - 1];
       PCU_Add_Double(internal_virtual_power);
       volume_internal_virtual_power = thickness * internal_virtual_power;
@@ -72,7 +68,7 @@ void FS_VFM_Objective::gradient(
     ROL::Vector<double>& g,
     ROL::Vector<double> const& p,
     double&) {
-  
+
   //TODO: generalize to multiple states
 
   ROL::Ptr<Array1D<double>> gp = getVector(g);
@@ -89,10 +85,6 @@ void FS_VFM_Objective::gradient(
   int const nsteps = m_state[0]->disc->num_time_steps();
   double const total_time = m_state[0]->disc->time(nsteps) - m_state[0]->disc->time(0);
   double const thickness = inverse_params.get<double>("thickness", 1.);
-  double const internal_power_scale_factor
-      = inverse_params.get<double>("internal power scale factor", 1.);
-  bool const print_vfm_mismatch
-      = inverse_params.get<bool>("print vfm mismatch", false);
   double dt = 0.;
   double J = 0.;
   double internal_virtual_power;
@@ -103,8 +95,7 @@ void FS_VFM_Objective::gradient(
 
   for (int step = 1; step <= nsteps; ++step) {
     dt = m_state[0]->disc->dt(step);
-    m_virtual_power->compute_at_step(step, internal_virtual_power, grad_at_step);
-    internal_virtual_power *= internal_power_scale_factor;
+    m_virtual_power->compute_at_step_forward_sens(step, internal_virtual_power, grad_at_step);
     load_at_step = m_load_data[step - 1];
     volume_internal_virtual_power = thickness * internal_virtual_power;
     virtual_power_mismatch = volume_internal_virtual_power - load_at_step;

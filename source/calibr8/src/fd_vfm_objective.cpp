@@ -35,10 +35,7 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
     int const nsteps = m_state[0]->disc->num_time_steps();
     double const total_time = m_state[0]->disc->time(nsteps) - m_state[0]->disc->time(0);
     double const thickness = inverse_params.get<double>("thickness", 1.);
-    double const internal_power_scale_factor
-        = inverse_params.get<double>("internal power scale factor", 1.);
-    bool const print_vfm_mismatch
-        = inverse_params.get<bool>("print vfm mismatch", false);
+    bool const print_vfm_mismatch = inverse_params.get<bool>("print vfm mismatch", false);
     double dt = 0.;
     double J = 0.;
     double internal_virtual_power;
@@ -47,8 +44,7 @@ double FD_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
     m_state[0]->disc->destroy_primal();
     for (int step = 1; step <= nsteps; ++step) {
       dt = m_state[0]->disc->dt(step);
-      internal_virtual_power = m_virtual_power->compute_at_step(step)
-          * internal_power_scale_factor;
+      internal_virtual_power = m_virtual_power->compute_at_step(step);
       load_at_step = m_load_data[step - 1];
       volume_internal_virtual_power = thickness * internal_virtual_power;
       if (print_vfm_mismatch) {

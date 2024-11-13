@@ -174,21 +174,22 @@ void eval_exact_errors(
 apf::Field* eval_cauchy(RCP<State> state, int step);
 
 
-//! \brief Evaluate the residual vector and its gradient given measured displacement data adjoint sens
+//! \brief Evaluate the residual vector and its adjoint-based gradient given measured displacement data
 //! \param state The application state object
 //! \param disc The discretization object
-//! \param dR The ghosted derivatives of the residual
+//! \param grad_mv The ghosted derivatives of the VFM objective function
 //! \param local_sens The sensitivity matrices
 //! \param step The current load/time step
+//! \param scaled_virtual_power_mismatch The scaled virtual power mismatch
 //! \details This will populate:
 //!   state->la->b[GHOST] as the residual R
-//!   the residual gradient dR (ghost)
+//!   the gradient multivector grad_mv (ghost)
 void eval_adjoint_measured_residual_and_grad(
     RCP<ParameterList> params,
     RCP<State> state,
     RCP<Disc> disc,
-    Array1D<RCP<MultiVectorT>>& dR,
-    Array3D<EMatrix>& local_hist,
-    int step, double vp_mistach_scaled);
-
+    Array1D<RCP<MultiVectorT>>& grad_mv,
+    Array3D<EMatrix>& local_history,
+    int step,
+    double scaled_virtual_power_mismatch);
 }

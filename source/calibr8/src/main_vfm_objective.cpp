@@ -149,7 +149,7 @@ void VFM_Objective::evaluate() {
 
       for (int step = 1; step <= nsteps; ++step) {
         dt = m_state[0]->disc->dt(step);
-        m_virtual_power->compute_at_step(step, internal_virtual_power, grad_at_step);
+        m_virtual_power->compute_at_step_forward_sens(step, internal_virtual_power, grad_at_step);
         load_at_step = m_load_data[step - 1];
         volume_internal_virtual_power = thickness * internal_virtual_power;
         virtual_power_mismatch = volume_internal_virtual_power - load_at_step;

@@ -33,18 +33,18 @@ class VirtualPower {
     //! \param step The current step to compute at
     double compute_at_step(int step);
 
-    //! \brief Compute the squared virtual power mismatch at a step
+    //! \brief Compute the squared virtual power mismatch and its gradient with forward sensitivities at a step
     //! \param step The current step to compute at
     //! \param step The internal virtual power
     //! \param step The gradient of the internal virtual power
-    void compute_at_step(int step, double& internal_virtual_power,
+    void compute_at_step_forward_sens(int step, double& internal_virtual_power,
         Array1D<double>& grad);
 
     //! \brief Compute the squared virtual power mismatch at a step based on adjoint sens
     //! \param step The current step to compute at
-    //! \param step The internal virtual power
-    //! \param step The gradient of the internal virtual power
-    void compute_at_step_grad(int step, double vp_mismatch_scaled,
+    //! \param step The scaled virtual power mismatch
+    //! \param step The gradient of the objective function
+    void compute_at_step_adjoint(int step, double scaled_virtual_power_mismatch,
         Array1D<double>& grad);
 
     ~VirtualPower();
@@ -57,11 +57,11 @@ class VirtualPower {
     Array1D<RCP<VectorT>> m_vf_vec[NUM_DISTRIB];
     Array1D<RCP<MultiVectorT>> m_mvec[NUM_DISTRIB];
     Array3D<EMatrix> m_local_sens; // (elem_set_idx, elem, int pt)
-    Array3D<EMatrix> local_history;  // (elem_set_idx, elem, int pt)
+    Array3D<EMatrix> m_local_history_matrices;  // (elem_set_idx, elem, int pt)
 
     int m_num_params = 0;
     void initialize_sens_matrices();
-    void initialize_adjoint_history();
+    void initialize_adjoint_history_matrices();
 
 };
 

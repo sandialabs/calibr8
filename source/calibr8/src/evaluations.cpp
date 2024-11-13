@@ -1967,9 +1967,10 @@ void eval_adjoint_measured_residual_and_grad(
     RCP<ParameterList> params,
     RCP<State> state,
     RCP<Disc> disc,
-    Array1D<RCP<MultiVectorT>>& dR,
-    Array3D<EMatrix>& local_hist,
-    int step, double vp_mistach_scaled) {
+    Array1D<RCP<MultiVectorT>>& grad_mvec,
+    Array3D<EMatrix>& local_history_matrices,
+    int step,
+    double scaled_virtual_power_mismatch) {
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
@@ -2065,31 +2066,29 @@ void eval_adjoint_measured_residual_and_grad(
         EMatrix const dR_dp = global->eigen_jacobian(nderivs);
         local->unseed_wrt_params(es);
 
-        EMatrix const local_sens_pt_prev = local_hist[es][elem][pt];
+        EMatrix const local_history_matrix_pt = local_history_matrices[es][elem][pt];
 
-        EMatrix const local_sens_rhs = -dR_dxiT * vp_mistach_scaled - local_sens_pt_prev;
-        EMatrix const phi = dC_dxiT.fullPivLu().solve(local_sens_rhs);
-        local_hist[es][elem][pt] = dC_dxi_prevT * phi;
+        EMatrix const local_adjoint_rhs = -dR_dxiT * scaled_virtual_power_mismatch
+          - local_history_matrix_pt;
+        EMatrix const phi = dC_dxiT.fullPivLu().solve(local_adjoint_rhs);
+        local_history_matrices[es][elem][pt] = dC_dxi_prevT * phi;
 
-        EMatrix const dL_dp = dR_dp * vp_mistach_scaled + phi.transpose() * dC_dp;
+        EMatrix const dJ_dp = dR_dp * scaled_virtual_power_mismatch + phi.transpose() * dC_dp;
 
         global->scatter_rhs(disc, elem_resid, RHS);
-        global->scatter_sens(disc, dL_dp, dR);
+        global->scatter_sens(disc, dJ_dp, grad_mvec);
       }
 
       // perform operations on element output
       apf::destroyMeshElement(me);
       global->unset_elem();
       local->unset_elem();
-
     }
-
   }
 
   // perform clean-ups of the residual objects
   local->after_elems();
   global->after_elems();
-
 }
 
 }
