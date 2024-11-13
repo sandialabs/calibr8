@@ -34,6 +34,10 @@ cube hyperJ2:
   quantity of interest:
     type: 'average displacement'
 
+  regression:
+    log10 drop expected: 7.7384790056517998e+00
+    log10 drop tolerance: 1.e-08
+
   inverse:
     objective type: "adjoint"
     check gradient: true
