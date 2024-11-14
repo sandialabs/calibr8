@@ -1,7 +1,7 @@
-notch hypoJ2_plane_stress:
+notch_2D_hyper_J2_plane_stress:
 
   problem:
-    name: notch_hypoJ2_plane_stress
+    name: notch_2D_hyper_J2_plane_stress
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'
@@ -29,6 +29,8 @@ notch hypoJ2_plane_stress:
           Y: 2.
           S: 10.
           D: 2.
+          A: 0.
+          n: 0.
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
