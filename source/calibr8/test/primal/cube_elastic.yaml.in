@@ -1,4 +1,4 @@
-elastic:
+cube elastic:
 
   problem:
     name: cube_elastic
@@ -7,7 +7,7 @@ elastic:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.dmg'
     mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.smb'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.txt'
-    num steps: 1 
+    num steps: 1
     step size: 1.
 
   residuals:

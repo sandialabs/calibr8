@@ -1,7 +1,7 @@
-notch hyperJ2 FEMU:
+notch hyper J2 FEMU:
 
   problem:
-    name: notch_hyperJ2_FEMU
+    name: notch_hyper_J2_FEMU
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'

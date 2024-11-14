@@ -1,7 +1,7 @@
-notch small_J2:
+notch small J2:
 
   problem:
-    name: small_J2
+    name: notch_small_J2
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'

@@ -1,7 +1,7 @@
-notch hypoJ2_plane_strain:
+notch2D hypo J2 plane strain:
 
   problem:
-    name: notch_hypoJ2_plane_strain
+    name: notch2D_hypo_J2_plane_strain
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'

@@ -1,7 +1,7 @@
-notch hyperJ2:
+notch2D hyper J2 plane strain:
 
   problem:
-    name: J2_finite_2D
+    name: notch2D_hyper_J2_plane_strain
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'

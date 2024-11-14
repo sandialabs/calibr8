@@ -1,7 +1,7 @@
-notch hyperJ2 synthetic:
+notch hyper J2 synthetic:
 
   problem:
-    name: notch_hyperJ2
+    name: notch_hyper_J2_synthetic
     write synthetic: true
 
   discretization:

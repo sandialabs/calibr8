@@ -1,4 +1,4 @@
-notch2D_small_J2_plane_strain:
+notch2D small J2 plane strain:
 
   problem:
     name: notch2D_small_J2_plane_strain

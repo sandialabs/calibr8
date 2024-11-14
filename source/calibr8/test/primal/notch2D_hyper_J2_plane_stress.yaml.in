@@ -1,4 +1,4 @@
-notch_2D_hyper_J2_plane_stress:
+notch2D hyper J2 plane stress:
 
   problem:
     name: notch_2D_hyper_J2_plane_stress

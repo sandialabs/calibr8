@@ -1,7 +1,7 @@
-notch small_hosford:
+notch small hosford:
 
   problem:
-    name: small_hosford
+    name: notch_small_hosford
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'

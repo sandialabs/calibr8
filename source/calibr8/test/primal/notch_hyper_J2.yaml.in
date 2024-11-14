@@ -1,7 +1,7 @@
-notch hyperJ2:
+notch hyper J2:
 
   problem:
-    name: J2
+    name: notch_hyper_J2
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'

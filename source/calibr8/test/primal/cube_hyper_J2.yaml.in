@@ -1,7 +1,7 @@
-cube hyperJ2:
+cube hyper J2:
 
   problem:
-    name: cube_hyperJ2
+    name: cube_hyper_J2
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/cube/cube.dmg'

@@ -1,7 +1,7 @@
-cube hyperJ2:
+notch2D small J2:
 
   problem:
-    name: J2
+    name: notch2D_small_J2
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch2D/notch2D.dmg'
