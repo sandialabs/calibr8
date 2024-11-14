@@ -160,20 +160,17 @@ int main(int argc, char** argv) {
 
     Array1D<std::string> output;
     output = algo.run(x, *rol_objective, *bound, isProcZero, *outStream);
-    for (int i = 0; i < output.size(); ++i) {
-      *outStream << output[i];
-    }
 
     if (isProcZero) {
       std::string outname = "ROL_out.txt";
       std::ofstream rolOut(outname);
       rolOut.precision(16);
+      *outStream << std::scientific << std::setprecision(16);
       ROL::Ptr<Array1D<double> const> xp =
           (dynamic_cast<ROL::StdVector<double> const&>(x)).getVector();
       Array1D<double> const& opt_params =
           rol_objective->transform_params(*xp, false);
       for (int i = 0; i < output.size(); ++i) {
-        *outStream << output[i];
         rolOut << output[i];
       }
       Array1D<std::string> const& elem_set_names =
