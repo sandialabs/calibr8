@@ -28,6 +28,7 @@ static ParameterList get_valid_material_params() {
   p.set<double>("D", 0.);
   p.set<double>("A", 0.);
   p.set<double>("n", 0.);
+  p.set<double>("K", 0.);
   return p;
 }
 
@@ -70,7 +71,7 @@ HyperJ2PlaneStress<T>::HyperJ2PlaneStress(ParameterList const& inputs, int ndims
 template <typename T>
 void HyperJ2PlaneStress<T>::init_params() {
 
-  int const num_params = 7;
+  int const num_params = 8;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
 
@@ -82,6 +83,7 @@ void HyperJ2PlaneStress<T>::init_params() {
   this->m_param_names[4] = "D";
   this->m_param_names[5] = "A";
   this->m_param_names[6] = "n";
+  this->m_param_names[7] = "K";
 
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
@@ -101,6 +103,7 @@ void HyperJ2PlaneStress<T>::init_params() {
     this->m_param_values[es][4] = material_params.get<double>("D");
     this->m_param_values[es][5] = material_params.get<double>("A");
     this->m_param_values[es][6] = material_params.get<double>("n");
+    this->m_param_values[es][7] = material_params.get<double>("K");
   }
 
   this->m_active_indices.resize(1);
@@ -260,6 +263,7 @@ int HyperJ2PlaneStress<T>::evaluate(
   T const D = this->m_params[4];
   T const A = this->m_params[5];
   T const n = this->m_params[6];
+  T const K = this->m_params[7];
   T const mu = compute_mu(E, nu);
   T const kappa = compute_kappa(E, nu);
 
@@ -290,7 +294,8 @@ int HyperJ2PlaneStress<T>::evaluate(
 
   Tensor<T> const s = mu * zeta_3D;
   T const s_mag = minitensor::norm(s);
-  T const sigma_yield = Y + S * (1. - std::exp(-D * alpha)) + A * std::pow(alpha, n);
+  T const sigma_yield = Y + S * (1. - std::exp(-D * alpha))
+    + A * std::pow(alpha, n) + K * alpha;
   T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
   Tensor<T> R_zeta;
