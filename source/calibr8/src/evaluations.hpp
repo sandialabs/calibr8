@@ -12,33 +12,6 @@ namespace calibr8 {
 class Disc;
 class State;
 
-//! \brief Evaluate the residual vector given measured displacement data
-//! \param state The application state object
-//! \param disc The discretization object
-//! \param step The current load/time step
-//! \details This will populate:
-//!   state->la->b[GHOST] as the residual R
-void eval_measured_residual(
-    RCP<State> state,
-    RCP<Disc> disc,
-    int step);
-
-//! \brief Evaluate the residual vector and its gradient given measured displacement data
-//! \param state The application state object
-//! \param disc The discretization object
-//! \param dR The ghosted derivatives of the residual
-//! \param local_sens The sensitivity matrices
-//! \param step The current load/time step
-//! \details This will populate:
-//!   state->la->b[GHOST] as the residual R
-//!   the residual gradient dR (ghost)
-void eval_measured_residual_and_grad(
-    RCP<State> state,
-    RCP<Disc> disc,
-    Array1D<RCP<MultiVectorT>>& dR,
-    Array3D<EMatrix>& local_sens,
-    int step);
-
 //! \brief Evaluate the Jacobian matrix and residual vector
 //! \param state The application state object
 //! \param disc The discretization object
@@ -173,21 +146,46 @@ void eval_exact_errors(
 //! is indexed at 1.
 apf::Field* eval_cauchy(RCP<State> state, int step);
 
-
-//! \brief Evaluate the VFM adjoint-based gradient given measured displacement data
+//! \brief Evaluate the residual vector given measured displacement data
 //! \param state The application state object
 //! \param disc The discretization object
-//! \param grad_mv The ghosted derivatives of the VFM objective function
+//! \param step The current load/time step
+//! \details This will populate:
+//!   state->la->b[GHOST] as the residual R
+void eval_measured_residual(
+    RCP<State> state,
+    RCP<Disc> disc,
+    int step);
+
+//! \brief Evaluate the residual vector and its gradient given measured displacement data
+//! \param state The application state object
+//! \param disc The discretization object
+//! \param dR The ghosted derivatives of the residual
 //! \param local_sens The sensitivity matrices
+//! \param step The current load/time step
+//! \details This will populate:
+//!   state->la->b[GHOST] as the residual R
+//!   the residual gradient dR (ghost)
+void eval_measured_residual_and_grad(
+    RCP<State> state,
+    RCP<Disc> disc,
+    Array1D<RCP<MultiVectorT>>& dR,
+    Array3D<EMatrix>& local_sens,
+    int step);
+
+//! \brief Evaluate the VFM adjoint-based gradient multivector given measured displacement data
+//! \param state The application state object
+//! \param disc The discretization object
+//! \param grad_multi_vec The ghosted derivatives of the VFM objective function
+//! \param local_history_matrices The local history matrices
 //! \param step The current load/time step
 //! \param scaled_virtual_power_mismatch The scaled virtual power mismatch
 //! \details This will populate:
-//!   state->la->b[GHOST] as the residual R
-//!   the gradient multivector grad_mv (ghost)
-void eval_adjoint_measured_residual_and_grad(
+//!   the gradient multivector grad_multi_vec (ghost)
+void eval_vfm_adjoint(
     RCP<State> state,
     RCP<Disc> disc,
-    Array1D<RCP<MultiVectorT>>& grad_mv,
+    Array1D<RCP<MultiVectorT>>& grad_multi_vec,
     Array3D<EMatrix>& local_history,
     int step,
     double scaled_virtual_power_mismatch);

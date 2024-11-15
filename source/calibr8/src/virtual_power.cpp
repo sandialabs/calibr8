@@ -202,18 +202,18 @@ void VirtualPower::compute_at_step_adjoint(
     m_mvec[distrib][0]->putScalar(0.);
   }
 
-  // evaluate the residual and its parameter derivatives
-  eval_adjoint_measured_residual_and_grad(m_state, m_disc, m_mvec[GHOST],
+  // evaluate the gradient multivector
+  eval_vfm_adjoint(m_state, m_disc, m_mvec[GHOST],
       m_local_history_matrices, step, scaled_virtual_power_mismatch);
 
   // gather the parallel objects to their OWNED state
-  m_state->la->gather_b();
   RCP<MultiVectorT> mvec_owned = m_mvec[OWNED][0];
   RCP<MultiVectorT> mvec_ghost = m_mvec[GHOST][0];
   RCP<const ExportT> exporter = m_disc->exporter(0);
   mvec_owned->doExport(*mvec_ghost, *exporter, Tpetra::ADD);
 
-  // compute the components of the gradient
+  // compute the components of the gradient by dotting
+  // the grad multivector with the virual field coefficients
   for (int p = 0; p < m_num_params; ++p) {
     auto mvec_p = mvec_owned->getVector(p);
     grad[p] = mvec_p->dot(*m_vf_vec[OWNED][0]);

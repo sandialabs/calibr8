@@ -9,231 +9,6 @@
 
 namespace calibr8 {
 
-void eval_measured_residual_and_grad(
-    RCP<State> state,
-    RCP<Disc> disc,
-    Array1D<RCP<MultiVectorT>>& dR,
-    Array3D<EMatrix>& local_sens,
-    int step) {
-
-  // gather discretization information
-  apf::Mesh* mesh = disc->apf_mesh();
-
-  // gather information from the state object
-  int const model_form = state->model_form;
-  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
-  RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
-  global->set_time_info(state->disc->time(step), state->disc->dt(step));
-  Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
-
-  // measured displacement field
-  Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-
-  // local state variables
-  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
-
-  // perform initializations of the residual objects
-  global->before_elems(disc);
-
-  // variable telling us the current number of derivatives
-  int nderivs = -1;
-
-  // loop over all element sets in the discretization
-  for (int es = 0; es < disc->num_elem_sets(); ++es) {
-
-    local->before_elems(es, disc);
-
-    // gather the elements in the current element set
-    std::string const& es_name = disc->elem_set_name(es);
-    ElemSet const& elems = disc->elems(es_name);
-
-    // loop over all elements in the element set
-    for (size_t elem = 0; elem < elems.size(); ++elem) {
-
-      // get the current mesh element
-      apf::MeshEntity* e = elems[elem];
-      apf::MeshElement* me = apf::createMeshElement(mesh, e);
-
-      // peform operations on element input
-      global->set_elem(me);
-      local->set_elem(me);
-      global->gather(x, x_prev);
-
-      // loop over domain ip sets
-      // ip_set = 0 -> coupled
-      Array1D<int> ip_sets = global->ip_sets();
-      int const num_ip_sets = ip_sets.size();
-      ALWAYS_ASSERT(num_ip_sets == 1);
-      int const ip_set = 0;
-
-      // get the quadrature order for the ip set
-      int const q_order = ip_sets[ip_set];
-      // loop over all integration points in the current element
-      int const npts = apf::countIntPoints(me, q_order);
-
-      for (int pt = 0; pt < npts; ++pt) {
-
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order, pt, iota);
-        double const w = apf::getIntWeight(me, q_order, pt);
-        double const dv = apf::getDV(me, iota);
-
-        // solve the local constitutive equations at the integration point
-        // and store the resultant local residual and state variables
-        global->interpolate(iota);
-        local->gather(pt, xi, xi_prev);
-        nderivs = local->seed_wrt_xi();
-        int path = local->solve_nonlinear(global);
-        local->scatter(pt, xi);
-        EMatrix const dC_dxi = local->eigen_jacobian(nderivs);
-
-        global->zero_residual();
-        global->evaluate(local, iota, w, dv, ip_set);
-        EVector const elem_resid = global->eigen_residual();
-        EMatrix const dR_dxi = global->eigen_jacobian(nderivs);
-        local->unseed_wrt_xi();
-
-        nderivs = local->seed_wrt_xi_prev();
-        local->evaluate(global);
-        EMatrix const dC_dxi_prev = local->eigen_jacobian(nderivs);
-        local->unseed_wrt_xi_prev();
-
-        nderivs = local->seed_wrt_params(es);
-        local->evaluate(global);
-        EMatrix const dC_dp = local->eigen_jacobian(nderivs);
-
-        global->zero_residual();
-        global->evaluate(local, iota, w, dv, ip_set);
-        EMatrix const dR_dp = global->eigen_jacobian(nderivs);
-
-        local->unseed_wrt_params(es);
-
-        EMatrix const local_sens_pt_prev = local_sens[es][elem][pt];
-        EMatrix const local_sens_rhs = -dC_dp - dC_dxi_prev * local_sens_pt_prev;
-        EMatrix const dxi_dp = dC_dxi.fullPivLu().solve(local_sens_rhs);
-        local_sens[es][elem][pt] = dxi_dp;
-
-        EMatrix const dR_dp_total = dR_dxi * dxi_dp + dR_dp;
-
-        global->scatter_rhs(disc, elem_resid, RHS);
-        global->scatter_sens(disc, dR_dp_total, dR);
-      }
-
-      // perform operations on element output
-      apf::destroyMeshElement(me);
-      global->unset_elem();
-      local->unset_elem();
-
-    }
-
-  }
-
-  // perform clean-ups of the residual objects
-  local->after_elems();
-  global->after_elems();
-
-}
-
-void eval_measured_residual(RCP<State> state, RCP<Disc> disc, int step) {
-
-  // gather discretization information
-  apf::Mesh* mesh = disc->apf_mesh();
-
-  // gather information from the state object
-  int const model_form = state->model_form;
-  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
-  RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
-  global->set_time_info(state->disc->time(step), state->disc->dt(step));
-  Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
-
-  // measured displacement field
-  Array1D<apf::Field*> x = disc->primal(step).global;
-  Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
-
-  // local state variables
-  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
-  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
-
-  // perform initializations of the residual objects
-  global->before_elems(disc);
-
-  // variable telling us the current number of derivatives
-  int nderivs = -1;
-
-  // loop over all element sets in the discretization
-  for (int es = 0; es < disc->num_elem_sets(); ++es) {
-
-    local->before_elems(es, disc);
-
-    // gather the elements in the current element set
-    std::string const& es_name = disc->elem_set_name(es);
-    ElemSet const& elems = disc->elems(es_name);
-
-    // loop over all elements in the element set
-    for (size_t elem = 0; elem < elems.size(); ++elem) {
-
-      // get the current mesh element
-      apf::MeshEntity* e = elems[elem];
-      apf::MeshElement* me = apf::createMeshElement(mesh, e);
-
-      // peform operations on element input
-      global->set_elem(me);
-      local->set_elem(me);
-      global->gather(x, x_prev);
-
-      // loop over domain ip sets
-      // ip_set = 0 -> coupled
-      Array1D<int> ip_sets = global->ip_sets();
-      int const num_ip_sets = ip_sets.size();
-      ALWAYS_ASSERT(num_ip_sets == 1);
-      int const ip_set = 0;
-
-      // get the quadrature order for the ip set
-      int const q_order = ip_sets[ip_set];
-      // loop over all integration points in the current element
-      int const npts = apf::countIntPoints(me, q_order);
-
-      for (int pt = 0; pt < npts; ++pt) {
-
-        // get integration point specific information
-        apf::Vector3 iota;
-        apf::getIntPoint(me, q_order, pt, iota);
-        double const w = apf::getIntWeight(me, q_order, pt);
-        double const dv = apf::getDV(me, iota);
-
-        // solve the local constitutive equations at the integration point
-        // and store the resultant local residual and state variables
-        global->interpolate(iota);
-        local->gather(pt, xi, xi_prev);
-        nderivs = local->seed_wrt_xi();
-        int path = local->solve_nonlinear(global);
-        local->scatter(pt, xi);
-        local->unseed_wrt_xi();
-
-        global->zero_residual();
-        global->evaluate(local, iota, w, dv, ip_set);
-        EMatrix const elem_resid = global->eigen_residual();
-        global->scatter_rhs(disc, elem_resid, RHS);
-
-      }
-
-      // perform operations on element output
-      apf::destroyMeshElement(me);
-      global->unset_elem();
-      local->unset_elem();
-
-    }
-
-  }
-
-  // perform clean-ups of the residual objects
-  local->after_elems();
-  global->after_elems();
-}
-
 int eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
 
   // gather discretization information
@@ -1963,10 +1738,235 @@ apf::Field* eval_cauchy(RCP<State> state, int step) {
 
 }
 
-void eval_adjoint_measured_residual_and_grad(
+void eval_measured_residual(RCP<State> state, RCP<Disc> disc, int step) {
+
+  // gather discretization information
+  apf::Mesh* mesh = disc->apf_mesh();
+
+  // gather information from the state object
+  int const model_form = state->model_form;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
+  RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
+  Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
+
+  // measured displacement field
+  Array1D<apf::Field*> x = disc->primal(step).global;
+  Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
+
+  // local state variables
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
+
+  // perform initializations of the residual objects
+  global->before_elems(disc);
+
+  // variable telling us the current number of derivatives
+  int nderivs = -1;
+
+  // loop over all element sets in the discretization
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
+
+    // gather the elements in the current element set
+    std::string const& es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+
+    // loop over all elements in the element set
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+
+      // get the current mesh element
+      apf::MeshEntity* e = elems[elem];
+      apf::MeshElement* me = apf::createMeshElement(mesh, e);
+
+      // peform operations on element input
+      global->set_elem(me);
+      local->set_elem(me);
+      global->gather(x, x_prev);
+
+      // loop over domain ip sets
+      // ip_set = 0 -> coupled
+      Array1D<int> ip_sets = global->ip_sets();
+      int const num_ip_sets = ip_sets.size();
+      ALWAYS_ASSERT(num_ip_sets == 1);
+      int const ip_set = 0;
+
+      // get the quadrature order for the ip set
+      int const q_order = ip_sets[ip_set];
+      // loop over all integration points in the current element
+      int const npts = apf::countIntPoints(me, q_order);
+
+      for (int pt = 0; pt < npts; ++pt) {
+
+        // get integration point specific information
+        apf::Vector3 iota;
+        apf::getIntPoint(me, q_order, pt, iota);
+        double const w = apf::getIntWeight(me, q_order, pt);
+        double const dv = apf::getDV(me, iota);
+
+        // solve the local constitutive equations at the integration point
+        // and store the resultant local residual and state variables
+        global->interpolate(iota);
+        local->gather(pt, xi, xi_prev);
+        nderivs = local->seed_wrt_xi();
+        int path = local->solve_nonlinear(global);
+        local->scatter(pt, xi);
+        local->unseed_wrt_xi();
+
+        global->zero_residual();
+        global->evaluate(local, iota, w, dv, ip_set);
+        EMatrix const elem_resid = global->eigen_residual();
+        global->scatter_rhs(disc, elem_resid, RHS);
+
+      }
+
+      // perform operations on element output
+      apf::destroyMeshElement(me);
+      global->unset_elem();
+      local->unset_elem();
+
+    }
+
+  }
+
+  // perform clean-ups of the residual objects
+  local->after_elems();
+  global->after_elems();
+}
+
+void eval_measured_residual_and_grad(
     RCP<State> state,
     RCP<Disc> disc,
-    Array1D<RCP<MultiVectorT>>& grad_mvec,
+    Array1D<RCP<MultiVectorT>>& dR,
+    Array3D<EMatrix>& local_sens,
+    int step) {
+
+  // gather discretization information
+  apf::Mesh* mesh = disc->apf_mesh();
+
+  // gather information from the state object
+  int const model_form = state->model_form;
+  RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
+  RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  global->set_time_info(state->disc->time(step), state->disc->dt(step));
+  Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
+
+  // measured displacement field
+  Array1D<apf::Field*> x = disc->primal(step).global;
+  Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
+
+  // local state variables
+  Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[model_form];
+
+  // perform initializations of the residual objects
+  global->before_elems(disc);
+
+  // variable telling us the current number of derivatives
+  int nderivs = -1;
+
+  // loop over all element sets in the discretization
+  for (int es = 0; es < disc->num_elem_sets(); ++es) {
+
+    local->before_elems(es, disc);
+
+    // gather the elements in the current element set
+    std::string const& es_name = disc->elem_set_name(es);
+    ElemSet const& elems = disc->elems(es_name);
+
+    // loop over all elements in the element set
+    for (size_t elem = 0; elem < elems.size(); ++elem) {
+
+      // get the current mesh element
+      apf::MeshEntity* e = elems[elem];
+      apf::MeshElement* me = apf::createMeshElement(mesh, e);
+
+      // peform operations on element input
+      global->set_elem(me);
+      local->set_elem(me);
+      global->gather(x, x_prev);
+
+      // loop over domain ip sets
+      // ip_set = 0 -> coupled
+      Array1D<int> ip_sets = global->ip_sets();
+      int const num_ip_sets = ip_sets.size();
+      ALWAYS_ASSERT(num_ip_sets == 1);
+      int const ip_set = 0;
+
+      // get the quadrature order for the ip set
+      int const q_order = ip_sets[ip_set];
+      // loop over all integration points in the current element
+      int const npts = apf::countIntPoints(me, q_order);
+
+      for (int pt = 0; pt < npts; ++pt) {
+
+        // get integration point specific information
+        apf::Vector3 iota;
+        apf::getIntPoint(me, q_order, pt, iota);
+        double const w = apf::getIntWeight(me, q_order, pt);
+        double const dv = apf::getDV(me, iota);
+
+        // solve the local constitutive equations at the integration point
+        // and store the resultant local residual and state variables
+        global->interpolate(iota);
+        local->gather(pt, xi, xi_prev);
+        nderivs = local->seed_wrt_xi();
+        int path = local->solve_nonlinear(global);
+        local->scatter(pt, xi);
+        EMatrix const dC_dxi = local->eigen_jacobian(nderivs);
+
+        global->zero_residual();
+        global->evaluate(local, iota, w, dv, ip_set);
+        EVector const elem_resid = global->eigen_residual();
+        EMatrix const dR_dxi = global->eigen_jacobian(nderivs);
+        local->unseed_wrt_xi();
+
+        nderivs = local->seed_wrt_xi_prev();
+        local->evaluate(global);
+        EMatrix const dC_dxi_prev = local->eigen_jacobian(nderivs);
+        local->unseed_wrt_xi_prev();
+
+        nderivs = local->seed_wrt_params(es);
+        local->evaluate(global);
+        EMatrix const dC_dp = local->eigen_jacobian(nderivs);
+
+        global->zero_residual();
+        global->evaluate(local, iota, w, dv, ip_set);
+        EMatrix const dR_dp = global->eigen_jacobian(nderivs);
+
+        local->unseed_wrt_params(es);
+
+        EMatrix const local_sens_pt_prev = local_sens[es][elem][pt];
+        EMatrix const local_sens_rhs = -dC_dp - dC_dxi_prev * local_sens_pt_prev;
+        EMatrix const dxi_dp = dC_dxi.fullPivLu().solve(local_sens_rhs);
+        local_sens[es][elem][pt] = dxi_dp;
+
+        EMatrix const dR_dp_total = dR_dxi * dxi_dp + dR_dp;
+
+        global->scatter_rhs(disc, elem_resid, RHS);
+        global->scatter_sens(disc, dR_dp_total, dR);
+      }
+
+      // perform operations on element output
+      apf::destroyMeshElement(me);
+      global->unset_elem();
+      local->unset_elem();
+
+    }
+
+  }
+
+  // perform clean-ups of the residual objects
+  local->after_elems();
+  global->after_elems();
+
+}
+
+void eval_vfm_adjoint(
+    RCP<State> state,
+    RCP<Disc> disc,
+    Array1D<RCP<MultiVectorT>>& grad_multi_vec,
     Array3D<EMatrix>& local_history_matrices,
     int step,
     double scaled_virtual_power_mismatch) {
@@ -1979,7 +1979,6 @@ void eval_adjoint_measured_residual_and_grad(
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
   global->set_time_info(state->disc->time(step), state->disc->dt(step));
-  Array1D<RCP<VectorT>>& RHS = state->la->b[GHOST];
 
   // measured displacement field
   Array1D<apf::Field*> x = disc->primal(step).global;
@@ -2071,8 +2070,7 @@ void eval_adjoint_measured_residual_and_grad(
 
         EMatrix const dJ_dp = dR_dp * scaled_virtual_power_mismatch + phi.transpose() * dC_dp;
 
-        global->scatter_rhs(disc, elem_resid, RHS);
-        global->scatter_sens(disc, dJ_dp, grad_mvec);
+        global->scatter_sens(disc, dJ_dp, grad_multi_vec);
       }
 
       // perform operations on element output
