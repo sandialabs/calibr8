@@ -185,18 +185,15 @@ int HyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) 
     int const ndims = m_num_dims;
     FADT J_2D;
     Tensor<FADT> be_bar_trial;
-    FADT be_bar_zz_trial;
     FADT const lambda_z = this->scalar_xi(2);
     eval_be_bar_plane_stress(global, zeta_old, Ie_old, lambda_z_old, lambda_z,
         J_2D, be_bar_trial);
     FADT const Ie_trial = minitensor::trace(be_bar_trial) / 3.;
-    Tensor<FADT> const I = minitensor::eye<FADT>(ndims);
-    Tensor<FADT> const be_bar_trial_2D = extract_2D_tensor_from_3D(be_bar_trial);
-    Tensor<FADT> const zeta_trial = be_bar_trial_2D - Ie_trial * I;
-    FADT const alpha_trial = alpha_old;
-    this->set_sym_tensor_xi(0, zeta_trial);
+    Tensor<FADT> const I = minitensor::eye<FADT>(3);
+    Tensor<FADT> const zeta_trial_3D = be_bar_trial - Ie_trial * I;
+    Tensor<FADT> const zeta_trial_2D = extract_2D_tensor_from_3D(zeta_trial_3D);
+    this->set_sym_tensor_xi(0, zeta_trial_2D);
     this->set_scalar_xi(1, Ie_trial);
-    this->set_scalar_xi(3, alpha_trial);
     path = ELASTIC;
   }
 

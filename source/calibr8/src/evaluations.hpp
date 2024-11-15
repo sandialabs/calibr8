@@ -174,7 +174,7 @@ void eval_exact_errors(
 apf::Field* eval_cauchy(RCP<State> state, int step);
 
 
-//! \brief Evaluate the residual vector and its adjoint-based gradient given measured displacement data
+//! \brief Evaluate the VFM adjoint-based gradient given measured displacement data
 //! \param state The application state object
 //! \param disc The discretization object
 //! \param grad_mv The ghosted derivatives of the VFM objective function
@@ -185,7 +185,6 @@ apf::Field* eval_cauchy(RCP<State> state, int step);
 //!   state->la->b[GHOST] as the residual R
 //!   the gradient multivector grad_mv (ghost)
 void eval_adjoint_measured_residual_and_grad(
-    RCP<ParameterList> params,
     RCP<State> state,
     RCP<Disc> disc,
     Array1D<RCP<MultiVectorT>>& grad_mv,

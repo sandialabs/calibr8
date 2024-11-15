@@ -93,7 +93,7 @@ void Adjoint_VFM_Objective::gradient(
   double virtual_power_mismatch;
   double volume_internal_virtual_power;
   m_state[0]->disc->destroy_primal();
-  Array1D<double> internal_virtual_power_vec(nsteps - 1);
+  Array1D<double> internal_virtual_power_vec(nsteps);
   double scaled_virtual_power_mismatch;
 
   for (int step = 1; step <= nsteps; ++step) {

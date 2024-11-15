@@ -202,12 +202,8 @@ void VirtualPower::compute_at_step_adjoint(
     m_mvec[distrib][0]->putScalar(0.);
   }
 
-  auto vf_vec   = m_vf_vec[OWNED][0];
-  auto vf_vector = vf_vec->getDataNonConst();
-  double vf_vec_0 = vf_vector[0];
-
   // evaluate the residual and its parameter derivatives
-  eval_adjoint_measured_residual_and_grad(m_params, m_state, m_disc, m_mvec[GHOST],
+  eval_adjoint_measured_residual_and_grad(m_state, m_disc, m_mvec[GHOST],
       m_local_history_matrices, step, scaled_virtual_power_mismatch);
 
   // gather the parallel objects to their OWNED state

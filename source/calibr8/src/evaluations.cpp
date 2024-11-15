@@ -1964,7 +1964,6 @@ apf::Field* eval_cauchy(RCP<State> state, int step) {
 }
 
 void eval_adjoint_measured_residual_and_grad(
-    RCP<ParameterList> params,
     RCP<State> state,
     RCP<Disc> disc,
     Array1D<RCP<MultiVectorT>>& grad_mvec,
@@ -2037,24 +2036,21 @@ void eval_adjoint_measured_residual_and_grad(
         double const w = apf::getIntWeight(me, q_order, pt);
         double const dv = apf::getDV(me, iota);
 
-        // solve the local constitutive equations at the integration point
-        // and store the resultant local residual and state variables
         global->interpolate(iota);
         local->gather(pt, xi, xi_prev);
         nderivs = local->seed_wrt_xi();
-        int path = local->solve_nonlinear(global);
-        local->scatter(pt, xi);
+        int path = local->evaluate(global);
         EMatrix const dC_dxiT = local->eigen_jacobian(nderivs).transpose();
 
         global->zero_residual();
         global->evaluate(local, iota, w, dv, ip_set);
         EVector const elem_resid = global->eigen_residual();
-        EMatrix const dR_dxiT = global->eigen_jacobian(nderivs).transpose();;
+        EMatrix const dR_dxiT = global->eigen_jacobian(nderivs).transpose();
         local->unseed_wrt_xi();
 
         nderivs = local->seed_wrt_xi_prev();
         local->evaluate(global);
-        EMatrix const dC_dxi_prevT = local->eigen_jacobian(nderivs).transpose();;
+        EMatrix const dC_dxi_prevT = local->eigen_jacobian(nderivs).transpose();
         local->unseed_wrt_xi_prev();
 
         nderivs = local->seed_wrt_params(es);
