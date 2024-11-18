@@ -5,7 +5,7 @@ notch hyper J2 FEMU:
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
-    mesh file: '@CMAKE_BINARY_DIR@/test/femu/notch_hyperJ2_synthetic/'
+    mesh file: '@CMAKE_BINARY_DIR@/test/femu/notch_hyper_J2_synthetic/'
     assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.txt'
     num steps: 4
     step size: 1.

@@ -1,8 +1,8 @@
 notch hyper J2 synthetic:
 
   problem:
-    name: notch_hyper_J2_synthetic
-    write synthetic: true
+    name: notch_hyper_J2
+    write synthetic: true # will append _synthetic to output
 
   discretization:
     geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
