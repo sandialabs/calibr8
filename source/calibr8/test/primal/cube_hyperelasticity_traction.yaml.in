@@ -32,11 +32,11 @@ cube hyperelasticity traction:
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:
     expression:
-      bc 1: [0, 0, xmin, 0.0]
-      bc 2: [0, 1, xmin, 0.0]
-      bc 3: [0, 2, xmin, 0.0]
+      bc 1: [0, 0, ymin, 0.0]
+      bc 2: [0, 1, ymin, 0.0]
+      bc 3: [0, 2, ymin, 0.0]
 
-  # bc name: [resid_idx, node_set_name, x-val, y-val, z-val]
+  # bc name: [resid_idx, side_set_name, x-val, y-val, z-val]
   traction bcs:
     bc 1: [0, ymax, 0., 0.1 * t, 0.]
 
@@ -44,7 +44,7 @@ cube hyperelasticity traction:
     type: 'average displacement'
 
   regression:
-    QoI: 4.0287425927197922e-04
+    QoI: 1.61757374785081228e-04
     relative error tol: 1.e-4
 
   linear algebra:
