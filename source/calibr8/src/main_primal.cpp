@@ -46,18 +46,31 @@ class Solver {
     RCP<Primal> m_primal;
     bool m_eval_qoi = false;
     bool m_eval_regression = false;
-    bool m_write_synthetic = true;
+    bool m_write_pvd = false;
+    bool m_write_native = false;
     bool m_write_measured = false;
+    bool m_write_synthetic = false;
 };
 
-static bool should_write_synthetic(RCP<ParameterList> params) {
+static bool should_write_pvd(RCP<ParameterList> params) {
   ParameterList problem_params = params->sublist("problem", true);
-  return problem_params.get<bool>("write synthetic", false);
+  return problem_params.get<bool>("write pvd", true);
+
+}
+
+static bool should_write_native(RCP<ParameterList> params) {
+  ParameterList problem_params = params->sublist("problem", true);
+  return problem_params.get<bool>("write native", false);
 }
 
 static bool should_write_measured(RCP<ParameterList> params) {
   ParameterList problem_params = params->sublist("problem", true);
   return problem_params.get<bool>("write measured", false);
+}
+
+static bool should_write_synthetic(RCP<ParameterList> params) {
+  ParameterList problem_params = params->sublist("problem", true);
+  return problem_params.get<bool>("write synthetic", false);
 }
 
 Solver::Solver(std::string const& input_file) {
@@ -71,6 +84,8 @@ Solver::Solver(std::string const& input_file) {
   if (m_params->isSublist("regression")) m_eval_regression = true;
   m_write_synthetic = should_write_synthetic(m_params);
   m_write_measured = should_write_measured(m_params);
+  m_write_native = should_write_native(m_params);
+  m_write_pvd = should_write_pvd(m_params);
 }
 
 std::string Solver::base_name() {
@@ -182,8 +197,8 @@ void Solver::write_native() {
 }
 
 void Solver::write_at_end() {
-  write_pvd();
-  write_native();
+  if (m_write_pvd) write_pvd();
+  if (m_write_native) write_native();
 }
 
 static void eval_regression(double J, RCP<ParameterList> params) {
@@ -210,11 +225,10 @@ void Solver::solve() {
   int const nsteps = m_state->disc->num_time_steps();
   print("nsteps = %d", nsteps);
   double J = 0.;
-  //write_at_step(0, false);
   for (int step = 1; step <= nsteps; ++step) {
     m_primal->solve_at_step(step);
     if (m_eval_qoi) J += eval_qoi(m_state, m_state->disc, step);
-    write_at_step(step, false);
+    if (m_write_pvd) write_at_step(step, false);
   }
   write_at_end();
   if (m_eval_qoi) {
