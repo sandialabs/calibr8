@@ -55,7 +55,6 @@ class Solver {
 static bool should_write_pvd(RCP<ParameterList> params) {
   ParameterList problem_params = params->sublist("problem", true);
   return problem_params.get<bool>("write pvd", true);
-
 }
 
 static bool should_write_native(RCP<ParameterList> params) {
