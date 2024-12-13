@@ -4,8 +4,9 @@ Required software:
   - C and C++ compilers and MPI wrappers (e.g. openmpi or mpich)
 
 Installation:
-  - Choose a "flavor" (e.g. osx-shared, cee-static) that suites your
-    environment (or create your own) and edit the install.sh script accordingly.
-
-  - Run the install script in the root directory:
+  Run one of the following commands from the root directory:
+  - 1) Use a shared library CApp flavor for your OS:
     > bash install.sh
+
+  - 2) Choose a CApp flavor (e.g. flavor=osx-static) and run:
+    > bash install.sh $flavor
