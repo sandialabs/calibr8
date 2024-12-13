@@ -1,0 +1,12 @@
+*** installation ***
+conda env create -f environment.yml -n calibr8
+
+conda activate calibr8
+
+pip install -e .
+
+*** conda update ***
+conda update -n base -c defaults conda
+
+*** delete environment ***
+conda remove --name calibr8 --all

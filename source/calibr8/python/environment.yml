@@ -1,0 +1,20 @@
+name: calibr8
+channels:
+  - defaults
+dependencies:
+  - cmake
+  - jupyter
+  - h5py
+  - matplotlib
+  - numpy
+  - pandas
+  - pip
+  - pytest
+  - python>=3.8
+  - scikit-learn
+  - scipy
+  - setuptools
+  - sympy
+  - yaml
+  - pip:
+    - pycompadre

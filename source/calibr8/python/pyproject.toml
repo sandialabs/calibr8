@@ -1,0 +1,25 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "numpy",
+    "scipy",
+]
+
+[project]
+name = "calibr8"
+version = "1.0.0"
+description = "Python tools for Calibr8"
+requires-python = ">=3.8"
+authors = [
+    {name = "Tom Seidl", email = "dtseidl@sandia.gov"},
+    {name = "Brian Granzow", email = "bngranz@sandia.gov"},
+]
+classifiers = ["Programming Language :: Python :: 3"]
+
+dependencies = [
+  "pycompadre"
+]
+
+[project.scripts]
+python_inverse = "calibr8.bin.inverse:main"
