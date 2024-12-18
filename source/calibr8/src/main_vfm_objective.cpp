@@ -124,17 +124,17 @@ void VFM_Objective::setup_opt_params(ParameterList const& inverse_params) {
   }
 }
 
-
 void VFM_Objective::evaluate() {
 
   ParameterList& inverse_params = m_params->sublist("inverse", true);
-  double const thickness = inverse_params.get<double>("thickness", 1.);
   double const obj_scale_factor = inverse_params.get<double>("objective scale factor");
   double dt;
   double internal_virtual_power;
   double load_at_step;
   double virtual_power_mismatch;
-  double volume_internal_virtual_power;
+
+  double scaled_virtual_power_mismatch;
+  Array1D<double> internal_virtual_power_vec;
 
   double J = 0.;
   Array1D<double> grad_at_step(m_num_opt_params);
@@ -143,27 +143,38 @@ void VFM_Objective::evaluate() {
   for (int prob = 0; prob < m_num_problems; ++prob) {
     double J_prob = 0.;
     int const nsteps = m_state[prob]->disc->num_time_steps();
+    internal_virtual_power_vec.resize(nsteps, 0.);
     double const total_time = m_state[prob]->disc->time(nsteps) - m_state[prob]->disc->time(0);
 
     m_state[prob]->disc->destroy_primal();
 
       for (int step = 1; step <= nsteps; ++step) {
-        dt = m_state[0]->disc->dt(step);
-        m_virtual_power->compute_at_step_forward_sens(step, internal_virtual_power, grad_at_step);
+        dt = m_state[prob]->disc->dt(step);
+        internal_virtual_power = m_virtual_power->compute_at_step(step);
+        internal_virtual_power_vec[step - 1] = internal_virtual_power;
+      }
+
+      for (int step = nsteps; step > 0; --step) {
+        dt = m_state[prob]->disc->dt(step);
         load_at_step = m_load_data[step - 1];
-        volume_internal_virtual_power = thickness * internal_virtual_power;
-        virtual_power_mismatch = volume_internal_virtual_power - load_at_step;
-        J_prob += 0.5 * obj_scale_factor * dt / total_time
-            * std::pow(virtual_power_mismatch, 2);
+
+        virtual_power_mismatch = internal_virtual_power_vec[step - 1] - load_at_step;
+        scaled_virtual_power_mismatch = virtual_power_mismatch * obj_scale_factor * dt / total_time;
+        J_prob += 0.5 * virtual_power_mismatch * scaled_virtual_power_mismatch;
+
+        m_virtual_power->compute_at_step_adjoint(
+            step, scaled_virtual_power_mismatch, grad_at_step
+        );
 
         for (int i = 0; i < m_num_opt_params; ++i) {
-          grad[i] += grad_at_step[i] * virtual_power_mismatch
-              * obj_scale_factor * dt / total_time;
+          grad[i] += grad_at_step[i];
         }
       }
 
     J += J_prob;
   }
+
+  PCU_Add_Doubles(grad.data(), m_num_opt_params);
 
   if (PCU_Comm_Self() == 0) {
     std::ofstream obj_file;

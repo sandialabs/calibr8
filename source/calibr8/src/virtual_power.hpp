@@ -57,11 +57,11 @@ class VirtualPower {
     Array1D<RCP<VectorT>> m_vf_vec[NUM_DISTRIB];
     Array1D<RCP<MultiVectorT>> m_mvec[NUM_DISTRIB];
     Array3D<EMatrix> m_local_sens; // (elem_set_idx, elem, int pt)
-    Array3D<EMatrix> m_local_history_matrices;  // (elem_set_idx, elem, int pt)
+    Array3D<EVector> m_local_history_vectors;  // (elem_set_idx, elem, int pt)
 
     int m_num_params = 0;
     void initialize_sens_matrices();
-    void initialize_adjoint_history_matrices();
+    void initialize_adjoint_history_vectors();
 
 };
 

@@ -173,20 +173,20 @@ void eval_measured_residual_and_grad(
     Array3D<EMatrix>& local_sens,
     int step);
 
-//! \brief Evaluate the VFM adjoint-based gradient multivector given measured displacement data
+//! \brief Evaluate the VFM adjoint-based gradient given measured displacement data
 //! \param state The application state object
 //! \param disc The discretization object
 //! \param grad_multi_vec The ghosted derivatives of the VFM objective function
-//! \param local_history_matrices The local history matrices
+//! \param local_history The local history vector
 //! \param step The current load/time step
 //! \param scaled_virtual_power_mismatch The scaled virtual power mismatch
 //! \details This will populate:
 //!   the gradient multivector grad_multi_vec (ghost)
-void eval_vfm_adjoint(
+void eval_vfm_adjoint_gradient(
     RCP<State> state,
     RCP<Disc> disc,
-    Array1D<RCP<MultiVectorT>>& grad_multi_vec,
-    Array3D<EMatrix>& local_history,
+    Array1D<double>& grad,
+    Array3D<EVector>& local_history,
     int step,
     double scaled_virtual_power_mismatch);
 }

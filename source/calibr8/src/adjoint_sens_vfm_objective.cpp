@@ -47,7 +47,6 @@ double Adjoint_VFM_Objective::value(ROL::Vector<double> const& p, double&) {
       dt = m_state[0]->disc->dt(step);
       internal_virtual_power = m_virtual_power->compute_at_step(step);
       load_at_step = m_load_data[step - 1];
-      PCU_Add_Double(internal_virtual_power);
       volume_internal_virtual_power = thickness * internal_virtual_power;
       if (print_vfm_mismatch) {
         print("\nstep = %d", step);

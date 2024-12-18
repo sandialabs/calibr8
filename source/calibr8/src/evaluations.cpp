@@ -1963,19 +1963,23 @@ void eval_measured_residual_and_grad(
 
 }
 
-void eval_vfm_adjoint(
+void eval_vfm_adjoint_gradient(
     RCP<State> state,
     RCP<Disc> disc,
-    Array1D<RCP<MultiVectorT>>& grad_multi_vec,
-    Array3D<EMatrix>& local_history_matrices,
+    Array1D<double>& grad,
+    Array3D<EVector>& local_history_vectors,
     int step,
     double scaled_virtual_power_mismatch) {
+
+  // container for gradient
+  int const model_form = state->model_form;
+  int const num_active_params = state->residuals->local[model_form]->num_active_params();
+  EVector Egrad = EVector::Zero(num_active_params);
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
 
   // gather information from the state object
-  int const model_form = state->model_form;
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
   global->set_time_info(state->disc->time(step), state->disc->dt(step));
@@ -1987,6 +1991,9 @@ void eval_vfm_adjoint(
   // local state variables
   Array1D<apf::Field*> xi = disc->primal(step).local[model_form];
   Array1D<apf::Field*> xi_prev = disc->primal(step-1).local[model_form];
+
+  // virtual field
+  Array1D<apf::Field*> vf = disc->virtual_fields(0).virtual_field;
 
   // perform initializations of the residual objects
   global->before_elems(disc);
@@ -2014,6 +2021,9 @@ void eval_vfm_adjoint(
       global->set_elem(me);
       local->set_elem(me);
       global->gather(x, x_prev);
+
+      // grab the virtual field nodal values at the element
+      EVector const w_nodes = global->gather_adjoint(vf);
 
       // loop over domain ip sets
       // ip_set = 0 -> coupled
@@ -2061,16 +2071,16 @@ void eval_vfm_adjoint(
         EMatrix const dR_dp = global->eigen_jacobian(nderivs);
         local->unseed_wrt_params(es);
 
-        EMatrix const local_history_matrix_pt = local_history_matrices[es][elem][pt];
+        EVector const local_history_vector_pt = local_history_vectors[es][elem][pt];
 
-        EMatrix const local_adjoint_rhs = -dR_dxiT * scaled_virtual_power_mismatch
-          - local_history_matrix_pt;
-        EMatrix const phi = dC_dxiT.fullPivLu().solve(local_adjoint_rhs);
-        local_history_matrices[es][elem][pt] = dC_dxi_prevT * phi;
+        EVector const local_adjoint_rhs = scaled_virtual_power_mismatch
+           * -dR_dxiT * w_nodes - local_history_vector_pt;
+        EVector const phi = dC_dxiT.fullPivLu().solve(local_adjoint_rhs);
+        local_history_vectors[es][elem][pt] = dC_dxi_prevT * phi;
 
-        EMatrix const dJ_dp = dR_dp * scaled_virtual_power_mismatch + phi.transpose() * dC_dp;
-
-        global->scatter_sens(disc, dJ_dp, grad_multi_vec);
+        EVector const dJ_dp = scaled_virtual_power_mismatch
+            * w_nodes.transpose() * dR_dp + phi.transpose() * dC_dp;
+        Egrad += dJ_dp;
       }
 
       // perform operations on element output
@@ -2083,6 +2093,8 @@ void eval_vfm_adjoint(
   // perform clean-ups of the residual objects
   local->after_elems();
   global->after_elems();
+
+  EVector::Map(&grad[0], num_active_params) = Egrad;
 }
 
 }

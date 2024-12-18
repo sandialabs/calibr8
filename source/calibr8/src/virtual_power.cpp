@@ -50,20 +50,20 @@ void VirtualPower::initialize_sens_matrices() {
   }
 }
 
-void VirtualPower::initialize_adjoint_history_matrices() {
+void VirtualPower::initialize_adjoint_history_vectors() {
   int const nsets = m_disc->num_elem_sets();
   int const nglobal_dofs = get_num_global_dofs(m_state);
   int const nlocal_dofs = get_num_local_dofs(m_state);
   int const num_pts = m_disc->num_lv_nodes_per_elem();
-  m_local_history_matrices.resize(nsets);
+  m_local_history_vectors.resize(nsets);
   for (int set = 0; set < nsets; ++set) {
     std::string const& set_name = m_disc->elem_set_name(set);
     int const nelems = m_disc->elems(set_name).size();
-    m_local_history_matrices[set].resize(nelems);
+    m_local_history_vectors[set].resize(nelems);
     for (int elem = 0; elem < nelems; ++elem) {
-      m_local_history_matrices[set][elem].resize(num_pts);
+      m_local_history_vectors[set][elem].resize(num_pts);
       for (int pt = 0; pt < num_pts; ++pt) {
-        m_local_history_matrices[set][elem][pt] = EMatrix::Zero(nlocal_dofs, nglobal_dofs);
+        m_local_history_vectors[set][elem][pt] = EVector::Zero(nlocal_dofs);
       }
     }
   }
@@ -181,43 +181,15 @@ void VirtualPower::compute_at_step_adjoint(
     Array1D<double>& grad) {
 
   // gather data needed to solve the problem
-  Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
-  ALWAYS_ASSERT(R.size() == 1);
-  ParameterList& resids = m_params->sublist("residuals", true);
-  ParameterList& global = resids.sublist("global residual", true);
-  bool const do_print = global.get<bool>("print step", false);
-  bool const use_measured = true;
   int const nsteps = m_state->disc->num_time_steps();
 
   if (step == nsteps) {
-    initialize_adjoint_history_matrices();
+    initialize_adjoint_history_vectors();
   }
 
-  // print the step information
-  if (do_print) print("ON VIRTUAL POWER STEP (%d)", step);
-
-  // zero the residual and its dervatives
-  m_state->la->zero_b();
-  for (int distrib = 0; distrib < NUM_DISTRIB; ++distrib) {
-    m_mvec[distrib][0]->putScalar(0.);
-  }
-
-  // evaluate the gradient multivector
-  eval_vfm_adjoint(m_state, m_disc, m_mvec[GHOST],
-      m_local_history_matrices, step, scaled_virtual_power_mismatch);
-
-  // gather the parallel objects to their OWNED state
-  RCP<MultiVectorT> mvec_owned = m_mvec[OWNED][0];
-  RCP<MultiVectorT> mvec_ghost = m_mvec[GHOST][0];
-  RCP<const ExportT> exporter = m_disc->exporter(0);
-  mvec_owned->doExport(*mvec_ghost, *exporter, Tpetra::ADD);
-
-  // compute the components of the gradient by dotting
-  // the grad multivector with the virual field coefficients
-  for (int p = 0; p < m_num_params; ++p) {
-    auto mvec_p = mvec_owned->getVector(p);
-    grad[p] = mvec_p->dot(*m_vf_vec[OWNED][0]);
-  }
+  // evaluate the gradient
+  eval_vfm_adjoint_gradient(m_state, m_disc, grad,
+      m_local_history_vectors, step, scaled_virtual_power_mismatch);
 }
 
 VirtualPower::~VirtualPower() {

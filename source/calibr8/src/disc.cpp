@@ -690,6 +690,7 @@ void Disc::create_virtual(
     vf_vals = get_vals(vf_expressions, node);
     apf::setComponents(fields.virtual_field[0], ent, ent_node, &(vf_vals[0]));
   }
+  apf::synchronize(fields.virtual_field[0]);
   m_virtual.push_back(fields);
 }
 
