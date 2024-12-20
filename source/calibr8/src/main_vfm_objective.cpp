@@ -162,11 +162,8 @@ void VFM_Objective::evaluate() {
         }
       }
 
-    J_prob = PCU_Add_Double(J_prob);
     J += J_prob;
   }
-
-  PCU_Add_Doubles(grad.data(), m_num_opt_params);
 
   if (PCU_Comm_Self() == 0) {
     std::ofstream obj_file;
