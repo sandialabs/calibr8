@@ -29,7 +29,7 @@ set(TRILINOS_SEACAS_OPTIONS
 
 capp_package(
   GIT_URL https://github.com/trilinos/Trilinos.git
-  COMMIT 9b42dd24264587914627a034fddbfffee2b41a2d
+  COMMIT c4e1b93401939184e18b2f930312a8a0e8d482d6
   OPTIONS
   "-DTrilinos_DISABLE_ENABLED_FORWARD_DEP_PACKAGES=ON"
   "-DBUILD_SHARED_LIBS=${CALIBR8_BUILD_SHARED_LIBS}"
@@ -41,6 +41,7 @@ capp_package(
   "-DTrilinos_ENABLE_Triutils=OFF"
   "-DTrilinos_ENABLE_Shards=ON"
   "-DTrilinos_ENABLE_Sacado=ON"
+  "-DTrilinos_ENABLE_Compadre=ON"
   "-DTrilinos_ENABLE_Belos=ON"
   "-DTrilinos_ENABLE_Epetra=OFF"
   "-DTrilinos_ENABLE_Tpetra=ON"
