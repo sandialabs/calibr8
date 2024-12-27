@@ -20,7 +20,7 @@ using Compadre::TargetOperation;
 using Compadre::WeightingFunctionType;
 using DoubleView = Kokkos::View<double*, Kokkos::DefaultExecutionSpace>;
 using DoubleDoubleView = Kokkos::View<double**, Kokkos::DefaultExecutionSpace>;
-using IntView = Kokkos::View<double*, Kokkos::DefaultExecutionSpace>;
+using IntView = Kokkos::View<int*, Kokkos::DefaultExecutionSpace>;
 
 static void print_usage(int argc, char** argv) {
   if (argc == 8) {
