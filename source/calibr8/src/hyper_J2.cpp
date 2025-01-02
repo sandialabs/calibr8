@@ -28,8 +28,12 @@ static ParameterList get_valid_material_params() {
   ParameterList p;
   p.set<double>("E", 0.);
   p.set<double>("nu", 0.);
-  p.set<double>("K", 0.);
   p.set<double>("Y", 0.);
+  p.set<double>("S", 0.);
+  p.set<double>("D", 0.);
+  p.set<double>("A", 0.);
+  p.set<double>("n", 0.);
+  p.set<double>("K", 0.);
   return p;
 }
 
@@ -71,15 +75,19 @@ HyperJ2<T>::~HyperJ2() {
 template <typename T>
 void HyperJ2<T>::init_params() {
 
-  int const num_params = 4;
+  int const num_params = 8;
   this->m_params.resize(num_params);
   this->m_param_names.resize(num_params);
 
   this->m_param_names.resize(num_params);
   this->m_param_names[0] = "E";
   this->m_param_names[1] = "nu";
-  this->m_param_names[2] = "K";
-  this->m_param_names[3] = "Y";
+  this->m_param_names[2] = "Y";
+  this->m_param_names[3] = "S";
+  this->m_param_names[4] = "D";
+  this->m_param_names[5] = "A";
+  this->m_param_names[6] = "n";
+  this->m_param_names[7] = "K";
 
   int const num_elem_sets = this->m_elem_set_names.size();
   resize(this->m_param_values, num_elem_sets, num_params);
@@ -94,8 +102,12 @@ void HyperJ2<T>::init_params() {
     material_params.validateParameters(get_valid_material_params(), 0);
     this->m_param_values[es][0] = material_params.get<double>("E");
     this->m_param_values[es][1] = material_params.get<double>("nu");
-    this->m_param_values[es][2] = material_params.get<double>("K");
-    this->m_param_values[es][3] = material_params.get<double>("Y");
+    this->m_param_values[es][2] = material_params.get<double>("Y");
+    this->m_param_values[es][3] = material_params.get<double>("S");
+    this->m_param_values[es][4] = material_params.get<double>("D");
+    this->m_param_values[es][5] = material_params.get<double>("A");
+    this->m_param_values[es][6] = material_params.get<double>("n");
+    this->m_param_values[es][7] = material_params.get<double>("K");
   }
 
   this->m_active_indices.resize(1);
@@ -223,8 +235,12 @@ int HyperJ2<T>::evaluate(
 
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
-  T const K = this->m_params[2];
-  T const Y = this->m_params[3];
+  T const Y = this->m_params[2];
+  T const S = this->m_params[3];
+  T const D = this->m_params[4];
+  T const A = this->m_params[5];
+  T const n = this->m_params[6];
+  T const K = this->m_params[7];
   T const mu = compute_mu(E, nu);
 
   Tensor<T> const zeta_old = this->sym_tensor_xi_prev(0);
@@ -239,7 +255,12 @@ int HyperJ2<T>::evaluate(
   Tensor<T> const be_bar_trial = eval_be_bar(global, zeta_old, Ie_old);
   Tensor<T> const s = mu * zeta;
   T const s_mag = minitensor::norm(s);
-  T const sigma_yield = Y + K * alpha;
+
+  // allow for differentiability at \alpha = 0.
+  double const power_law_offset = 1e-12;
+  T const sigma_yield = Y + S * (1. - std::exp(-D * alpha))
+    + A * std::pow(alpha + power_law_offset, n) + K * alpha;
+
   T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
   Tensor<T> R_zeta;

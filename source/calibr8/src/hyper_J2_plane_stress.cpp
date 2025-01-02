@@ -294,8 +294,12 @@ int HyperJ2PlaneStress<T>::evaluate(
 
   Tensor<T> const s = mu * zeta_3D;
   T const s_mag = minitensor::norm(s);
+
+  // allow for differentiability at \alpha = 0.
+  double const power_law_offset = 1e-12;
   T const sigma_yield = Y + S * (1. - std::exp(-D * alpha))
-    + A * std::pow(alpha, n) + K * alpha;
+    + A * std::pow(alpha + power_law_offset, n) + K * alpha;
+
   T const f = (s_mag - sqrt_23 * sigma_yield) / val(mu);
 
   Tensor<T> R_zeta;

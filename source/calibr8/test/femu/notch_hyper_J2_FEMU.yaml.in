@@ -28,6 +28,10 @@ notch hyper J2 FEMU:
           nu: 0.25
           K: 100.
           Y: 10.
+          S: 0.
+          D: 0.
+          A: 0.
+          n: 0.
 
   quantity of interest:
     type: 'surface mismatch'

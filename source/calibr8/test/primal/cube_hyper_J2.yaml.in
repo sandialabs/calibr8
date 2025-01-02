@@ -28,6 +28,10 @@ cube hyper J2:
           nu: 0.25
           K: 100.
           Y: 10.
+          S: 0.
+          D: 0.
+          A: 0.
+          n: 0.
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:

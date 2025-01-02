@@ -30,6 +30,10 @@ notch plastic mfe verify:
           nu: 0.3
           Y: 200.
           K: 1e3
+          S: 0.
+          D: 0.
+          A: 0.
+          n: 0.
 
     fine local residual:
       type: 'hyper_J2'
@@ -42,6 +46,10 @@ notch plastic mfe verify:
           nu: 0.35
           Y: 150.
           K: 8e2
+          S: 0.
+          D: 0.
+          A: 0.
+          n: 0.
 
   # bc name: [resid_idx, eq, node_set_name, value]
   dirichlet bcs:

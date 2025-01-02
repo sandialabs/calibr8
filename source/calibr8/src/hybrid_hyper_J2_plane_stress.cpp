@@ -15,7 +15,7 @@ namespace calibr8 {
 
 static ParameterList get_valid_local_residual_params() {
   ParameterList p;
-  p.set<std::string>("type", "hyper_J2_plane_stress");
+  p.set<std::string>("type", "hybrid_hyper_J2_plane_stress");
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
