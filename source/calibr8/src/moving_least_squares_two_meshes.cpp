@@ -23,11 +23,12 @@ using DoubleDoubleView = Kokkos::View<double**, Kokkos::DefaultExecutionSpace>;
 using IntView = Kokkos::View<int*, Kokkos::DefaultExecutionSpace>;
 
 static void print_usage(int argc, char** argv) {
-  if (argc == 8) {
+  if (argc == 10) {
     return;
   } else {
     std::cout << "usage: " << argv[0]
-              << " <geom.dmg> <mesh.smb> <num steps>"
+              << " <source_geom.dmg> <source_mesh.smb> <num steps>"
+              << " <target_geom.dmg> <target_mesh.smb> "
               << " <poly_order> <power_kernel_exponent> <epsilon_multiplier>"
               << " <outmesh.smb>\n";
     abort();
@@ -86,13 +87,13 @@ DoubleDoubleView get_field_values(apf::Mesh2* m, apf::Field* f) {
   return field_values;
 }
 
-void replace_measured_field(
+void populate_target_field(
     apf::Mesh2* m,
-    apf::Field* measured_field,
+    apf::Field* target_field,
     DoubleDoubleView filtered_field) {
   int const ndim = m->getDimension();
   size_t const num_nodes = m->count(0);
-  int const num_comps = apf::countComponents(measured_field);
+  int const num_comps = apf::countComponents(target_field);
   std::vector<double> vals(num_comps, 0.);
   apf::MeshEntity* vert;
   apf::MeshIterator* nodes = m->begin(0);
@@ -101,14 +102,15 @@ void replace_measured_field(
     for (int dim = 0; dim < ndim; ++dim) {
       vals[dim] = filtered_field(n, dim);
     }
-    apf::setComponents(measured_field, vert, 0, &(vals[0]));
+    apf::setComponents(target_field, vert, 0, &(vals[0]));
     ++n;
   }
   m->end(nodes);
 }
 
 void filter_measured_fields(
-    apf::Mesh2* m,
+    apf::Mesh2* source_mesh,
+    apf::Mesh2* target_mesh,
     int num_steps,
     int poly_order,
     int power_kernel_exponent,
@@ -117,29 +119,36 @@ void filter_measured_fields(
   int const number_of_batches = 1;
   bool const keep_coefficients = true;
 
-  int const ndim = m->getDimension();
-  DoubleDoubleView coords = get_coords(m);
-  size_t const num_nodes = coords.extent(0);
+  int const source_ndim = source_mesh->getDimension();
+  int const target_ndim = target_mesh->getDimension();
+  assert(source_ndim == target_ndim);
+  int const ndim = source_ndim;
+
+  DoubleDoubleView source_coords = get_coords(source_mesh);
+  size_t const num_source_nodes = source_coords.extent(0);
+
+  DoubleDoubleView target_coords = get_coords(target_mesh);
+  size_t const num_target_nodes = target_coords.extent(0);
 
   GMLS gmls(poly_order, ndim);
-  auto point_cloud_search(CreatePointCloudSearch(coords, ndim));
+  auto point_cloud_search(CreatePointCloudSearch(source_coords, ndim));
 
   int const min_neighbors = GMLS::getNP(poly_order, ndim);
   IntView neighbor_lists("neighbor lists", 0);
-  IntView number_of_neighbors_list("number of neighbors list", num_nodes);
-  DoubleView epsilon("h supports", num_nodes);
+  IntView number_of_neighbors_list("number of neighbors list", num_target_nodes);
+  DoubleView epsilon("h supports", num_target_nodes);
   size_t storage_size = point_cloud_search.generateCRNeighborListsFromKNNSearch(
-      true, coords, neighbor_lists, number_of_neighbors_list,
+      true, target_coords, neighbor_lists, number_of_neighbors_list,
       epsilon, min_neighbors, epsilon_multiplier
   );
   Kokkos::resize(neighbor_lists, storage_size);
   point_cloud_search.generateCRNeighborListsFromKNNSearch(
-      false, coords, neighbor_lists, number_of_neighbors_list,
+      false, target_coords, neighbor_lists, number_of_neighbors_list,
       epsilon, min_neighbors, epsilon_multiplier
   );
 
   gmls.setProblemData(neighbor_lists, number_of_neighbors_list,
-      coords, coords, epsilon);
+      source_coords, target_coords, epsilon);
 
   std::vector<TargetOperation> target_operations = {VectorPointEvaluation};
   gmls.addTargets(target_operations);
@@ -152,12 +161,15 @@ void filter_measured_fields(
   Evaluator gmls_evaluator(&gmls);
 
   for (int step = 0; step <= num_steps; ++step) {
-    auto f = get_measured_step_data(m, step);
-    auto source_values = get_field_values(m, f);
-    auto target_values =
+    auto source_field = get_measured_step_data(source_mesh, step);
+    auto source_values = get_field_values(source_mesh, source_field);
+    auto output_values =
         gmls_evaluator.applyAlphasToDataAllComponentsAllTargetSites<double**, Kokkos::DefaultExecutionSpace>
         (source_values, VectorPointEvaluation);
-    replace_measured_field(m, f, target_values);
+    auto name = "measured_" + std::to_string(step);
+    apf::Field* target_field = apf::createFieldOn(target_mesh, name.c_str(),
+        apf::getValueType(source_field));
+    populate_target_field(target_mesh, target_field, output_values);
   }
 }
 
@@ -168,25 +180,35 @@ int main(int argc, char** argv) {
   print_usage(argc, argv);
   gmi_register_mesh();
 
-  auto const geo_file = argv[1];
-  auto const input_mesh_file = argv[2];
+  auto const source_geo_file = argv[1];
+  auto const source_mesh_file = argv[2];
   int const num_steps = std::stoi(argv[3]);
-  int const poly_order = std::stoi(argv[4]);
-  int const power_kernel_exponent = std::stoi(argv[5]);
-  double const epsilon_multiplier = std::stod(argv[6]);
-  auto const output_mesh_file = argv[7];
 
-  auto mesh = apf::loadMdsMesh(geo_file, input_mesh_file);
-  mesh->verify();
+  auto const target_geo_file = argv[4];
+  auto const target_mesh_file = argv[5];
 
-  filter_measured_fields(mesh, num_steps,
+  int const poly_order = std::stoi(argv[6]);
+  int const power_kernel_exponent = std::stoi(argv[7]);
+  double const epsilon_multiplier = std::stod(argv[8]);
+  auto const output_mesh_file = argv[9];
+
+  auto source_mesh = apf::loadMdsMesh(source_geo_file, source_mesh_file);
+  source_mesh->verify();
+
+  auto target_mesh = apf::loadMdsMesh(target_geo_file, target_mesh_file);
+  target_mesh->verify();
+
+  filter_measured_fields(source_mesh, target_mesh, num_steps,
       poly_order, power_kernel_exponent, epsilon_multiplier
   );
 
-  mesh->writeNative(output_mesh_file);
+  target_mesh->writeNative(output_mesh_file);
 
-  mesh->destroyNative();
-  apf::destroyMesh(mesh);
+  target_mesh->destroyNative();
+  apf::destroyMesh(target_mesh);
+
+  source_mesh->destroyNative();
+  apf::destroyMesh(source_mesh);
 
   PCU_Comm_Free();
   Kokkos::finalize();

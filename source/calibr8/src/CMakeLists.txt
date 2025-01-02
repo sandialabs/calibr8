@@ -114,6 +114,11 @@ target_link_libraries(moving_least_squares PRIVATE calibr8)
 set_code_standards(moving_least_squares)
 install(TARGETS moving_least_squares)
 
+add_executable(moving_least_squares_two_meshes moving_least_squares_two_meshes.cpp)
+target_link_libraries(moving_least_squares_two_meshes PRIVATE calibr8)
+set_code_standards(moving_least_squares_two_meshes)
+install(TARGETS moving_least_squares_two_meshes)
+
 add_executable(objective main_objective.cpp)
 target_link_libraries(objective PRIVATE calibr8)
 set_code_standards(objective)
