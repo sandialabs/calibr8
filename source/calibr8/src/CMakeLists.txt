@@ -124,6 +124,11 @@ target_link_libraries(perturber PRIVATE calibr8)
 set_code_standards(perturber)
 install(TARGETS perturber)
 
+add_executable(transfer_surface_data transfer_surface_data.cpp)
+target_link_libraries(transfer_surface_data PRIVATE calibr8)
+set_code_standards(transfer_surface_data)
+install(TARGETS transfer_surface_data)
+
 add_executable(verify main_verify.cpp)
 target_link_libraries(verify PRIVATE calibr8)
 set_code_standards(verify)
