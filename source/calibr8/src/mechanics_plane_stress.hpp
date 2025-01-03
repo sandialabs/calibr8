@@ -38,6 +38,9 @@ class MechanicsPlaneStress : public GlobalResidual<T> {
         double dv,
         int ip_set);
 
+  private:
+    double m_thickness = 1.;
+
 };
 
 }

@@ -14,7 +14,12 @@ using minitensor::inverse;
 using minitensor::transpose;
 
 template <typename T>
-MechanicsPlaneStress<T>::MechanicsPlaneStress(ParameterList const&, int ndims) {
+MechanicsPlaneStress<T>::MechanicsPlaneStress(
+    ParameterList const& params,
+    int ndims) {
+
+  auto p = params;
+  m_thickness = p.get<double>("thickness", 1.);
 
   int const num_residuals = 1;
 
@@ -82,7 +87,7 @@ void MechanicsPlaneStress<T>::evaluate(
       for (int j = 0; j < ndims; ++j) {
         double const dbasis_dx = this->grad_weight(momentum_idx, n, i, j);
         this->R_nodal(momentum_idx, n, i) +=
-          stress(i, j) * dbasis_dx * w * dv;
+          stress(i, j) * dbasis_dx * w * m_thickness * dv;
       }
     }
   }
