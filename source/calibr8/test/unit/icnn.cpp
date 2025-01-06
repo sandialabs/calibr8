@@ -4,6 +4,7 @@
 
 using namespace ML;
 
-TEST(ICNN, dummy)
+TEST(input_convex_nn, dummy)
 {
+  ICNN<RFAD_SFADT> nn;
 }

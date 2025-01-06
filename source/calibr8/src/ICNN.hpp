@@ -38,9 +38,19 @@ inline RFAD_SFADT abs2(const RFAD_SFADT& x)  { return x*x; }
 
 namespace ML {
 
-class Dummy
+template <class ScalarT>
+class ICNN
 {
-  Dummy();
+  public:
+    using Vector = Eigen::Matrix<ScalarT, Eigen::Dynamic, 1>;
+    using Matrix = Eigen::Matrix<ScalarT, Eigen::Dynamic, Eigen::Dynamic>;
+  public:
+    ICNN();
+  private:
+    std::vector<Matrix> Wx;
+    std::vector<Matrix> Wz;
+    std::vector<Vector> b;
+    std::vector<Vector> x;
 };
 
 }
