@@ -37,6 +37,7 @@ set(CALIBR8_SOURCES
   nested.cpp
   NN_old.cpp
   NN.cpp
+  ICNN.cpp
   normal_traction.cpp
   objective.cpp
   point_wise.cpp
