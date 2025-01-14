@@ -162,12 +162,14 @@ void VFM_Objective::evaluate() {
         scaled_virtual_power_mismatch = virtual_power_mismatch * obj_scale_factor * dt / total_time;
         J_prob += 0.5 * virtual_power_mismatch * scaled_virtual_power_mismatch;
 
-        m_virtual_power->compute_at_step_adjoint(
-            step, scaled_virtual_power_mismatch, grad_at_step
-        );
+        if (m_evaluate_gradient) {
+          m_virtual_power->compute_at_step_adjoint(
+              step, scaled_virtual_power_mismatch, grad_at_step
+          );
 
-        for (int i = 0; i < m_num_opt_params; ++i) {
-          grad[i] += grad_at_step[i];
+          for (int i = 0; i < m_num_opt_params; ++i) {
+            grad[i] += grad_at_step[i];
+          }
         }
       }
 

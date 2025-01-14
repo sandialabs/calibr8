@@ -13,13 +13,17 @@ from calibr8.util.parameter_transforms import (
 )
 
 
-def get_run_command(num_proc, obj_exe):
-    return f"mpiexec -n {num_proc} {obj_exe} run.yaml true"
+def get_run_command(num_proc, obj_exe, evaluate_gradient=True):
+    if evaluate_gradient:
+        return f"mpiexec -n {num_proc} {obj_exe} run.yaml true"
+    else:
+        return f"mpiexec -n {num_proc} {obj_exe} run.yaml false"
 
 
 def objective_and_gradient(params, scales, param_names,
         input_yaml, run_command,
-        num_text_params, text_params_filename):
+        num_text_params, text_params_filename,
+        evaluate_objective_only=False):
 
     unscaled_params = transform_parameters(params, scales,
         transform_from_canonical=True)
@@ -43,12 +47,10 @@ def objective_and_gradient(params, scales, param_names,
     subprocess.run(["bash", "-c", run_command])
 
     J = np.loadtxt("objective_value.txt")
-    #grad = grad_transform(np.loadtxt("objective_gradient.txt"),
-    #    unscaled_params, scales)
+    if evaluate_objective_only:
+        return J
 
-    # cheese so that text parameters can be debugged
     grad = grad_transform(np.loadtxt("objective_gradient.txt"),
-        unscaled_params[:num_input_file_params],
-        scales[:num_input_file_params])
+        unscaled_params, scales)
 
-    return J, np.r_[grad, np.zeros(num_text_params)]
+    return J, grad

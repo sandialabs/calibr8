@@ -15,7 +15,8 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "python_inverse=calibr8.bin.inverse:main"
+            "python_inverse=calibr8.bin.inverse:main",
+            "python_gradient_fd_check=calibr8.bin.gradient_fd_check:main"
         ]
     }
 )

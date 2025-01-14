@@ -18,6 +18,18 @@ class IndentDumper(yaml.Dumper):
         return super(IndentDumper, self).increase_indent(flow, False)
 
 
+def convert_to_floats(data):
+    if isinstance(data, list):
+        return [convert_to_floats(item) for item in data]
+    elif isinstance(data, str):
+        try:
+            return float(data)
+        except ValueError:
+            return data
+    else:
+        return data
+
+
 def get_yaml_input_file_contents_by_section(entire_yaml_input_file):
     top_key = list(entire_yaml_input_file.keys())[0]
     section_keys = list(entire_yaml_input_file[top_key])
@@ -64,7 +76,7 @@ def get_materials_and_inverse_blocks(entire_yaml_input_file):
 
 def get_opt_param_info(inverse_block):
     opt_param_names = list(inverse_block.keys())
-    opt_param_scales = list(inverse_block.values())
+    opt_param_scales = convert_to_floats(list(inverse_block.values()))
 
     return opt_param_names, opt_param_scales
 
@@ -191,111 +203,3 @@ def write_output_file(opt_params, opt_param_scales, param_names,
 def cleanup_files():
     files = ["run.yaml", "objective_value.txt", "objective_gradient.txt"]
     subprocess.run(["rm"] + files)
-
-
-def objective_and_gradient(params, scales, param_names,
-        input_yaml, run_command,
-        num_text_params, text_params_filename):
-
-    unscaled_params = transform_parameters(params, scales,
-        transform_from_canonical=True)
-
-    num_params = len(params)
-    num_input_file_params = num_params - num_text_params
-
-    if num_input_file_params > 0:
-        update_yaml_input_file_parameters(input_yaml,
-            param_names[:num_input_file_params],
-            unscaled_params[:num_input_file_params]
-        )
-
-    with open("run.yaml", "w") as file:
-        yaml.dump(input_yaml, file, default_flow_style=False, sort_keys=False,
-            Dumper=IndentDumper)
-
-    if text_params_filename is not None:
-        np.savetxt(text_params_filename, unscaled_params[-num_text_params:])
-
-    subprocess.run(["bash", "-c", run_command])
-
-    J = np.loadtxt("objective_value.txt")
-    #grad = grad_transform(np.loadtxt("objective_gradient.txt"),
-    #    unscaled_params, scales)
-
-    # cheese so that text parameters can be debugged
-    grad = grad_transform(np.loadtxt("objective_gradient.txt"),
-        unscaled_params[:num_input_file_params],
-        scales[:num_input_file_params])
-
-    return J, np.r_[grad, np.zeros(num_text_params)]
-
-
-def main():
-    parser = \
-        argparse.ArgumentParser(description="calibrate with a python optimizer")
-    parser.add_argument("input_file", type=str, help="inverse input yaml file")
-    parser.add_argument("-n", "--num_procs", type=int, default=1,
-        help="number of MPI ranks")
-    parser.add_argument("-o", "--output_file", type=str,
-        default="calibrated_params.txt",
-        help="output file that contains the calibrated parameters")
-    # will be read in
-    parser.add_argument("-pi", "--text_parameters_initial_values_file", type=str,
-        help="text file that contains additional parameters initial values")
-    parser.add_argument("-ps", "--text_parameters_scales_file", type=str,
-        help="text file that contains additional parameters scales")
-    # will be written
-    parser.add_argument("-po", "--text_parameters_opt_values_filename", type=str,
-        help="name for text file that contains additional"
-             " parameters optimization values")
-
-    args = parser.parse_args()
-
-    input_file = args.input_file
-
-    # optional arguments that have defaults
-    num_procs = args.num_procs
-    output_file = args.output_file
-
-    # optional arguments that do not have defaults
-    text_parameters_initial_values_file = \
-        args.text_parameters_initial_values_file
-    text_parameters_scales_file = args.text_parameters_scales_file
-    text_parameters_opt_values_filename = \
-        args.text_parameters_opt_values_filename
-
-    text_params_data = setup_text_parameters(
-        text_parameters_initial_values_file,
-        text_parameters_scales_file,
-        text_parameters_opt_values_filename
-    )
-    num_text_params = len(text_params_data[0])
-
-    with open(input_file, "r") as file:
-        input_yaml = yaml.safe_load(file)
-
-    opt_param_names, opt_param_scales, opt_init_params, opt_bounds = \
-        setup_opt_params(input_yaml, text_params_data)
-
-    obj_exe, num_iters, gradient_tol, max_ls_evals = get_opt_options(input_yaml)
-
-    run_command = get_run_command(num_procs, obj_exe)
-
-    pt_objective_and_grad = partial(objective_and_gradient,
-        scales=opt_param_scales, param_names=opt_param_names,
-        input_yaml=input_yaml, run_command=run_command,
-        num_text_params=num_text_params,
-        text_params_filename=text_parameters_opt_values_filename
-    )
-
-    opt_params, fun_vals, cvg_dict = fmin_l_bfgs_b(
-        pt_objective_and_grad, opt_init_params,
-        bounds=opt_bounds,
-        maxiter=num_iters, pgtol=gradient_tol, maxls=max_ls_evals,
-        iprint=1, factr=10
-    )
-
-    write_output_file(opt_params, opt_param_scales, opt_param_names,
-        output_file)
-
-    cleanup_files()

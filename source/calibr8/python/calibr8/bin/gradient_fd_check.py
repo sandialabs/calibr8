@@ -20,15 +20,21 @@ from calibr8.util.input_file_io import (
 )
 
 
+def print_header():
+    headers = ["step size", "grad'*dir", "FD approx", "abs error"]
+    print(f"{headers[0]:>19}  {headers[1]:>18}  "
+          f"{headers[2]:>18}  {headers[3]:>17}")
+    print(f"{'-' * 9:>19}  {'-' * 9:>18}  {'-' * 9:>18}  {'-' * 9:>17}")
+
+
 def main():
     parser = \
         argparse.ArgumentParser(description="calibrate with a python optimizer")
     parser.add_argument("input_file", type=str, help="inverse input yaml file")
     parser.add_argument("-n", "--num_procs", type=int, default=1,
         help="number of MPI ranks")
-    parser.add_argument("-o", "--output_file", type=str,
-        default="calibrated_params.txt",
-        help="output file that contains the calibrated parameters")
+    parser.add_argument("-s", "--seed", type=int, default=22,
+        help="seed for random direction RNG")
     # will be read in
     parser.add_argument("-pi", "--text_parameters_initial_values_file",
         type=str,
@@ -46,7 +52,7 @@ def main():
 
     # optional arguments that have defaults
     num_procs = args.num_procs
-    output_file = args.output_file
+    rng_seed = args.seed
 
     # optional arguments that do not have defaults
     text_parameters_initial_values_file = \
@@ -68,25 +74,46 @@ def main():
     opt_param_names, opt_param_scales, opt_init_params, opt_bounds = \
         setup_opt_parameters(input_yaml, text_params_data)
 
-    obj_exe, num_iters, gradient_tol, max_ls_evals = get_opt_options(input_yaml)
+    # make input parameter
+    rng = np.random.default_rng(rng_seed)
+    num_params = len(opt_init_params)
+    random_direction = rng.uniform(-1., 1., num_params)
+    perturbations = np.logspace(0, -12, 13)
 
-    run_command = get_run_command(num_procs, obj_exe)
+    obj_exe, *_ = get_opt_options(input_yaml)
+    obj_and_grad_run_command = get_run_command(num_procs, obj_exe)
+    obj_only_run_command = get_run_command(num_procs, obj_exe, False)
 
-    pt_objective_and_grad = partial(objective_and_gradient,
+    J_ref, grad_ref = objective_and_gradient(opt_init_params,
         scales=opt_param_scales, param_names=opt_param_names,
-        input_yaml=input_yaml, run_command=run_command,
+        input_yaml=input_yaml, run_command=obj_and_grad_run_command,
         num_text_params=num_text_params,
         text_params_filename=text_parameters_opt_values_filename
     )
+    ref_dir_deriv = random_direction @ grad_ref
 
-    opt_params, fun_vals, cvg_dict = fmin_l_bfgs_b(
-        pt_objective_and_grad, opt_init_params,
-        bounds=opt_bounds,
-        maxiter=num_iters, pgtol=gradient_tol, maxls=max_ls_evals,
-        iprint=1, factr=10
+    objective_value = partial(objective_and_gradient,
+        scales=opt_param_scales, param_names=opt_param_names,
+        input_yaml=input_yaml, run_command=obj_only_run_command,
+        num_text_params=num_text_params,
+        text_params_filename=text_parameters_opt_values_filename,
+        evaluate_objective_only=True
     )
 
-    write_output_file(opt_params, opt_param_scales, opt_param_names,
-        output_file)
+    print_header()
+
+    for idx, perturbation in enumerate(perturbations):
+        perturbed_dir = perturbation * random_direction
+        params_plus = opt_init_params + perturbed_dir
+        params_minus = opt_init_params - perturbed_dir
+
+        J_plus = objective_value(params_plus)
+        J_minus = objective_value(params_minus)
+
+        fd_dir_deriv = (J_plus - J_minus) / (2. * perturbation)
+        abs_diff_dir_deriv = np.abs(ref_dir_deriv - fd_dir_deriv)
+
+        print(f"{perturbation:>19.11e}  {ref_dir_deriv:>15.11e}  "
+              f"{fd_dir_deriv:>15.11e}  {abs_diff_dir_deriv:>15.11e}")
 
     cleanup_files()
