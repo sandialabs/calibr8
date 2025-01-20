@@ -6,5 +6,7 @@ using namespace ML;
 
 TEST(input_convex_nn, dummy)
 {
-  ICNN<RFAD_SFADT> nn;
+  const char* activation = "softplus";
+  std::vector<int> topology = {1,3,1};
+  FICNN<RFAD_SFADT> network(activation, topology);
 }
