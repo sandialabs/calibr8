@@ -72,7 +72,7 @@ class FICNN
         std::vector<int> const& topology);
     Vector const& get_params();
     void set_params(Vector const& p);
-    Vector evaluate(Vector const& x);
+    Vector evaluate(Vector const& y);
   private:
     ScalarT (*activation)(ScalarT const&);
     Vector f(Vector const& v);
