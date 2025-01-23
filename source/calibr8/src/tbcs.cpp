@@ -5,6 +5,8 @@
 #include "control.hpp"
 #include "disc.hpp"
 #include "error_weight.hpp"
+#include "global_residual.hpp"
+#include "local_residual.hpp"
 #include "macros.hpp"
 #include "state.hpp"
 #include "tbcs.hpp"
@@ -108,11 +110,14 @@ static void compute_eq_gap_traction(
   (void)disc;
   (void)step;
 
+  /* variables for traction term computation */
+  apf::Vector3 N(0., 0., 0.);
+  apf::NewArray<double> BF;
+
   int const num_dims = disc->num_dims();
   apf::Mesh* mesh = disc->apf_mesh();
   apf::FieldShape* gv_shape = disc->gv_shape();
-  apf::FieldShape* lv_shape = disc->lv_shape();
-  int const q_order = lv_shape->getOrder();
+  int const q_order = 1;
   SideSet const& sides = disc->sides(ss_name);
 
   auto R = state->la->b[GHOST];
@@ -122,9 +127,11 @@ static void compute_eq_gap_traction(
   auto local = state->residuals->local[0];
   auto global = state->residuals->global;
   Array1D<apf::Field*> x = disc->primal(step).global;
+  Array1D<apf::Field*> x_prev = disc->primal(step - 1).global;
   Array1D<apf::Field*> xi = disc->primal(step).local[0];
+  Array1D<apf::Field*> xi_prev = disc->primal(step - 1).local[0];
  
-  // loop over all faces for this BC
+  /* loop over all sides in this side set */
   for (size_t s = 0; s < sides.size(); ++s) {
 
     /* get the single adjacent mesh elem */
@@ -132,7 +139,11 @@ static void compute_eq_gap_traction(
     int const num_adj_elems = mesh->countUpward(side);
     ALWAYS_ASSERT(num_adj_elems == 1);
     apf::MeshEntity* e = mesh->getUpward(side, 0);
-    apf::MeshElement* me = apf::createMeshElement(mesh, e);
+    apf::MeshElement* me_elem = apf::createMeshElement(mesh, e);
+    apf::MeshElement* me_side = apf::createMeshElement(mesh, side);
+
+    apf::EntityShape* es = gv_shape->getEntityShape(mesh->getType(side));
+    int const num_nodes = es->countNodes();
 
     /* 1. we want to call global->gather for displacements
        2. we want to ascertain side qp info
@@ -145,12 +156,73 @@ static void compute_eq_gap_traction(
        9.   we want to apply the measured traction to the residual vec
     */
 
+    /* peform operations on mesh element */
+    global->set_elem(me_elem);
+    local->set_elem(me_elem);
+    global->gather(x, x_prev);
 
+    int const num_qps = apf::countIntPoints(me_side, q_order);
 
-    apf::destroyMeshElement(me);
+    /* numerically integrate the traction part of the residual*/
+    for (int pt = 0; pt < num_qps; ++pt) {
 
+      /* get the integration point info on the side */
+      apf::Vector3 iota_side;
+      apf::getIntPoint(me_side, q_order, pt, iota_side);
+      double const w = apf::getIntWeight(me_side, q_order, pt);
+      double const dv = apf::getDV(me_side, iota_side);
+
+      /* evaluate the state variables at the qp */
+      global->interpolate(iota_side);
+      local->gather(pt, xi, xi_prev);
+
+      /* map the integration point on the side parametric space to
+         the element parametric space */
+      apf::Vector3 iota_elem = boundaryToElementXi(
+          mesh, side, e, iota_side);
+
+      /* interpolate the global variable solution to the side integration point */
+      int const disp_idx = 0;
+      global->interpolate(iota_elem);
+      Tensor<double> const grad_u = global->grad_vector_x(disp_idx);
+
+      /* compute the stress */
+      Tensor<double> stress = local->cauchy(global);
+      if (local->is_finite_deformation()) {
+        Tensor<double> const I = minitensor::eye<double>(num_dims);
+        Tensor<double> const F = grad_u + I;
+        Tensor<double> const F_inv = inverse(F);
+        Tensor<double> const F_invT = transpose(F_inv);
+        double const J = det(F);
+        stress = J * stress * F_invT;
+        int const z_stretch_idx = local->z_stretch_idx();
+        if (z_stretch_idx > -1) {
+          double const z_stretch = local->scalar_xi(z_stretch_idx);
+          stress *= z_stretch;
+        }
+      }
+
+      // need a way to compute this normal
+      N[0] = 0.;
+      N[1] = 0.;
+
+      apf::getBF(gv_shape, me_side, iota_side, BF);
+
+      /* compute the traction part of the residual */
+      for (int n = 0; n < num_nodes; ++n) {
+        for (int i = 0; i < num_dims; ++i) {
+          double traction_pt = 0.;
+          for (int j = 0; j < num_dims; ++j) {
+            traction_pt += BF[n] * N[i] * stress(i, j) * N[j];
+          }
+          LO row = disc->get_lid(side, disp_idx, n, i);
+          R_data[row] -= traction_pt * w * dv;
+        }
+      }
+    }
+    apf::destroyMeshElement(me_side);
+    apf::destroyMeshElement(me_elem);
   }
-
 }
 
 void compute_eq_gap_tractions(
