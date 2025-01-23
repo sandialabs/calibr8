@@ -49,16 +49,15 @@ double EquilibriumGap::compute_at_step(int step)
   eval_measured_residual(m_state, m_disc, step);
   compute_eq_gap_tractions(tbcs, m_state, m_disc, step);
   m_state->la->gather_b();
-  double const eq_gap = R[0]->dot(*(R[0]));
+  double const eq_gap = 0.5 * R[0]->dot(*(R[0]));
 
   /* evaulate the load mismatch term */
   double const load_mismatch = eval_qoi(m_state, m_disc, step);
 
   /* compute the objective function */
   double const gap_scale = 1.;
-  double const load_scale = 1.;
+  double const load_scale = 0.;
   return gap_scale * eq_gap + load_scale * load_mismatch;
-
 }
 
 void EquilibriumGap::compute_at_step_adjoint(

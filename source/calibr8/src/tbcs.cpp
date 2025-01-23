@@ -1,6 +1,7 @@
 #include <apf.h>
 #include <apfMesh2.h>
 #include <apfNumbering.h>
+#include <ree.h>
 #include "arrays.hpp"
 #include "control.hpp"
 #include "disc.hpp"
@@ -99,22 +100,59 @@ void apply_primal_tbcs(
   }
 }
 
+/* from ree/reeResidualFunctionals.cc */
+static apf::MeshEntity* getFaceOppVert(
+    apf::Mesh* m, apf::MeshEntity* f, apf::MeshEntity* e)
+{
+  apf::Downward evs;
+  int env = m->getDownward(e, 0, evs);
+  apf::Downward fvs;
+  int fnv = m->getDownward(f, 0, fvs);
+  PCU_ALWAYS_ASSERT(env == 2 && fnv == 3);
+  for (int i = 0; i < fnv; i++) {
+    if (apf::findIn(evs, env, fvs[i]) == -1)
+      return fvs[i];
+  }
+  return 0;
+}
+
+static apf::Vector3 computeOutwardEdgeNormal(
+    apf::Mesh* mesh, apf::MeshEntity* face, apf::MeshEntity* edge)
+{
+  apf::Downward downward_nodes;
+  int num_down_nodes = mesh->getDownward(edge, 0, downward_nodes);
+  ALWAYS_ASSERT(num_down_nodes == 2);
+
+  apf::Vector3 p0;
+  mesh->getPoint(downward_nodes[0], 0, p0);
+  apf::Vector3 p1;
+  mesh->getPoint(downward_nodes[1], 0, p1);
+  apf::Vector3 const p1_to_p0 = p1 - p0;
+  apf::Vector3 const mid_point = p1_to_p0 * 0.5 + p0;
+
+  auto opp_vert = getFaceOppVert(mesh, face, edge);
+  apf::Vector3 opp_point;
+  mesh->getPoint(opp_vert, 0, opp_point);
+
+  apf::Vector3 const opp_to_mid_point = opp_point - mid_point;
+  apf::Vector3 const z(0., 0., 1.);
+  apf::Vector3 unit_normal = (apf::cross(p1_to_p0, z)).normalize();
+
+  double dot_product = opp_to_mid_point * unit_normal;
+  if (dot_product > 0.) {
+    unit_normal = unit_normal * -1.;
+  }
+  return unit_normal;
+}
+
 static void compute_eq_gap_traction(
     std::string const& ss_name,
     RCP<State> state,
     RCP<Disc> disc,
     int step)
 {
-  (void)ss_name;
-  (void)state;
-  (void)disc;
-  (void)step;
-
-  /* variables for traction term computation */
-  apf::Vector3 N(0., 0., 0.);
-  apf::NewArray<double> BF;
-
   int const num_dims = disc->num_dims();
+  ALWAYS_ASSERT(num_dims == 2);
   apf::Mesh* mesh = disc->apf_mesh();
   apf::FieldShape* gv_shape = disc->gv_shape();
   int const q_order = 1;
@@ -202,10 +240,9 @@ static void compute_eq_gap_traction(
         }
       }
 
-      // need a way to compute this normal
-      N[0] = 0.;
-      N[1] = 0.;
+      apf::Vector3 const unit_normal = computeOutwardEdgeNormal(mesh, e, side);
 
+      apf::NewArray<double> BF;
       apf::getBF(gv_shape, me_side, iota_side, BF);
 
       /* compute the traction part of the residual */
@@ -213,7 +250,7 @@ static void compute_eq_gap_traction(
         for (int i = 0; i < num_dims; ++i) {
           double traction_pt = 0.;
           for (int j = 0; j < num_dims; ++j) {
-            traction_pt += BF[n] * N[i] * stress(i, j) * N[j];
+            traction_pt += BF[n] * unit_normal[i] * stress(i, j) * unit_normal[j];
           }
           LO row = disc->get_lid(side, disp_idx, n, i);
           R_data[row] -= traction_pt * w * dv;
