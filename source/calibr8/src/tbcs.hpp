@@ -18,6 +18,7 @@ namespace calibr8 {
 //! \cond
 // forward declarations
 class Disc;
+class State;
 //! \endcond
 
 //! \brief Apply traction BCs to the primal system
@@ -32,6 +33,17 @@ void apply_primal_tbcs(
     RCP<Disc> disc,
     Array1D<RCP<VectorT>>& R,
     double t);
+
+//! \brief Evaluate contributions to resid over non-traction free boundaries.
+//! \param tbcs The traction boundary list
+//! \param state The state object
+//! \param disc The discretization object
+//! \param step The current step
+void compute_eq_gap_tractions(
+    ParameterList const& tbcs,
+    RCP<State> state,
+    RCP<Disc> disc,
+    int step);
 
 //! \brief Apply adjoint-weighted residual traction BCs to the error
 //! \param tbcs The traction BC parameter list

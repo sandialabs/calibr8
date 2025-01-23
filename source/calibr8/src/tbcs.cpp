@@ -6,6 +6,7 @@
 #include "disc.hpp"
 #include "error_weight.hpp"
 #include "macros.hpp"
+#include "state.hpp"
 #include "tbcs.hpp"
 
 namespace calibr8 {
@@ -93,6 +94,75 @@ void apply_primal_tbcs(
     auto entry = tbcs.entry(it);
     auto a = getValue<Array<std::string>>(entry);
     apply_primal_tbc(a, disc, R, t);
+  }
+}
+
+static void compute_eq_gap_traction(
+    std::string const& ss_name,
+    RCP<State> state,
+    RCP<Disc> disc,
+    int step)
+{
+  (void)ss_name;
+  (void)state;
+  (void)disc;
+  (void)step;
+
+  int const num_dims = disc->num_dims();
+  apf::Mesh* mesh = disc->apf_mesh();
+  apf::FieldShape* gv_shape = disc->gv_shape();
+  apf::FieldShape* lv_shape = disc->lv_shape();
+  int const q_order = lv_shape->getOrder();
+  SideSet const& sides = disc->sides(ss_name);
+
+  auto R = state->la->b[GHOST];
+  /* hard assume this is doing some mechanics */
+  Teuchos::ArrayRCP<double> R_data = R[0]->get1dViewNonConst();
+
+  auto local = state->residuals->local[0];
+  auto global = state->residuals->global;
+  Array1D<apf::Field*> x = disc->primal(step).global;
+  Array1D<apf::Field*> xi = disc->primal(step).local[0];
+ 
+  // loop over all faces for this BC
+  for (size_t s = 0; s < sides.size(); ++s) {
+
+    /* get the single adjacent mesh elem */
+    apf::MeshEntity* side = sides[s];
+    int const num_adj_elems = mesh->countUpward(side);
+    ALWAYS_ASSERT(num_adj_elems == 1);
+    apf::MeshEntity* e = mesh->getUpward(side, 0);
+    apf::MeshElement* me = apf::createMeshElement(mesh, e);
+
+    /* 1. we want to call global->gather for displacements
+       2. we want to ascertain side qp info
+       3. we want to loop over side qps
+       4.   we want to call global->interpolate
+       5.   we want to call local->gather for local vars
+       6.   we want to call local->cauchy (and transform to P for finite def if needed)
+       7.   we want to compute the outward unit normal to the side
+       8.   we want to compute measured traction
+       9.   we want to apply the measured traction to the residual vec
+    */
+
+
+
+    apf::destroyMeshElement(me);
+
+  }
+
+}
+
+void compute_eq_gap_tractions(
+    ParameterList const& tbcs,
+    RCP<State> state,
+    RCP<Disc> disc,
+    int step)
+{
+  for (auto it = tbcs.begin(); it != tbcs.end(); ++it) {
+    auto entry = tbcs.entry(it);
+    std::string const ss_name = getValue<std::string>(entry);
+    compute_eq_gap_traction(ss_name, state, disc, step);
   }
 }
 

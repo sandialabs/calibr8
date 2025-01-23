@@ -11,6 +11,7 @@ set(CALIBR8_SOURCES
   disc.cpp
   disp_comp.cpp
   elastic.cpp
+  equilibrium_gap.cpp
   error_weight.cpp
   evaluations.cpp
   femu_objective.cpp
@@ -145,6 +146,7 @@ target_link_libraries(exact_error PRIVATE calibr8)
 set_code_standards(exact_error)
 install(TARGETS exact_error)
 
+# TODO: maybe kill this if it doesn't work
 add_executable(virtual_fields_method main_virtual_fields_method.cpp)
 target_link_libraries(virtual_fields_method PRIVATE calibr8)
 install(TARGETS virtual_fields_method)
