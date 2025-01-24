@@ -2,6 +2,7 @@
 #include "global_residual.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
+#include "mappings.hpp"
 #include "surface_mismatch.hpp"
 
 namespace calibr8 {
@@ -25,7 +26,7 @@ void SurfaceMismatch<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_step = step;
 
   if (!is_initd) {
-    is_initd = this->setup_side_set_mapping(m_side_set, disc, m_mapping);
+    is_initd = setup_side_set_mapping(m_side_set, disc, m_mapping);
   }
 
 }

@@ -5,6 +5,7 @@
 #include "global_residual.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
+#include "mappings.hpp"
 #include "material_params.hpp"
 #include "reaction_mismatch.hpp"
 
@@ -43,7 +44,7 @@ void ReactionMismatch<T>::before_elems(RCP<Disc> disc, int step) {
   this->m_step = step;
 
   if (!is_initd) {
-    is_initd = this->setup_coord_based_node_mapping(m_coord_idx, m_coord_value,
+    is_initd = setup_coord_based_node_mapping(m_coord_idx, m_coord_value,
         disc, m_mapping);
   }
 

@@ -32,6 +32,7 @@ set(CALIBR8_SOURCES
   linear_alg.cpp
   linear_solve.cpp
   local_residual.cpp
+  mappings.cpp
   mechanics.cpp
   mechanics_plane_stress.cpp
   mesh_size.cpp

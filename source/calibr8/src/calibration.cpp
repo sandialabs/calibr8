@@ -5,6 +5,7 @@
 #include "global_residual.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
+#include "mappings.hpp"
 #include "material_params.hpp"
 #include "ree.h"
 
@@ -144,7 +145,7 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
   }
 
   if (!is_initd_load) {
-    is_initd_load = this->setup_coord_based_node_mapping(m_coord_idx, m_coord_value,
+    is_initd_load = setup_coord_based_node_mapping(m_coord_idx, m_coord_value,
         disc, m_mapping_load);
   }
 
