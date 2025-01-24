@@ -167,11 +167,13 @@ void MechanicsEquilibriumGap<T>::evaluate(
   apf::Mesh* mesh = this->m_mesh;
   apf::MeshElement* mesh_elem = this->m_mesh_elem;
 
-  // grab the side to integrate over
+  // grab the side to integrate over and some additional info
   apf::Downward elem_sides;
   apf::MeshEntity* elem_entity = apf::getMeshEntity(mesh_elem);
   mesh->getDownward(elem_entity, ndims - 1, elem_sides);
   apf::MeshEntity* side = elem_sides[side_id];
+  apf::EntityShape* side_shape = this->m_shape->getEntityShape(mesh->getType(side));
+  int const num_side_nodes = side_shape->countNodes();
 
   // get quadrature information over the side
   int const q_order = 1;
@@ -195,7 +197,7 @@ void MechanicsEquilibriumGap<T>::evaluate(
     apf::getBF(this->m_shape, me_side, iota_side, BF);
 
     /* compute the traction part of the residual */
-    for (int n = 0; n < nnodes; ++n) {
+    for (int n = 0; n < num_side_nodes; ++n) {
       for (int i = 0; i < ndims; ++i) {
         for (int j = 0; j < ndims; ++j) {
           this->R_nodal(momentum_idx, n, i) -= BF[n]
