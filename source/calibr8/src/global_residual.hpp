@@ -68,7 +68,7 @@ class GlobalResidual {
     //! \param mode The type of weight to use
     //! \details This will initialize the local element-level quantities
     //! that this class is responsible for using/computing
-    void before_elems(RCP<Disc> disc,
+    virtual void before_elems(RCP<Disc> disc,
         int mode=NORMAL_WEIGHT,
         Array1D<apf::Field*> const& adjoint_fields=Array1D<apf::Field*>());
 

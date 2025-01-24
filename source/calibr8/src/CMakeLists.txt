@@ -34,6 +34,7 @@ set(CALIBR8_SOURCES
   local_residual.cpp
   mappings.cpp
   mechanics.cpp
+  mechanics_equilibrium_gap.cpp
   mechanics_plane_stress.cpp
   mesh_size.cpp
   nested.cpp

@@ -23,6 +23,16 @@ bool setup_side_set_mapping(
     RCP<Disc> disc,
     Array2D<int>& mapping);
 
+//! \brief Initialize the mapping from elements to downward entitity (1 level) in an array of side sets
+//! \param side_set Array of side set names
+//! \param disc Discretization object
+//! \param mapping The element to side set downward entity array
+//! \returns Flag for whether the mapping array exists
+bool setup_side_sets_mapping(
+    Array1D<std::string> const& side_sets,
+    RCP<Disc> disc,
+    Array2D<int>& mapping);
+
 //! \brief Initialize the mapping from elements to nodes in a side set
 //! \param side_set The name of the side set
 //! \param disc Discretization object

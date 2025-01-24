@@ -5,6 +5,7 @@
 #include "global_residual.hpp"
 #include "macros.hpp"
 #include "mechanics.hpp"
+#include "mechanics_equilibrium_gap.hpp"
 #include "mechanics_plane_stress.hpp"
 
 namespace calibr8 {
@@ -592,6 +593,8 @@ RCP<GlobalResidual<T>> create_global_residual(
   std::string const type = params.get<std::string>("type");
   if (type == "mechanics") {
     return rcp(new Mechanics<T>(params, ndims));
+  } else if (type == "mechanics_equilibrium_gap") {
+    return rcp(new MechanicsEquilibriumGap<T>(params, ndims));
   } else if (type == "mechanics_plane_stress") {
     return rcp(new MechanicsPlaneStress<T>(params, ndims));
   } else {
