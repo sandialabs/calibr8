@@ -1,5 +1,6 @@
 #include <apf.h>
 #include <apfMesh.h>
+#include <ree.h>
 #include "control.hpp"
 #include "defines.hpp"
 #include "local_residual.hpp"
@@ -13,6 +14,51 @@ namespace calibr8 {
 using minitensor::det;
 using minitensor::inverse;
 using minitensor::transpose;
+
+/* from ree/reeResidualFunctionals.cc */
+static apf::MeshEntity* getFaceOppVert(
+    apf::Mesh* m, apf::MeshEntity* f, apf::MeshEntity* e)
+{
+  apf::Downward evs;
+  int env = m->getDownward(e, 0, evs);
+  apf::Downward fvs;
+  int fnv = m->getDownward(f, 0, fvs);
+  PCU_ALWAYS_ASSERT(env == 2 && fnv == 3);
+  for (int i = 0; i < fnv; i++) {
+    if (apf::findIn(evs, env, fvs[i]) == -1)
+      return fvs[i];
+  }
+  return 0;
+}
+
+static apf::Vector3 computeOutwardEdgeNormal(
+    apf::Mesh* mesh, apf::MeshEntity* face, apf::MeshEntity* edge)
+{
+  apf::Downward downward_nodes;
+  int num_down_nodes = mesh->getDownward(edge, 0, downward_nodes);
+  ALWAYS_ASSERT(num_down_nodes == 2);
+
+  apf::Vector3 p0;
+  mesh->getPoint(downward_nodes[0], 0, p0);
+  apf::Vector3 p1;
+  mesh->getPoint(downward_nodes[1], 0, p1);
+  apf::Vector3 const p1_to_p0 = p1 - p0;
+  apf::Vector3 const mid_point = p1_to_p0 * 0.5 + p0;
+
+  auto opp_vert = getFaceOppVert(mesh, face, edge);
+  apf::Vector3 opp_point;
+  mesh->getPoint(opp_vert, 0, opp_point);
+
+  apf::Vector3 const opp_to_mid_point = opp_point - mid_point;
+  apf::Vector3 const z(0., 0., 1.);
+  apf::Vector3 unit_normal = (apf::cross(p1_to_p0, z)).normalize();
+
+  double dot_product = opp_to_mid_point * unit_normal;
+  if (dot_product > 0.) {
+    unit_normal = unit_normal * -1.;
+  }
+  return unit_normal;
+}
 
 template <typename T>
 MechanicsEquilibriumGap<T>::MechanicsEquilibriumGap(
@@ -67,7 +113,6 @@ void MechanicsEquilibriumGap<T>::evaluate(
     double dv,
     int ip_set) {
 
-
   // gather information from this class
   int const ndims = this->m_num_dims;
   int const nnodes = this->m_num_nodes;
@@ -109,6 +154,66 @@ void MechanicsEquilibriumGap<T>::evaluate(
     }
   }
 
+  // get some info for the mapping array
+  int const es = this->m_elem_set_idx;
+  int const elem = this->m_elem_idx;
+
+  // get the id of the side wrt element if this side is on a traction boundary
+  // do not evaluate if the side is not on a traction boundary
+  int const side_id = m_mapping[es][elem];
+  if (side_id < 0) return;
+
+  // store some information contained in this class as local variables
+  apf::Mesh* mesh = this->m_mesh;
+  apf::MeshElement* mesh_elem = this->m_mesh_elem;
+
+  // grab the side to integrate over
+  apf::Downward elem_sides;
+  apf::MeshEntity* elem_entity = apf::getMeshEntity(mesh_elem);
+  mesh->getDownward(elem_entity, ndims - 1, elem_sides);
+  apf::MeshEntity* side = elem_sides[side_id];
+
+  // get quadrature information over the side
+  int const q_order = 1;
+  apf::MeshElement* me_side = apf::createMeshElement(mesh, side);
+
+  // should be 1; we assume constant stress over the element
+  int const num_qps = apf::countIntPoints(me_side, q_order);
+
+  // numerically integrate the QoI over the side
+  for (int pt = 0; pt < num_qps; ++pt) {
+
+    // get the integration point info on the side
+    apf::Vector3 iota_side;
+    apf::getIntPoint(me_side, q_order, pt, iota_side);
+    double const w_side = apf::getIntWeight(me_side, q_order, pt);
+    double const dv_side = apf::getDV(me_side, iota_side);
+
+    // compute normal
+    apf::Vector3 const unit_normal = computeOutwardEdgeNormal(mesh, elem_entity, side);
+    apf::NewArray<double> BF;
+    apf::getBF(this->m_shape, me_side, iota_side, BF);
+
+    /* compute the traction part of the residual */
+    for (int n = 0; n < nnodes; ++n) {
+      for (int i = 0; i < ndims; ++i) {
+        for (int j = 0; j < ndims; ++j) {
+          this->R_nodal(momentum_idx, n, i) -= BF[n]
+              * stress(i, j) * unit_normal[j]
+              * m_thickness * w_side * dv_side;
+        }
+      }
+    }
+  }
+  apf::destroyMeshElement(me_side);
+}
+
+template <typename T>
+void MechanicsEquilibriumGap<T>::after_elems()
+{
+  GlobalResidual<T>::after_elems();
+  this->m_elem_set_idx = -1;
+  this->m_elem_idx = -1;
 }
 
 template class MechanicsEquilibriumGap<double>;

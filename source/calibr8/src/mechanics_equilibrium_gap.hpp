@@ -36,6 +36,9 @@ class MechanicsEquilibriumGap : public GlobalResidual<T> {
         int mode=NORMAL_WEIGHT,
         Array1D<apf::Field*> const& adjoint_fields=Array1D<apf::Field*>()) override;
 
+    //! \brief Reset the residual data structure after looping over elements
+    void after_elems() override;
+
     //! \brief Evaluate the residual at an integration point
     //! \param local The local residual object
     //! \param iota The integration point in the reference element space

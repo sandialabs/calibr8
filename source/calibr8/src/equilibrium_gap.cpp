@@ -32,7 +32,6 @@ double EquilibriumGap::compute_at_step(int step)
   ALWAYS_ASSERT(R.size() == 1);
   ParameterList& resids = m_params->sublist("residuals", true);
   ParameterList& global = resids.sublist("global residual", true);
-  ParameterList& tbcs = m_params->sublist("traction boundaries", true);
   bool const do_print = global.get<bool>("print step", false);
   bool const use_measured = true;
   if (do_print) print("ON EQUILIBRIUM GAP STEP (%d)", step);
@@ -44,17 +43,10 @@ double EquilibriumGap::compute_at_step(int step)
   /* This will solve for the local state variables */
   m_state->la->zero_b();
   eval_measured_residual(m_state, m_disc, step);
-  compute_eq_gap_tractions(tbcs, m_state, m_disc, step);
   m_state->la->gather_b();
   double const eq_gap = 0.5 * R[0]->dot(*(R[0]));
-
-  /* evaulate the load mismatch term */
-  double const load_mismatch = eval_qoi(m_state, m_disc, step);
-
-  /* compute the objective function */
-  double const gap_scale = 1.;
-  double const load_scale = 0.;
-  return gap_scale * eq_gap + load_scale * load_mismatch;
+  print("Equilibrium gap at step %d = %e", step, eq_gap);
+  return eq_gap;
 }
 
 void EquilibriumGap::compute_at_step_adjoint(

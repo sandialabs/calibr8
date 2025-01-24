@@ -171,7 +171,7 @@ class GlobalResidual {
     void unset_elem();
 
     //! \brief Reset the residual data structure after looping over elements
-    void after_elems();
+    virtual void after_elems();
 
     //! \brief The nodal values of the global variables
     //! \param i The global residual index
@@ -288,6 +288,9 @@ class GlobalResidual {
     double time() const {return m_time;}
     double delta_t() const {return m_delta_t;}
 
+    void set_elem_set_idx(int elem_set_idx) { m_elem_set_idx = elem_set_idx; }
+    void set_elem_idx(int elem_idx) { m_elem_idx = elem_idx; }
+
   private:
 
     int dx_idx(int i, int node, int eq) const;
@@ -329,6 +332,9 @@ class GlobalResidual {
 
     double m_time = -1.;
     double m_delta_t = -1.;
+
+    int m_elem_set_idx = -1;
+    int m_elem_idx = -1;
 
     //! \endcond
 

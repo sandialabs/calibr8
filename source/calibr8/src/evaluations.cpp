@@ -1768,6 +1768,8 @@ void eval_measured_residual(RCP<State> state, RCP<Disc> disc, int step) {
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
 
     local->before_elems(es, disc);
+    // needed for equilibrium gap boundary terms
+    global->set_elem_set_idx(es);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -1784,6 +1786,8 @@ void eval_measured_residual(RCP<State> state, RCP<Disc> disc, int step) {
       global->set_elem(me);
       local->set_elem(me);
       global->gather(x, x_prev);
+      // needed for equilibrium gap boundary terms
+      global->set_elem_idx(elem);
 
       // loop over domain ip sets
       // ip_set = 0 -> coupled
