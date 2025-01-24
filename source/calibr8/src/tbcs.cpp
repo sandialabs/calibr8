@@ -152,6 +152,7 @@ static void compute_eq_gap_traction(
     int step)
 {
   int const num_dims = disc->num_dims();
+  /* only plane problems are supported */
   ALWAYS_ASSERT(num_dims == 2);
   apf::Mesh* mesh = disc->apf_mesh();
   apf::FieldShape* gv_shape = disc->gv_shape();
@@ -259,6 +260,8 @@ static void compute_eq_gap_traction(
     }
     apf::destroyMeshElement(me_side);
     apf::destroyMeshElement(me_elem);
+    local->unset_elem();
+    global->unset_elem();
   }
 }
 

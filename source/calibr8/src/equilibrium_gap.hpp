@@ -46,7 +46,6 @@ class EquilibriumGap {
 
   private:
 
-    int m_num_params = 0;
     RCP<ParameterList> m_params;
     RCP<State> m_state;
     RCP<Disc> m_disc;

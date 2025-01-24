@@ -91,6 +91,11 @@ target_link_libraries(error PRIVATE calibr8)
 set_code_standards(error)
 install(TARGETS error)
 
+add_executable(equilibrium_gap_objective main_equilibrium_gap_objective.cpp)
+target_link_libraries(equilibrium_gap_objective PRIVATE calibr8)
+set_code_standards(equilibrium_gap_objective)
+install(TARGETS equilibrium_gap_objective)
+
 add_executable(spr_error main_spr_error.cpp)
 target_link_libraries(spr_error PRIVATE calibr8)
 set_code_standards(spr_error)

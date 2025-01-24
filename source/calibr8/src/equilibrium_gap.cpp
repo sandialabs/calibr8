@@ -17,16 +17,12 @@ EquilibriumGap::EquilibriumGap(
     RCP<Disc> disc_in,
     int num_params)
 {
-
   m_params = params_in;
   m_state = state_in;
-  m_num_params = num_params;
-
+  m_disc = disc_in;
 }
 
-EquilibriumGap::~EquilibriumGap()
-{
-}
+EquilibriumGap::~EquilibriumGap() {}
 
 double EquilibriumGap::compute_at_step(int step)
 {
@@ -45,6 +41,7 @@ double EquilibriumGap::compute_at_step(int step)
   m_disc->create_primal(m_state->residuals, step, use_measured);
 
   /* evaluate the residual term */
+  /* This will solve for the local state variables */
   m_state->la->zero_b();
   eval_measured_residual(m_state, m_disc, step);
   compute_eq_gap_tractions(tbcs, m_state, m_disc, step);
