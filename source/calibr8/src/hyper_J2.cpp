@@ -273,7 +273,6 @@ int HyperJ2<T>::evaluate(
       Tensor<T> const n = s / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - dev(be_bar_trial) + 2. * dgam * Ie * n;
-      R_zeta(2, 2) = trace(zeta);
       R_Ie = det(zeta + Ie * I) - 1.;
       R_alpha = f;
       path = PLASTIC;
@@ -295,7 +294,6 @@ int HyperJ2<T>::evaluate(
       Tensor<T> const n = s / s_mag;
       T const dgam = sqrt_32 * (alpha - alpha_old);
       R_zeta = zeta - dev(be_bar_trial) + 2. * dgam * Ie * n;
-      R_zeta(2, 2) = trace(zeta);
       R_Ie = det(zeta + Ie * I) - 1.;
       R_alpha = f;
     }
