@@ -83,9 +83,9 @@ def get_opt_param_info(inverse_block):
 
 def get_initial_opt_params(local_residual_params_block,
         opt_param_names):
-    initial_opt_params = np.array(
+    initial_opt_params = np.array(convert_to_floats(
         [local_residual_params_block[name] for name in opt_param_names]
-    )
+    ))
 
     return initial_opt_params
 
