@@ -20,11 +20,16 @@ from calibr8.util.input_file_io import (
 )
 
 
-def print_header():
+def print_header(ref_dir_deriv):
     headers = ["step size", "grad'*dir", "FD approx", "abs error"]
-    print(f"{headers[0]:>19}  {headers[1]:>18}  "
-          f"{headers[2]:>18}  {headers[3]:>17}")
-    print(f"{'-' * 9:>19}  {'-' * 9:>18}  {'-' * 9:>18}  {'-' * 9:>17}")
+    if ref_dir_deriv >= 0.:
+        print(f"{headers[0]:>19}  {headers[1]:>17}  "
+              f"{headers[2]:>17}  {headers[3]:>17}")
+        print(f"{'-' * 9:>19}  {'-' * 9:>17}  {'-' * 9:>17}  {'-' * 9:>17}")
+    else:
+        print(f"{headers[0]:>19}  {headers[1]:>18}  "
+              f"{headers[2]:>18}  {headers[3]:>17}")
+        print(f"{'-' * 9:>19}  {'-' * 9:>18}  {'-' * 9:>18}  {'-' * 9:>17}")
 
 
 def main():
@@ -100,7 +105,7 @@ def main():
         evaluate_objective_only=True
     )
 
-    print_header()
+    print_header(ref_dir_deriv)
 
     for idx, perturbation in enumerate(perturbations):
         perturbed_dir = perturbation * random_direction

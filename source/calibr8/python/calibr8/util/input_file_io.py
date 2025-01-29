@@ -96,7 +96,7 @@ def get_opt_options(entire_yaml_input_file):
     inverse_block = yaml_input_file["inverse"]
 
     obj_type = inverse_block["objective type"]
-    if obj_type == "adjoint":
+    if obj_type == "pdeco":
         obj_exe = "objective"
     elif obj_type == "vfm":
         obj_exe = "vfm_objective"

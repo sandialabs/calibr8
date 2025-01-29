@@ -127,7 +127,7 @@ void VFM_Objective::setup_opt_params(ParameterList const& inverse_params) {
 void VFM_Objective::evaluate() {
 
   ParameterList& inverse_params = m_params->sublist("inverse", true);
-  double const obj_scale_factor = inverse_params.get<double>("objective scale factor");
+  double const obj_scale_factor = inverse_params.get<double>("objective scale factor", 1.);
   double dt;
   double internal_virtual_power;
   double load_at_step;
