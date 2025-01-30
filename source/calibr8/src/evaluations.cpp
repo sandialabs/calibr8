@@ -1971,18 +1971,24 @@ void eval_vfm_adjoint_gradient(
     int step,
     double scaled_virtual_power_mismatch) {
 
-  // container for gradient
+  // containers for gradients
   int const model_form = state->model_form;
   int const num_active_params = state->residuals->local[model_form]->num_active_params();
+  int const num_dfad_params = state->residuals->local[model_form]->num_dfad_params();
+  int const num_params = num_active_params + num_dfad_params;
   EVector Egrad = EVector::Zero(num_active_params);
+  EVector Egrad_dfad = EVector::Zero(num_dfad_params);
 
   // gather discretization information
   apf::Mesh* mesh = disc->apf_mesh();
 
   // gather information from the state object
   RCP<LocalResidual<FADT>> local = state->d_residuals->local[model_form];
+  RCP<LocalResidual<DFADT>> dfad_local = state->dfad_residuals->local[model_form];
   RCP<GlobalResidual<FADT>> global = state->d_residuals->global;
+  RCP<GlobalResidual<DFADT>> dfad_global = state->dfad_residuals->global;
   global->set_time_info(state->disc->time(step), state->disc->dt(step));
+  dfad_global->set_time_info(state->disc->time(step), state->disc->dt(step));
 
   // measured displacement field
   Array1D<apf::Field*> x = disc->primal(step).global;
@@ -1997,6 +2003,8 @@ void eval_vfm_adjoint_gradient(
 
   // perform initializations of the residual objects
   global->before_elems(disc);
+  if (num_dfad_params > 0)
+    dfad_global->before_elems(disc);
 
   // variable telling us the current number of derivatives
   int nderivs = -1;
@@ -2005,6 +2013,8 @@ void eval_vfm_adjoint_gradient(
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
 
     local->before_elems(es, disc);
+    if (num_dfad_params > 0)
+      dfad_local->before_elems(es, disc);
 
     // gather the elements in the current element set
     std::string const& es_name = disc->elem_set_name(es);
@@ -2021,6 +2031,12 @@ void eval_vfm_adjoint_gradient(
       global->set_elem(me);
       local->set_elem(me);
       global->gather(x, x_prev);
+
+      if (num_dfad_params > 0) {
+        dfad_global->set_elem(me);
+        dfad_local->set_elem(me);
+        dfad_global->gather(x, x_prev);
+      }
 
       // grab the virtual field nodal values at the element
       EVector const w_nodes = global->gather_adjoint(vf);
@@ -2081,20 +2097,40 @@ void eval_vfm_adjoint_gradient(
         EVector const dJ_dp = scaled_virtual_power_mismatch
             * w_nodes.transpose() * dR_dp + phi.transpose() * dC_dp;
         Egrad += dJ_dp;
+
+        if (num_dfad_params > 0) {
+          dfad_global->interpolate(iota);
+          dfad_local->gather(pt, xi, xi_prev);
+          dfad_local->evaluate(dfad_global);
+          EMatrix const dC_dpT_dfad = dfad_local->eigen_jacobian(num_dfad_params).transpose();
+          Egrad_dfad += dC_dpT_dfad * phi;
+        }
       }
 
       // perform operations on element output
       apf::destroyMeshElement(me);
       global->unset_elem();
       local->unset_elem();
+      if (num_dfad_params > 0) {
+        dfad_global->unset_elem();
+        dfad_local->unset_elem();
+      }
     }
   }
 
   // perform clean-ups of the residual objects
   local->after_elems();
   global->after_elems();
+  if (num_dfad_params > 0) {
+    dfad_local->after_elems();
+    dfad_global->after_elems();
+  }
 
-  EVector::Map(&grad[0], num_active_params) = Egrad;
+  // concatenate conventional and dfad parameter gradients
+  EVector Egrad_total(num_params);
+  Egrad_total << Egrad, Egrad_dfad;
+
+  EVector::Map(&grad[0], num_params) = Egrad_total;
 }
 
 }
