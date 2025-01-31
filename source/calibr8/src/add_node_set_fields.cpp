@@ -51,22 +51,32 @@ NodeSets compute_node_sets(apf::Mesh2* mesh, apf::StkModels* sets) {
 }
 
 void create_node_set_fields(apf::Mesh2* mesh, NodeSets const& node_sets) {
+  std::string const internal_field_name = "internal";
+  apf::Field* f_internal = apf::createFieldOn(mesh, internal_field_name.c_str(),
+      apf::SCALAR);
+  apf::MeshEntity* vert;
+  apf::MeshIterator* nodes = mesh->begin(0);
+  while ((vert = mesh->iterate(nodes))) {
+    apf::setScalar(f_internal, vert, 0, 1.);
+  }
+  mesh->end(nodes);
   for (auto const& pair : node_sets) {
     std::string const& node_set_name = pair.first;
     NodeSet const& node_set = pair.second;
-    apf::Field* f = apf::createFieldOn(mesh, node_set_name.c_str(),
+    apf::Field* f_node_set = apf::createFieldOn(mesh, node_set_name.c_str(),
         apf::SCALAR);
-    apf::MeshEntity* vert;
-    apf::MeshIterator* nodes = mesh->begin(0);
+    nodes = mesh->begin(0);
     while ((vert = mesh->iterate(nodes))) {
-      apf::setScalar(f, vert, 0, 0.);
+      apf::setScalar(f_node_set, vert, 0, 0.);
     }
     mesh->end(nodes);
     for (auto const& node : node_set) {
-      apf::setScalar(f, node.entity, node.node, 1.);
+      apf::setScalar(f_internal, node.entity, node.node, 0.);
+      apf::setScalar(f_node_set, node.entity, node.node, 1.);
     }
-    apf::synchronize(f);
+    apf::synchronize(f_node_set);
   }
+  apf::synchronize(f_internal);
 }
 
 int main(int argc, char** argv) {
