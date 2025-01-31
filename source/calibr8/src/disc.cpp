@@ -694,7 +694,32 @@ void Disc::create_virtual(
   m_virtual.push_back(fields);
 }
 
-
+void Disc::set_virtual_field_from_node_set(
+    std::string const node_set_name,
+    int vf_component) {
+  apf::Field* node_set_field = m_mesh->findField(node_set_name.c_str());
+  ALWAYS_ASSERT(node_set_field);
+  auto vf = m_virtual[0].virtual_field[0];
+  double node_set_field_val;
+  Array1D<double> vf_vals(m_num_dims);
+  apf::DynamicArray<apf::Node> owned;
+  apf::getNodes(m_owned_nmbr, owned);
+  for (size_t n = 0; n < owned.size(); ++n) {
+    apf::Node const node = owned[n];
+    apf::MeshEntity* ent = node.entity;
+    int const ent_node = node.node;
+    node_set_field_val = apf::getScalar(node_set_field, ent, ent_node);
+    for (int d = 0; d < m_num_dims; ++d) {
+      if (d == vf_component) {
+        vf_vals[d] = node_set_field_val;
+      } else {
+        vf_vals[d] = 0.;
+      }
+    }
+    apf::setComponents(vf, ent, ent_node, &(vf_vals[0]));
+  }
+  apf::synchronize(vf);
+}
 
 static void destroy_fields(Fields& fields) {
   for (size_t i = 0; i < fields.global.size(); ++i) {

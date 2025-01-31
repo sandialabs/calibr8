@@ -250,6 +250,13 @@ class Disc {
         RCP<Residuals<double>> R,
         ParameterList const& vf_list);
 
+    //! \brief Set the virtual field to a node set field
+    //! \param node_set_name The node set name for the virtual field
+    //! \param vf_component The index for the virtual field component
+    void set_virtual_field_from_node_set(
+        std::string const node_set_name,
+        int vf_component);
+
     //! \brief Destroy the primal fields
     //! \param keep_ic Keep the initial condition?
     void destroy_primal(bool keep_ic = true);

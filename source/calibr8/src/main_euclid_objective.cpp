@@ -18,6 +18,7 @@ static ParameterList get_valid_params() {
   p.sublist("residuals");
   p.sublist("problem");
   p.sublist("inverse");
+  p.sublist("virtual fields");
   return p;
 }
 
@@ -48,7 +49,7 @@ EUCLID_Objective::EUCLID_Objective(std::string const& input_file, bool evaluate_
 
   bool const is_multiple = m_params->isSublist("problems");
   if (is_multiple) {
-    fail("VFM not set up for multiple problems");
+    fail("EUCLID not set up for multiple problems");
     auto problems_list = m_params->sublist("problems");
     for (auto problem_entry : problems_list) {
       auto problem_list = Teuchos::getValue<ParameterList>(problem_entry.second);
@@ -126,7 +127,29 @@ void EUCLID_Objective::setup_opt_params(ParameterList const& inverse_params) {
 void EUCLID_Objective::evaluate() {
 
   ParameterList& inverse_params = m_params->sublist("inverse", true);
-  double const obj_scale_factor = inverse_params.get<double>("objective scale factor", 1.);
+  std::string const ns_names_str = "node set names";
+  std::string const vf_components_str = "virtual field components";
+  std::string const obj_scale_factors_str = "objective scale factors";
+  std::string const load_scale_factors_str = "load scale factors";
+  ALWAYS_ASSERT(inverse_params.isParameter(ns_names_str));
+  ALWAYS_ASSERT(inverse_params.isParameter(obj_scale_factors_str));
+  ALWAYS_ASSERT(inverse_params.isParameter(load_scale_factors_str));
+
+  auto const node_set_names = (inverse_params.get<Teuchos::Array<std::string>>(ns_names_str)).toVector();
+  auto const vf_components = (inverse_params.get<Teuchos::Array<int>>(vf_components_str)).toVector();
+  auto const obj_scale_factors = (inverse_params.get<Teuchos::Array<double>>(obj_scale_factors_str)).toVector();
+  auto const load_scale_factors = (inverse_params.get<Teuchos::Array<double>>(load_scale_factors_str)).toVector();
+
+  int const num_virtual_fields = node_set_names.size();
+  ALWAYS_ASSERT(vf_components.size() == num_virtual_fields);
+  ALWAYS_ASSERT(obj_scale_factors.size() == num_virtual_fields);
+  ALWAYS_ASSERT(load_scale_factors.size() == num_virtual_fields);
+
+  std::string node_set_name;
+  int vf_component;
+  double obj_scale_factor;
+  double load_scale_factor;
+
   double dt;
   double internal_virtual_power;
   double load_at_step;
@@ -139,40 +162,49 @@ void EUCLID_Objective::evaluate() {
   Array1D<double> grad_at_step(m_num_opt_params);
   Array1D<double> grad(m_num_opt_params, 0.);
 
-  for (int prob = 0; prob < m_num_problems; ++prob) {
-    double J_prob = 0.;
-    int const nsteps = m_state[prob]->disc->num_time_steps();
-    internal_virtual_power_vec.resize(nsteps, 0.);
-    double const total_time = m_state[prob]->disc->time(nsteps) - m_state[prob]->disc->time(0);
+  for (int vf_idx = 0; vf_idx < num_virtual_fields; ++vf_idx) {
+    node_set_name = node_set_names[vf_idx];
+    vf_component = vf_components[vf_idx];
+    obj_scale_factor = obj_scale_factors[vf_idx];
+    load_scale_factor = load_scale_factors[vf_idx];
+    for (int prob = 0; prob < m_num_problems; ++prob) {
+      m_state[prob]->disc->set_virtual_field_from_node_set(node_set_name, vf_component);
+      m_virtual_power->populate_vf_vector();
 
-    m_state[prob]->disc->destroy_primal();
+      double J_prob = 0.;
+      int const nsteps = m_state[prob]->disc->num_time_steps();
+      internal_virtual_power_vec.resize(nsteps, 0.);
+      double const total_time = m_state[prob]->disc->time(nsteps) - m_state[prob]->disc->time(0);
 
-      for (int step = 1; step <= nsteps; ++step) {
-        dt = m_state[prob]->disc->dt(step);
-        internal_virtual_power = m_virtual_power->compute_at_step(step);
-        internal_virtual_power_vec[step - 1] = internal_virtual_power;
-      }
+      m_state[prob]->disc->destroy_primal();
 
-      for (int step = nsteps; step > 0; --step) {
-        dt = m_state[prob]->disc->dt(step);
-        load_at_step = m_load_data[step - 1];
+        for (int step = 1; step <= nsteps; ++step) {
+          dt = m_state[prob]->disc->dt(step);
+          internal_virtual_power = m_virtual_power->compute_at_step(step);
+          internal_virtual_power_vec[step - 1] = internal_virtual_power;
+        }
 
-        virtual_power_mismatch = internal_virtual_power_vec[step - 1] - load_at_step;
-        scaled_virtual_power_mismatch = virtual_power_mismatch * obj_scale_factor * dt / total_time;
-        J_prob += 0.5 * virtual_power_mismatch * scaled_virtual_power_mismatch;
+        for (int step = nsteps; step > 0; --step) {
+          dt = m_state[prob]->disc->dt(step);
+          load_at_step = load_scale_factor * m_load_data[step - 1];
 
-        if (m_evaluate_gradient) {
-          m_virtual_power->compute_at_step_adjoint(
-              step, scaled_virtual_power_mismatch, grad_at_step
-          );
+          virtual_power_mismatch = internal_virtual_power_vec[step - 1] - load_at_step;
+          scaled_virtual_power_mismatch = virtual_power_mismatch * obj_scale_factor * dt / total_time;
+          J_prob += 0.5 * virtual_power_mismatch * scaled_virtual_power_mismatch;
 
-          for (int i = 0; i < m_num_opt_params; ++i) {
-            grad[i] += grad_at_step[i];
+          if (m_evaluate_gradient) {
+            m_virtual_power->compute_at_step_adjoint(
+                step, scaled_virtual_power_mismatch, grad_at_step
+            );
+
+            for (int i = 0; i < m_num_opt_params; ++i) {
+              grad[i] += grad_at_step[i];
+            }
           }
         }
-      }
 
-    J += J_prob;
+      J += J_prob;
+    }
   }
 
   PCU_Add_Doubles(grad.data(), m_num_opt_params);

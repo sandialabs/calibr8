@@ -32,6 +32,10 @@ static int get_num_local_dofs(RCP<State> state) {
   return ndofs;
 }
 
+void VirtualPower::populate_vf_vector() {
+  m_disc->populate_vector(m_disc->virtual_fields(0).virtual_field, m_vf_vec);
+}
+
 void VirtualPower::initialize_sens_matrices() {
   int const nsets = m_disc->num_elem_sets();
   int const nlocal_dofs = get_num_local_dofs(m_state);
@@ -86,7 +90,7 @@ VirtualPower::VirtualPower(
   RCP<const MapT> ghost_map = m_disc->map(1, 0);
   m_vf_vec[OWNED][0] = rcp(new VectorT(owned_map));
   m_vf_vec[GHOST][0] = rcp(new VectorT(ghost_map));
-  m_disc->populate_vector(m_disc->virtual_fields(0).virtual_field, m_vf_vec);
+  populate_vf_vector();
   m_num_params = num_params;
 
   if (m_num_params > 0) {

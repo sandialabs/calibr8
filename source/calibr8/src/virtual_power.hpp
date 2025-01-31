@@ -47,6 +47,8 @@ class VirtualPower {
     void compute_at_step_adjoint(int step, double scaled_virtual_power_mismatch,
         Array1D<double>& grad);
 
+    void populate_vf_vector();
+
     ~VirtualPower();
 
   private:
