@@ -44,6 +44,9 @@ using SideSets = std::map<std::string, SideSet>;
 //! \brief A collection of node sets defined by name
 using NodeSets = std::map<std::string, NodeSet>;
 
+//! \brief Get node, side, and elem sets
+apf::StkModels* read_sets(apf::Mesh* m, std::string const& assoc_file);
+
 //! \brief Data containers for fields
 class Fields {
 

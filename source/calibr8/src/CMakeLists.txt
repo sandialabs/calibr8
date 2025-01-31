@@ -111,6 +111,11 @@ target_link_libraries(model_form_error_verify PRIVATE calibr8)
 set_code_standards(model_form_error_verify)
 install(TARGETS model_form_error_verify)
 
+add_executable(add_node_set_fields add_node_set_fields.cpp)
+target_link_libraries(add_node_set_fields PRIVATE calibr8)
+set_code_standards(add_node_set_fields)
+install(TARGETS add_node_set_fields)
+
 add_executable(moving_least_squares moving_least_squares.cpp)
 target_link_libraries(moving_least_squares PRIVATE calibr8)
 set_code_standards(moving_least_squares)

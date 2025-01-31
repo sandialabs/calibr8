@@ -36,52 +36,6 @@ static void print_usage(int argc, char** argv) {
   }
 }
 
-static apf::StkModels* read_sets(apf::Mesh* m, std::string const& assoc_file) {
-  apf::StkModels* sets = new apf::StkModels;
-  char const* filename = assoc_file.c_str();
-  static std::string const setNames[3] = {
-    "node set", "side set", "elem set"};
-  int const d = m->getDimension();
-  int const dims[3] = {0, d - 1, d};
-  std::ifstream f(filename);
-  if (!f.good()) fail("cannot open file: %s", filename);
-  std::string sline;
-  int lc = 0;
-  while (std::getline(f, sline)) {
-    if (!sline.length()) break;
-    ++lc;
-    int sdi = -1;
-    for (int di = 0; di < 3; ++di)
-      if (sline.compare(0, setNames[di].length(), setNames[di]) == 0) sdi = di;
-    if (sdi == -1)
-      fail("invalid association line # %d:\n\t%s", lc, sline.c_str());
-    int sd = dims[sdi];
-    std::stringstream strs(sline.substr(setNames[sdi].length()));
-    auto set = new apf::StkModel();
-    strs >> set->stkName;
-    int nents;
-    strs >> nents;
-    if (!strs) fail("invalid association line # %d:\n\t%s", lc, sline.c_str());
-    for (int ei = 0; ei < nents; ++ei) {
-      std::string eline;
-      std::getline(f, eline);
-      if (!f || !eline.length())
-        fail("invalid association after line # %d", lc);
-      ++lc;
-      std::stringstream strs2(eline);
-      int mdim, mtag;
-      strs2 >> mdim >> mtag;
-      if (!strs2) fail("bad associations line # %d:\n\t%s", lc, eline.c_str());
-      set->ents.push_back(m->findModelEntity(mdim, mtag));
-      if (!set->ents.back())
-        fail("no model entity with dim: %d and tag: %d", mdim, mtag);
-    }
-    sets->models[sd].push_back(set);
-  }
-  sets->computeInverse();
-  return sets;
-}
-
 apf::Field* get_measured_step_data(apf::Mesh2* m, int step) {
   auto name = "measured_" + std::to_string(step);
   auto measured_data = m->findField(name.c_str());
@@ -113,6 +67,7 @@ NodeSet get_surface_nodes(
       }
     }
   }
+  apf::destroyNumbering(owned_nmbr);
   owned_nmbr = nullptr;
   return surface_nodes;
 }

@@ -27,10 +27,34 @@ static ParameterList get_valid_params() {
   return p;
 }
 
-static apf::StkModels* read_sets(apf::Mesh* m, ParameterList const& p) {
+static void load_mesh(apf::Mesh2** mesh, ParameterList const& p) {
+  gmi_register_mesh();
+  gmi_register_null();
+  std::string const geom_file = p.get<std::string>("geom file");
+  std::string const mesh_file = p.get<std::string>("mesh file");
+  char const* g = geom_file.c_str();
+  char const* m = mesh_file.c_str();
+  *mesh = apf::loadMdsMesh(g, m);
+}
+
+static bool is_null_model(ParameterList const& p) {
+  std::string const geom_file = p.get<std::string>("geom file");
+  if (geom_file == ".null") {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+static void destroy_existing_numberings(apf::Mesh2* m) {
+  while (m->countNumberings()) {
+    apf::destroyNumbering(m->getNumbering(0));
+  }
+}
+
+apf::StkModels* read_sets(apf::Mesh* m, std::string const& assoc_file) {
   apf::StkModels* sets = new apf::StkModels;
-  std::string const fn = p.get<std::string>("assoc file");
-  char const* filename = fn.c_str();
+  char const* filename = assoc_file.c_str();
   static std::string const setNames[3] = {
     "node set", "side set", "elem set"};
   int const d = m->getDimension();
@@ -74,31 +98,6 @@ static apf::StkModels* read_sets(apf::Mesh* m, ParameterList const& p) {
   return sets;
 }
 
-static void load_mesh(apf::Mesh2** mesh, ParameterList const& p) {
-  gmi_register_mesh();
-  gmi_register_null();
-  std::string const geom_file = p.get<std::string>("geom file");
-  std::string const mesh_file = p.get<std::string>("mesh file");
-  char const* g = geom_file.c_str();
-  char const* m = mesh_file.c_str();
-  *mesh = apf::loadMdsMesh(g, m);
-}
-
-static bool is_null_model(ParameterList const& p) {
-  std::string const geom_file = p.get<std::string>("geom file");
-  if (geom_file == ".null") {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-static void destroy_existing_numberings(apf::Mesh2* m) {
-  while (m->countNumberings()) {
-    apf::destroyNumbering(m->getNumbering(0));
-  }
-}
-
 Disc::Disc(ParameterList const& params) {
   ParameterList disc_params(params);
   disc_params.validateParametersAndSetDefaults(get_valid_params(), 0);
@@ -106,7 +105,8 @@ Disc::Disc(ParameterList const& params) {
   create_time(disc_params);
   m_is_null_model = is_null_model(disc_params);
   destroy_existing_numberings(m_mesh);
-  m_sets = read_sets(m_mesh, disc_params);
+  std::string const assoc_file = disc_params.get<std::string>("assoc file");
+  m_sets = read_sets(m_mesh, assoc_file);
   // lol - be aware that this is called
   apf::reorderMdsMesh(m_mesh);
   // skip because of problems with non-manifold geometries
