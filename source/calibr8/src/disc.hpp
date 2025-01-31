@@ -290,7 +290,7 @@ class Disc {
     //! \brief Get the adjoint fields at a step
     Fields& adjoint(int step) { return m_adjoint[step]; }
 
-    //! \brief Get the adjoint fields at a step
+    //! \brief Get the virtual fields at a step
     Fields& virtual_fields(int step) { return m_virtual[step]; }
 
     //! \brief Add a solution increment at the current step

@@ -680,7 +680,7 @@ void Disc::create_virtual(
       m_mesh, fname.c_str(), vtype, m_gv_shape);
   Array1D<std::string> const vf_expressions = get_vf_expressions(vf_list);
   ALWAYS_ASSERT(vf_expressions.size() == m_num_dims);
-  Array1D<double> vf_vals(m_num_dims);
+  Array1D<double> vf_vals;
   apf::DynamicArray<apf::Node> owned;
   apf::getNodes(m_owned_nmbr, owned);
   for (size_t n = 0; n < owned.size(); ++n) {
@@ -700,8 +700,9 @@ void Disc::set_virtual_field_from_node_set(
   apf::Field* node_set_field = m_mesh->findField(node_set_name.c_str());
   ALWAYS_ASSERT(node_set_field);
   auto vf = m_virtual[0].virtual_field[0];
+  int const neqs = apf::countComponents(vf);
   double node_set_field_val;
-  Array1D<double> vf_vals(m_num_dims);
+  Array1D<double> vf_vals(neqs, 0.);
   apf::DynamicArray<apf::Node> owned;
   apf::getNodes(m_owned_nmbr, owned);
   for (size_t n = 0; n < owned.size(); ++n) {
