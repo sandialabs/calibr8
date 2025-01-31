@@ -103,7 +103,7 @@ VirtualPower::VirtualPower(
   }
 }
 
-double VirtualPower::compute_at_step(int step) {
+void VirtualPower::compute_residual_at_step(int step) {
 
   // gather data needed to solve the problem
   Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
@@ -114,7 +114,7 @@ double VirtualPower::compute_at_step(int step) {
   bool const use_measured = true;
 
   // print the step information
-  if (do_print) print("ON VIRTUAL POWER STEP (%d)", step);
+  if (do_print) print("ON RESIDUAL CALCULATION STEP (%d)", step);
 
   // fill in the measured field
   m_disc->create_primal(m_state->residuals, step, use_measured);
@@ -125,11 +125,17 @@ double VirtualPower::compute_at_step(int step) {
 
   // gather the parallel objects to their OWNED state
   m_state->la->gather_b();  // gather the residual R
+}
 
-  double const internal_virtual_power = R[0]->dot(*m_vf_vec[OWNED][0]);
+double VirtualPower::compute_internal_virtual_power() {
+  Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
+  return R[0]->dot(*m_vf_vec[OWNED][0]);
+}
 
-  return internal_virtual_power;
-
+double VirtualPower::compute_at_step(int step) {
+  compute_residual_at_step(step);
+  Array1D<RCP<VectorT>>& R = m_state->la->b[OWNED];
+  return R[0]->dot(*m_vf_vec[OWNED][0]);
 }
 
 void VirtualPower::compute_at_step_forward_sens(

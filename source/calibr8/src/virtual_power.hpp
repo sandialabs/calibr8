@@ -29,6 +29,14 @@ class VirtualPower {
         RCP<Disc> disc,
         int num_params=0);
 
+    //! \brief Compute the residual at a step
+    //! \param step The current step to compute at
+    void compute_residual_at_step(int step);
+
+    //! \brief Compute the internal virtual power without computing the residual
+    //! \param step The current step to compute at
+    double compute_internal_virtual_power();
+
     //! \brief Compute the internal virtual power at a step
     //! \param step The current step to compute at
     double compute_at_step(int step);
