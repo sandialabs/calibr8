@@ -162,6 +162,11 @@ target_link_libraries(primal_multiple PRIVATE calibr8)
 install(TARGETS primal_multiple)
 set_code_standards(primal_multiple)
 
+add_executable(euclid_objective main_euclid_objective.cpp)
+target_link_libraries(euclid_objective PRIVATE calibr8)
+set_code_standards(euclid_objective)
+install(TARGETS euclid_objective)
+
 add_executable(vfm_objective main_vfm_objective.cpp)
 target_link_libraries(vfm_objective PRIVATE calibr8)
 set_code_standards(vfm_objective)
