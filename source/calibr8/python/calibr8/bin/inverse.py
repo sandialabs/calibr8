@@ -68,9 +68,9 @@ def main():
     opt_param_names, opt_param_scales, opt_init_params, opt_bounds = \
         setup_opt_parameters(input_yaml, text_params_data)
 
-    obj_exe, num_iters, gradient_tol, max_ls_evals = get_opt_options(input_yaml)
+    num_iters, gradient_tol, max_ls_evals = get_opt_options(input_yaml)
 
-    run_command = get_run_command(num_procs, obj_exe)
+    run_command = get_run_command(num_procs)
 
     pt_objective_and_grad = partial(objective_and_gradient,
         scales=opt_param_scales, param_names=opt_param_names,

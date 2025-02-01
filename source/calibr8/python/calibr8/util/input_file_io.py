@@ -95,21 +95,11 @@ def get_opt_options(entire_yaml_input_file):
     yaml_input_file = entire_yaml_input_file[top_key]
     inverse_block = yaml_input_file["inverse"]
 
-    obj_type = inverse_block["objective type"]
-    if obj_type == "pdeco":
-        obj_exe = "objective"
-    elif obj_type == "euclid":
-        obj_exe = "euclid_objective"
-    elif obj_type == "vfm":
-        obj_exe = "vfm_objective"
-    else:
-        raise ValueError("objective type not supported")
-
     num_iterations = inverse_block["iteration limit"]
     gradient_tol = float(inverse_block["gradient tolerance"])
     max_ls_evals = inverse_block["max line search evals"]
 
-    return obj_exe, num_iterations, gradient_tol, max_ls_evals
+    return num_iterations, gradient_tol, max_ls_evals
 
 
 def convert_none_or_float(string):

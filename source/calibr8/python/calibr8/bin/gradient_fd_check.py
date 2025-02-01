@@ -85,9 +85,8 @@ def main():
     random_direction = rng.uniform(-1., 1., num_params)
     perturbations = np.logspace(0, -12, 13)
 
-    obj_exe, *_ = get_opt_options(input_yaml)
-    obj_and_grad_run_command = get_run_command(num_procs, obj_exe)
-    obj_only_run_command = get_run_command(num_procs, obj_exe, False)
+    obj_and_grad_run_command = get_run_command(num_procs)
+    obj_only_run_command = get_run_command(num_procs, False)
 
     J_ref, grad_ref = objective_and_gradient(opt_init_params,
         scales=opt_param_scales, param_names=opt_param_names,

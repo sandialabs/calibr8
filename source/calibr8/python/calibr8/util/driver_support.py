@@ -13,11 +13,11 @@ from calibr8.util.parameter_transforms import (
 )
 
 
-def get_run_command(num_proc, obj_exe, evaluate_gradient=True):
+def get_run_command(num_proc, evaluate_gradient=True):
     if evaluate_gradient:
-        return f"mpiexec -n {num_proc} {obj_exe} run.yaml true"
+        return f"mpiexec -n {num_proc} objective run.yaml true"
     else:
-        return f"mpiexec -n {num_proc} {obj_exe} run.yaml false"
+        return f"mpiexec -n {num_proc} objective run.yaml false"
 
 
 def objective_and_gradient(params, scales, param_names,
