@@ -100,16 +100,16 @@ void Objective::write_output()
     obj_file << std::scientific << std::setprecision(17);
     obj_file << m_objective_value << "\n";
     obj_file.close();
-  }
-  if (m_evaluate_gradient) {
-    std::ofstream grad_file;
-    std::string const grad_filename = "objective_gradient.txt";
-    grad_file.open(grad_filename);
-    grad_file << std::scientific << std::setprecision(17);
-    for (int i = 0; i < m_num_opt_params; ++i) {
-      grad_file << m_objective_gradient[i] << "\n";
+    if (m_evaluate_gradient) {
+      std::ofstream grad_file;
+      std::string const grad_filename = "objective_gradient.txt";
+      grad_file.open(grad_filename);
+      grad_file << std::scientific << std::setprecision(17);
+      for (int i = 0; i < m_num_opt_params; ++i) {
+        grad_file << m_objective_gradient[i] << "\n";
+      }
+      grad_file.close();
     }
-    grad_file.close();
   }
 }
 
