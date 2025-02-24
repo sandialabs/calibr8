@@ -148,8 +148,8 @@ Tensor<T> unflatten_stress(Vector<T> const& flat_stress) {
   stress(0, 0) = flat_stress(0);
   stress(0, 1) = flat_stress(3);
   stress(0, 2) = flat_stress(5);
-  stress(1, 1) = flat_stress(3);
-  stress(1, 0) = flat_stress(1);
+  stress(1, 0) = flat_stress(3);
+  stress(1, 1) = flat_stress(1);
   stress(1, 2) = flat_stress(4);
   stress(2, 0) = flat_stress(5);
   stress(2, 1) = flat_stress(4);
@@ -200,18 +200,118 @@ void compute_barlat_eigen_decomp(
     Tensor<T>& eigvecs,
     Tensor<T>& eigvals)
 {
-  // take cauchy from Cartesian 3x3 to to Voight 6x1
+  // take cauchy from Cartesian 3x3 to to Voigt 6x1
   Vector<T> const flat_cauchy = flatten_stress(cauchy);
-  // L is a 6x6 matrix in Voight notation
+  // L is a 6x6 matrix in Voigt notation
   Tensor<T> const L = unflatten_barlat_params(flat_barlat_params);
-  // flat_s is a 6x1 vector in Voight notation
+  // flat_s is a 6x1 vector in Voigt notation
   Vector<T> const flat_s = L * flat_cauchy;
-  // take flat_s from Voight 6x1 to standard Cartesian 3x3
+  // take flat_s from Voigt 6x1 to standard Cartesian 3x3
   Tensor<T> const s = unflatten_stress(flat_s);
 
   std::pair<Tensor<T>, Tensor<T>> const s_eigen_decomp = eig_spd_cos(s);
   eigvecs = s_eigen_decomp.first;
   eigvals = s_eigen_decomp.second;
+}
+
+template <typename T>
+Tensor<T> compute_dyad_from_eigvec(
+    Tensor<T> const& eigvecs,
+    int index)
+{
+  Vector<T> const eigvec = minitensor::col(eigvecs, index);
+  return minitensor::dyad(eigvec, eigvec);
+}
+
+template <typename T>
+T compute_barlat_sp_normal_multiplier(
+    Tensor<T> const& sp_eigvals,
+    Tensor<T> const& dp_eigvals,
+    T const& a,
+    int index)
+{
+  T const diff_0 = sp_eigvals(index, index) - dp_eigvals(0, 0);
+  T const diff_1 = sp_eigvals(index, index) - dp_eigvals(1, 1);
+  T const diff_2 = sp_eigvals(index, index) - dp_eigvals(2, 2);
+
+  T const factor_0 = diff_0 * std::pow(std::abs(diff_0), a - 2);
+  T const factor_1 = diff_1 * std::pow(std::abs(diff_1), a - 2);
+  T const factor_2 = diff_2 * std::pow(std::abs(diff_2), a - 2);
+
+  return 0.25 * (factor_0 + factor_1 + factor_2);
+}
+
+template <typename T>
+Tensor<T> compute_barlat_sp_normal_component(
+    Tensor<T> const& eigvecs,
+    Tensor<T> const& sp_eigvals,
+    Tensor<T> const& dp_eigvals,
+    T const& a,
+    int index)
+{
+  Tensor<T> const sp_normal_component =
+      compute_barlat_sp_normal_multiplier(sp_eigvals, dp_eigvals, a, index)
+      * compute_dyad_from_eigvec(eigvecs, index);
+  return sp_normal_component;
+}
+
+template <typename T>
+T compute_barlat_dp_normal_multiplier(
+    Tensor<T> const& sp_eigvals,
+    Tensor<T> const& dp_eigvals,
+    T const& a,
+    int index)
+{
+  T const diff_0 = sp_eigvals(0, 0) - dp_eigvals(index, index);
+  T const diff_1 = sp_eigvals(1, 1) - dp_eigvals(index, index);
+  T const diff_2 = sp_eigvals(2, 2) - dp_eigvals(index, index);
+
+  T const factor_0 = -diff_0 * std::pow(std::abs(diff_0), a - 2);
+  T const factor_1 = -diff_1 * std::pow(std::abs(diff_1), a - 2);
+  T const factor_2 = -diff_2 * std::pow(std::abs(diff_2), a - 2);
+
+  return 0.25 * (factor_0 + factor_1 + factor_2);
+}
+
+template <typename T>
+Tensor<T> compute_barlat_dp_normal_component(
+    Tensor<T> const& eigvecs,
+    Tensor<T> const& sp_eigvals,
+    Tensor<T> const& dp_eigvals,
+    T const& a,
+    int index)
+{
+  Tensor<T> const dp_normal_component =
+      compute_barlat_dp_normal_multiplier(sp_eigvals, dp_eigvals, a, index)
+      * compute_dyad_from_eigvec(eigvecs, index);
+  return dp_normal_component;
+}
+
+template <typename T>
+Tensor<T> compute_barlat_normal(
+    Tensor<T> const& sp_eigvecs,
+    Tensor<T> const& dp_eigvecs,
+    Tensor<T> const& sp_eigvals,
+    Tensor<T> const& dp_eigvals,
+    Vector<T> const& flat_sp_barlat_params,
+    Vector<T> const& flat_dp_barlat_params,
+    T const& a)
+{
+  Tensor<T> const L_sp = unflatten_barlat_params(flat_sp_barlat_params);
+  Vector<T> const flat_sp_normal_component =
+      L_sp * flatten_stress(compute_barlat_sp_normal_component(sp_eigvecs, sp_eigvals, dp_eigvals, a, 0))
+      + L_sp * flatten_stress(compute_barlat_sp_normal_component(sp_eigvecs, sp_eigvals, dp_eigvals, a, 1))
+      + L_sp * flatten_stress(compute_barlat_sp_normal_component(sp_eigvecs, sp_eigvals, dp_eigvals, a, 2));
+  Tensor<T> const dphi_d_sp = unflatten_stress(flat_sp_normal_component);
+
+  Tensor<T> const L_dp = unflatten_barlat_params(flat_dp_barlat_params);
+  Vector<T> const flat_dp_normal_component =
+      L_dp * flatten_stress(compute_barlat_dp_normal_component(dp_eigvecs, sp_eigvals, dp_eigvals, a, 0))
+      + L_dp * flatten_stress(compute_barlat_dp_normal_component(dp_eigvecs, sp_eigvals, dp_eigvals, a, 1))
+      + L_dp * flatten_stress(compute_barlat_dp_normal_component(dp_eigvecs, sp_eigvals, dp_eigvals, a, 2));
+  Tensor<T> const dphi_d_dp = unflatten_stress(flat_dp_normal_component);
+
+  return dphi_d_sp + dphi_d_dp;
 }
 
 template <typename T>
@@ -227,33 +327,42 @@ void evaluate_barlat_phi_and_normal(
   Tensor<T> const dev_cauchy = minitensor::dev(cauchy);
   T const norm_dev_cauchy = minitensor::norm(dev_cauchy);
   T const vm_phi = sqrt_32 * norm_dev_cauchy;
-  Tensor<T> const vm_normal = sqrt_32 * dev_cauchy / norm_dev_cauchy;
 
-  // use vm phi and normal for now -- delete later
-  phi = vm_phi;
-  normal = vm_normal;
-
-  Tensor<T> s_sp_eigvecs(3);
-  Tensor<T> s_sp_eigvals(3);
+  Tensor<T> sp_eigvecs(3);
+  Tensor<T> sp_eigvals(3);
   compute_barlat_eigen_decomp(cauchy, flat_sp_barlat_params,
-      s_sp_eigvecs, s_sp_eigvals);
+      sp_eigvecs, sp_eigvals);
 
-  Tensor<T> s_dp_eigvecs(3);
-  Tensor<T> s_dp_eigvals(3);
+  Tensor<T> dp_eigvecs(3);
+  Tensor<T> dp_eigvals(3);
   compute_barlat_eigen_decomp(cauchy, flat_dp_barlat_params,
-      s_dp_eigvecs, s_dp_eigvals);
+      dp_eigvecs, dp_eigvals);
 
-  T const barlat_phi = std::pow(0.25
-      * (std::pow(std::abs(s_sp_eigvals(0, 0) - s_dp_eigvals(0, 0)), a)
-      + std::pow(std::abs(s_sp_eigvals(0, 0) - s_dp_eigvals(1, 1)), a)
-      + std::pow(std::abs(s_sp_eigvals(0, 0) - s_dp_eigvals(2, 2)), a)
-      + std::pow(std::abs(s_sp_eigvals(1, 1) - s_dp_eigvals(0, 0)), a)
-      + std::pow(std::abs(s_sp_eigvals(1, 1) - s_dp_eigvals(1, 1)), a)
-      + std::pow(std::abs(s_sp_eigvals(1, 1) - s_dp_eigvals(2, 2)), a)
-      + std::pow(std::abs(s_sp_eigvals(2, 2) - s_dp_eigvals(0, 0)), a)
-      + std::pow(std::abs(s_sp_eigvals(2, 2) - s_dp_eigvals(1, 1)), a)
-      + std::pow(std::abs(s_sp_eigvals(2, 2) - s_dp_eigvals(2, 2)), a)
+  // vms -> von-mises scaled
+  Tensor<T> const vms_sp_eigvals = sp_eigvals / vm_phi;
+  Tensor<T> const vms_dp_eigvals = dp_eigvals / vm_phi;
+
+  phi = vm_phi * std::pow(0.25
+      * (std::pow(std::abs(vms_sp_eigvals(0, 0) - vms_dp_eigvals(0, 0)), a)
+      + std::pow(std::abs(vms_sp_eigvals(0, 0) - vms_dp_eigvals(1, 1)), a)
+      + std::pow(std::abs(vms_sp_eigvals(0, 0) - vms_dp_eigvals(2, 2)), a)
+      + std::pow(std::abs(vms_sp_eigvals(1, 1) - vms_dp_eigvals(0, 0)), a)
+      + std::pow(std::abs(vms_sp_eigvals(1, 1) - vms_dp_eigvals(1, 1)), a)
+      + std::pow(std::abs(vms_sp_eigvals(1, 1) - vms_dp_eigvals(2, 2)), a)
+      + std::pow(std::abs(vms_sp_eigvals(2, 2) - vms_dp_eigvals(0, 0)), a)
+      + std::pow(std::abs(vms_sp_eigvals(2, 2) - vms_dp_eigvals(1, 1)), a)
+      + std::pow(std::abs(vms_sp_eigvals(2, 2) - vms_dp_eigvals(2, 2)), a)
       ) , 1. / a);
+
+  // bs -> barlat scaled
+  Tensor<T> const bs_sp_eigvals = sp_eigvals / phi;
+  Tensor<T> const bs_dp_eigvals = dp_eigvals / phi;
+
+  normal = compute_barlat_normal(
+      sp_eigvecs, dp_eigvecs,
+      bs_sp_eigvals, bs_dp_eigvals,
+      flat_sp_barlat_params, flat_dp_barlat_params, a
+  );
 }
 
 }
