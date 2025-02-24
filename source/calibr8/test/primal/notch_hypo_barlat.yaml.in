@@ -1,0 +1,118 @@
+notch hypo barlat:
+
+  problem:
+    name: notch_hypo_barlat
+
+  discretization:
+    geom file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.dmg'
+    mesh file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.smb'
+    assoc file: '@CMAKE_SOURCE_DIR@/test/mesh/notch/notch.txt'
+    num steps: 4
+    step size: 1.
+
+  residuals:
+    global residual:
+      type: 'mechanics'
+      nonlinear max iters: 15
+      nonlinear absolute tol: 1.e-8
+      nonlinear relative tol: 1.e-8
+      print convergence: true
+    local residual:
+      type: 'hypo_barlat'
+      nonlinear max iters: 500
+      nonlinear absolute tol: 1.e-12
+      nonlinear relative tol: 1.e-12
+      line search beta: 1e-4
+      line search eta: 0.5
+      line search max evals: 100
+      line search print: false
+      # parameters from http://dx.doi.org/10.1016/j.cma.2016.11.026
+      # 6111-T4 Al
+      materials:
+        body:
+          E: 70e3
+          nu: 0.3
+          Y: 200.
+          a: 8.
+          K: 0.
+          S: 200.
+          D: 20.
+          sp_01: 1.241024
+          sp_02: 1.078271
+          sp_10: 1.216463
+          sp_12: 1.223867
+          sp_20: 1.093105
+          sp_21: 0.889161
+          sp_33: 0.501909
+          sp_44: 0.557173
+          sp_55: 1.349094
+          dp_01: 0.775366
+          dp_02: 0.922743
+          dp_10: 0.765487
+          dp_12: 0.793356
+          dp_20: 0.918689
+          dp_21: 1.027625
+          dp_33: 1.115833
+          dp_44: 1.112273
+          dp_55: 0.589787
+
+  # bc name: [resid_idx, eq, node_set_name, value]
+  dirichlet bcs:
+    expression:
+      bc 1: [0, 0, xmin, 0.0]
+      bc 2: [0, 1, ymin, 0.0]
+      bc 3: [0, 2, zmin, 0.0]
+      bc 4: [0, 1, ymax, 0.01 * t]
+
+  quantity of interest:
+    type: 'average displacement'
+
+  regression:
+    QoI: 1.3989452247489746e-03
+    relative error tol: 1.0e-4
+
+  linear algebra:
+    Linear Solver Type: "Belos"
+    Preconditioner Type: "Teko"
+    Linear Solver Types:
+      Belos:
+        Solver Type: "Block GMRES"
+        Solver Types:
+          Block GMRES:
+            Convergence Tolerance: 1.e-12
+            Output Frequency: 10
+            Output Style: 1
+            Verbosity: 33
+            Maximum Iterations: 200
+            Block Size: 1
+            Num Blocks: 200
+            Flexibile Gmres: false
+        VerboseObject:
+          Output File: "none"
+          Verbosity Level: "none"
+    Preconditioner Types:
+      Teko:
+        Inverse Type: "BGS2x2"
+        Write Block Operator: false
+        Test Block Operator: false
+        Inverse Factory Library:
+          BGS2x2:
+            Type: "Block Gauss-Seidel"
+            Use Upper Triangle: false
+            Inverse Type 1: "AMG3"
+            Inverse Type 2: "AMG1"
+          AMG3:
+            Type: "MueLu"
+            number of equations: 3
+            verbosity: "none"
+            'problem: symmetric': false
+          AMG1:
+            Type: "MueLu"
+            verbosity: "none"
+            number of equations: 1
+            'problem: symmetric': false
+          GS:
+            Type: "Ifpack2"
+            Overlap: 1
+            Ifpack2 Settings:
+              'relaxation: type': "Gauss-Seidel"
