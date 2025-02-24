@@ -24,6 +24,7 @@ set(CALIBR8_SOURCES
   hyper_J2.cpp
   hyper_J2_plane_strain.cpp
   hyper_J2_plane_stress.cpp
+  hypo_barlat.cpp
   hypo_hill.cpp
   hypo_hill_plane_strain.cpp
   hypo_hill_plane_stress.cpp

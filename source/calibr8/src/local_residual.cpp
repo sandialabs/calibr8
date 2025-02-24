@@ -6,6 +6,7 @@
 #include "hyper_J2.hpp"
 #include "hyper_J2_plane_strain.hpp"
 #include "hyper_J2_plane_stress.hpp"
+#include "hypo_barlat.hpp"
 #include "hypo_hill.hpp"
 #include "hypo_hill_plane_strain.hpp"
 #include "hypo_hill_plane_stress.hpp"
@@ -879,6 +880,8 @@ RCP<LocalResidual<T>> create_local_residual(
     return rcp(new HyperJ2PlaneStrain<T>(params, ndims));
   } else if (type == "hyper_J2_plane_stress") {
     return rcp(new HyperJ2PlaneStress<T>(params, ndims));
+  } else if (type == "hypo_barlat") {
+    return rcp(new HypoBarlat<T>(params, ndims));
   } else if (type == "hypo_hill") {
     return rcp(new HypoHill<T>(params, ndims));
   } else if (type == "hypo_hill_plane_strain") {
