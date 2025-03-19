@@ -45,4 +45,14 @@ State::State(ParameterList const& params) {
   la->build_data(disc);
 }
 
+State::State(ParameterList const& qoi_params, RCP<State> state) {
+  disc = state->disc;
+  la = state->la;
+  residuals = state->residuals;
+  d_residuals = state->d_residuals;
+  dfad_residuals = state->dfad_residuals;
+  qoi = create_qois<double>(qoi_params);
+  d_qoi = create_qois<FADT>(qoi_params);
+}
+
 }

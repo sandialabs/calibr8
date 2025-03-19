@@ -78,6 +78,15 @@ class ReactionMismatch : public QoI<T> {
         double w,
         double dv);
 
+    //! \brief Compute a component of the torque vector at a node according to m_reaction_force_comp
+    //! \param global The global residual object
+    //! \param r The position vector for the node
+    //! \param node_id The node id of the node
+    T compute_torque(
+        RCP<GlobalResidual<T>> global,
+        apf::Vector3 const& r,
+        int const node_id);
+
   private:
 
     bool is_initd = false;
@@ -92,7 +101,7 @@ class ReactionMismatch : public QoI<T> {
     int m_coord_idx = -1;
     double m_coord_value = 0.;
     int m_reaction_force_comp = -1;
-    bool m_has_normal_2D = false;
+    bool m_compute_torque = false;
 
 };
 

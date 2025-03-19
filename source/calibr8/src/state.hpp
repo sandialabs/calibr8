@@ -73,6 +73,10 @@ class State {
     //! \param params The top-level parameterlist
     State(ParameterList const& params);
 
+    //! \brief State copy constructor for different qois
+    //! \param params The top-level parameterlist
+    State(ParameterList const& qoi_params, RCP<State> state);
+
   private:
 
     //! \brief Set up the time discretization

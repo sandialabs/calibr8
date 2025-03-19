@@ -17,6 +17,9 @@ ReactionMismatch<T>::ReactionMismatch(ParameterList const& params) {
   m_reaction_force_comp = params.get<int>("reaction force component");
   m_write_load = params.isParameter("load out file");
   m_read_load = params.isParameter("load input file");
+  if (params.isParameter("compute torque")) {
+    m_compute_torque = params.get<bool>("compute torque");
+  }
   if (m_write_load) m_load_out_file = params.get<std::string>("load out file");
   if (m_read_load) m_load_in_file = params.get<std::string>("load input file");
   ALWAYS_ASSERT((m_write_load + m_read_load) == 1);
@@ -82,12 +85,42 @@ T ReactionMismatch<T>::compute_load(
 
   // sum relevant entries
   int const disp_idx = 0;
+  apf::Vector3 r(0, 0, 0);
   for (size_t i = 0; i < num_nodes; ++i) {
     int const node_id = node_ids[i];
-    load_pt += global->R_nodal(disp_idx, node_id, m_reaction_force_comp);
+    if (!m_compute_torque) {
+      mesh->getPoint(elem_verts[node_id], 0, r);
+      load_pt += compute_torque(global, r, node_id);
+    } else {
+      load_pt += global->R_nodal(disp_idx, node_id, m_reaction_force_comp);
+    }
   }
 
   return load_pt;
+}
+
+template <typename T>
+T ReactionMismatch<T>::compute_torque(
+    RCP<GlobalResidual<T>> global,
+    apf::Vector3 const& r,
+    int const node_id)
+{
+  int const disp_idx = 0;
+  if (m_reaction_force_comp == 2) {
+    T const F_0 = global->R_nodal(disp_idx, node_id, 0);
+    T const F_1 = global->R_nodal(disp_idx, node_id, 1);
+    return r[0] * F_1 - r[1] * F_0;
+  } else if (m_reaction_force_comp == 0) {
+    T const F_1 = global->R_nodal(disp_idx, node_id, 1);
+    T const F_2 = global->R_nodal(disp_idx, node_id, 2);
+    return r[1] * F_2 - r[2] * F_1;
+  } else if (m_reaction_force_comp == 1) {
+    T const F_0 = global->R_nodal(disp_idx, node_id, 0);
+    T const F_2 = global->R_nodal(disp_idx, node_id, 2);
+    return r[2] * F_0 - r[0] * F_2;
+  } else {
+    fail("invalid specified reaction force component for torque computation");
+  }
 }
 
 template <typename T>
