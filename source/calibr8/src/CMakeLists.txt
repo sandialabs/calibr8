@@ -45,6 +45,7 @@ set(CALIBR8_SOURCES
   point_wise.cpp
   primal.cpp
   qoi.cpp
+  reaction.cpp
   reaction_mismatch.cpp
   small_hill.cpp
   small_hill_plane_strain.cpp
@@ -158,7 +159,12 @@ target_link_libraries(virtual_fields_method PRIVATE calibr8)
 install(TARGETS virtual_fields_method)
 set_code_standards(virtual_fields_method)
 
-add_executable(primal_multiple main_primal_multiple.cpp)
-target_link_libraries(primal_multiple PRIVATE calibr8)
-install(TARGETS primal_multiple)
-set_code_standards(primal_multiple)
+add_executable(primal_multiple_qois main_primal_multiple_qois_and_gradients.cpp)
+target_link_libraries(primal_multiple_qois PRIVATE calibr8)
+install(TARGETS primal_multiple_qois)
+set_code_standards(primal_multiple_qois)
+
+add_executable(primal_multiple_problems main_primal_multiple_problems.cpp)
+target_link_libraries(primal_multiple_problems PRIVATE calibr8)
+install(TARGETS primal_multiple_problems)
+set_code_standards(primal_multiple_problems)
