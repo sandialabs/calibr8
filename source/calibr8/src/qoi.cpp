@@ -8,6 +8,7 @@
 #include "normal_traction.hpp"
 #include "point_wise.hpp"
 #include "qoi.hpp"
+#include "reaction.hpp"
 #include "reaction_mismatch.hpp"
 #include "surface_mismatch.hpp"
 
@@ -275,6 +276,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
     return rcp(new NormalTraction<T>(params));
   } else if (type == "point displacement") {
     return rcp(new PointWise<T>(params));
+  } else if (type == "reaction") {
+    return rcp(new Reaction<T>(params));
   } else if (type == "reaction mismatch") {
     return rcp(new ReactionMismatch<T>(params));
   } else {
