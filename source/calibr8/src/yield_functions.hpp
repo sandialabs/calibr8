@@ -305,7 +305,7 @@ Tensor<T> compute_barlat_normal(
   ));
 
   Tensor<T> const L_dp = unflatten_barlat_params(flat_dp_barlat_params);
-  Tensor<T> const dphi_d_dp= unflatten_stress(L_dp * flatten_stress(
+  Tensor<T> const dphi_d_dp = unflatten_stress(L_dp * flatten_stress(
       compute_barlat_dp_normal_component(dp_eigvecs, sp_eigvals, dp_eigvals, a, 0)
       + compute_barlat_dp_normal_component(dp_eigvecs, sp_eigvals, dp_eigvals, a, 1)
       + compute_barlat_dp_normal_component(dp_eigvecs, sp_eigvals, dp_eigvals, a, 2)

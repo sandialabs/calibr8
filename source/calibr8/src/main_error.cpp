@@ -184,7 +184,7 @@ Array1D<apf::Field*> Driver::estimate_error() {
 
     Array1D<apf::Field*> Z_fine_fields = m_nested->adjoint_fine(step).global;
     // form the coarse space interpolant of z^h
-    Array1D<apf::Field*> Z_coarse_fields(2);
+    Array1D<apf::Field*> Z_coarse_fields(num_global_residuals);
     for (int i = 0; i < num_global_residuals; ++i) {
       auto f_fine = Z_fine_fields[i];
       auto coarse = m_nested->get_coarse(f_fine);
@@ -192,17 +192,10 @@ Array1D<apf::Field*> Driver::estimate_error() {
     }
 
     m_state->la->zero_all();
-    //global->set_stabilization_h(BASE);
     eval_global_residual(m_state, m_nested, step, true, Z_coarse_fields);
-    //global->set_stabilization_h(CURRENT);
     eval_tbcs_error_contributions(tbcs, m_nested, Z_coarse_fields, R_ghost, t);
     m_state->la->gather_b();
     m_nested->add_to_soln(eta_field, R, -1.);
-
-    // crude way of turning off stabilization
-    //global->set_stabilization_h(BASE);
-    //apf::Field* h = m->findField("h");
-    //apf::zeroField(h);
 
     m_state->la->zero_all();
     eval_global_residual(m_state, m_nested, step, true, Z_fine_fields);

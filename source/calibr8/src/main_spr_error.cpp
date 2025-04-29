@@ -278,9 +278,7 @@ Array1D<apf::Field*> Driver::estimate_error_simple() {
 
     double coarse_step_error = 0.;
     m_state->la->zero_all();
-    //global->set_stabilization_h(BASE);
     eval_global_residual(m_state, m_nested, step);
-    //global->set_stabilization_h(CURRENT);
     apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
     m_state->la->gather_b();
     Array1D<apf::Field*> Z_coarse_fields = m_nested->adjoint(step).global;
@@ -376,21 +374,13 @@ Array1D<apf::Field*> Driver::estimate_error_pou() {
     }
 
     m_state->la->zero_all();
-    //global->set_stabilization_h(BASE);
     eval_global_residual(m_state, m_nested, step, true, Z_coarse_fields);
-    //global->set_stabilization_h(CURRENT);
     eval_tbcs_error_contributions(tbcs, m_nested, Z_coarse_fields, R_ghost, t);
     m_state->la->gather_b();
     m_nested->add_to_soln(eta_field, R, -1.);
 
-    // crude way of turning off stabilization
-    //global->set_stabilization_h(BASE);
-    //apf::Field* h = m->findField("h");
-    //apf::zeroField(h);
-
     m_state->la->zero_all();
     eval_global_residual(m_state, m_nested, step, true, Z_fine_fields);
-
     eval_tbcs_error_contributions(tbcs, m_nested, Z_fine_fields, R_ghost, t);
     m_state->la->gather_b();
     m_nested->add_to_soln(eta_field, R, 1.);

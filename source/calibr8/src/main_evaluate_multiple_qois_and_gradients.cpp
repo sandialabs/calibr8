@@ -27,7 +27,6 @@ static ParameterList get_valid_params()
   return p;
 }
 
-// change to MultiQoI
 class MultiQoI
 {
   public:
@@ -36,7 +35,7 @@ class MultiQoI
     void evaluate();
     void write_output();
     void cleanup();
-  protected:
+  private:
     void setup_opt_params(ParameterList const& inverse_params);
     void create_qois();
     void set_qois(int const q);
