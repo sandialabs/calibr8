@@ -34,6 +34,7 @@ class Driver {
     RCP<NestedDisc> m_nested;
     RCP<Primal> m_primal;
     RCP<Adjoint> m_adjoint;
+    int m_nnodes = 0;
     double m_J_H = 0.;
     double m_J_h = 0.;
     double m_E_lin_R = 0.;
@@ -50,6 +51,8 @@ Driver::Driver(std::string const& input_file) {
 
 void Driver::solve_primal_coarse() {
   m_primal = rcp(new Primal(m_params, m_state, m_state->disc));
+  m_nnodes = apf::countOwned(m_state->disc->apf_mesh(), 0);
+  m_nnodes = PCU_Add_Int(m_nnodes);
   ParameterList problem_params = m_params->sublist("problem", true);
   int const nsteps = m_state->disc->num_time_steps();
   m_J_H = 0.;
@@ -200,6 +203,14 @@ void Driver::print_error_estimate() {
     }
     std::cout << "-------------------------------\n";
   }
+
+  print("*******************************************");
+  print(" FINAL SUMMARY\n");
+  print("*******************************************");
+  print("nodes_H | J_H | J_h | eta_R | eta_C | E_lin_R | E_lin_C | eta_bound");
+  print("--------------------------------");
+  print("%d | %.15e | %.15e | %.15e | %.15e | %.15e | %.15e | %.15e",
+      m_nnodes, m_J_H, m_J_h, eta_R, eta_C, m_E_lin_R, m_E_lin_C, eta_bound);
 }
 
 void Driver::drive() {
@@ -209,8 +220,8 @@ void Driver::drive() {
   solve_adjoint_fine();
   estimate_error();
   evaluate_linearization_error();
-  print_error_estimate();
   apf::writeVtkFiles("verify", m_nested->apf_mesh());
+  print_error_estimate();
 }
 
 int main(int argc, char** argv) {
