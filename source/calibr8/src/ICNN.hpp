@@ -3,16 +3,16 @@
 
 #include "Eigen/Core"
 
-using RFAD_SFADT = Sacado::Rad::ADvar<SFADT>;
-using RFAD_DFADT = Sacado::Rad::ADvar<DFADT>;
+using RAD_SFADT = Sacado::Rad::ADvar<SFADT>;
+using RAD_DFADT = Sacado::Rad::ADvar<DFADT>;
 
 namespace Eigen {
 
-template <> struct NumTraits<RFAD_SFADT> : NumTraits<double>
+template <> struct NumTraits<RAD_SFADT> : NumTraits<double>
 {
-  typedef RFAD_SFADT Real;
-  typedef RFAD_SFADT NonInteger;
-  typedef RFAD_SFADT Nested;
+  typedef RAD_SFADT Real;
+  typedef RAD_SFADT NonInteger;
+  typedef RAD_SFADT Nested;
   enum {
     IsComplex = 0,
     IsInteger = 0,
@@ -24,11 +24,11 @@ template <> struct NumTraits<RFAD_SFADT> : NumTraits<double>
   };
 };
 
-template <> struct NumTraits<RFAD_DFADT> : NumTraits<double>
+template <> struct NumTraits<RAD_DFADT> : NumTraits<double>
 {
-  typedef RFAD_DFADT Real;
-  typedef RFAD_DFADT NonInteger;
-  typedef RFAD_DFADT Nested;
+  typedef RAD_DFADT Real;
+  typedef RAD_DFADT NonInteger;
+  typedef RAD_DFADT Nested;
   enum {
     IsComplex = 0,
     IsInteger = 0,
@@ -44,17 +44,17 @@ template <> struct NumTraits<RFAD_DFADT> : NumTraits<double>
 
 namespace Sacado {
 
-inline const RFAD_SFADT& conj(const RFAD_SFADT& x)  { return x; }
-inline const RFAD_SFADT& real(const RFAD_SFADT& x)  { return x; }
-inline RFAD_SFADT imag(const RFAD_SFADT&)    { return 0.; }
-inline RFAD_SFADT abs(const RFAD_SFADT&  x)  { return fabs(x); }
-inline RFAD_SFADT abs2(const RFAD_SFADT& x)  { return x*x; }
+inline const RAD_SFADT& conj(const RAD_SFADT& x)  { return x; }
+inline const RAD_SFADT& real(const RAD_SFADT& x)  { return x; }
+inline RAD_SFADT imag(const RAD_SFADT&)    { return 0.; }
+inline RAD_SFADT abs(const RAD_SFADT&  x)  { return fabs(x); }
+inline RAD_SFADT abs2(const RAD_SFADT& x)  { return x*x; }
 
-inline const RFAD_DFADT& conj(const RFAD_DFADT& x)  { return x; }
-inline const RFAD_DFADT& real(const RFAD_DFADT& x)  { return x; }
-inline RFAD_DFADT imag(const RFAD_DFADT&)    { return 0.; }
-inline RFAD_DFADT abs(const RFAD_DFADT&  x)  { return fabs(x); }
-inline RFAD_DFADT abs2(const RFAD_DFADT& x)  { return x*x; }
+inline const RAD_DFADT& conj(const RAD_DFADT& x)  { return x; }
+inline const RAD_DFADT& real(const RAD_DFADT& x)  { return x; }
+inline RAD_DFADT imag(const RAD_DFADT&)    { return 0.; }
+inline RAD_DFADT abs(const RAD_DFADT&  x)  { return fabs(x); }
+inline RAD_DFADT abs2(const RAD_DFADT& x)  { return x*x; }
 
 }
 

@@ -102,7 +102,6 @@ template <class T>
 typename FICNN<T>::Vector const& FICNN<T>::get_params()
 {
   int idx = 0;
-  /* is filling them ever actually necessary? */
   for (size_t i = 0; i < Wy.size(); ++i) {
     for (int j = 0; j < Wy[i].rows(); ++j) {
       for (int k = 0; k < Wy[i].cols(); ++k) {
@@ -146,7 +145,7 @@ void FICNN<T>::set_params(Vector const& p)
 template class FICNN<double>;
 template class FICNN<SFADT>;
 template class FICNN<DFADT>;
-template class FICNN<RFAD_SFADT>;
-template class FICNN<RFAD_DFADT>;
+template class FICNN<RAD_SFADT>;
+template class FICNN<RAD_DFADT>;
 
 }
