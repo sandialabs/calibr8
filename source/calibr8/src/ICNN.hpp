@@ -60,6 +60,8 @@ inline RFAD_DFADT abs2(const RFAD_DFADT& x)  { return x*x; }
 
 namespace ML {
 
+
+/* \brief a feed forward input convex neural network */
 template <class ScalarT>
 class FICNN
 {

@@ -56,14 +56,14 @@ FICNN<T>::FICNN(
     if (i > 0) {
       Wz[i] = Matrix(ny, n_ip1);
     }
-    for (int j = 0; j < Wz[i].rows(); ++j) {
-      for (int k = 0; k < Wz[i].cols(); ++k) {
+    for (int j = 0; j < Wy[i].rows(); ++j) {
+      for (int k = 0; k < Wy[i].cols(); ++k) {
         double weight = ((double) rand() / (RAND_MAX));
         Wy[i](j,k) = std::abs(weight);
       }
     }
-    for (int j = 0; j < Wy[i].rows(); ++j) {
-      for (int k = 0; k < Wy[i].cols(); ++k) {
+    for (int j = 0; j < Wz[i].rows(); ++j) {
+      for (int k = 0; k < Wz[i].cols(); ++k) {
         double weight = ((double) rand() / (RAND_MAX));
         Wz[i](j,k) = std::abs(weight);
       }
@@ -143,6 +143,9 @@ void FICNN<T>::set_params(Vector const& p)
   }
 }
 
+template class FICNN<double>;
+template class FICNN<SFADT>;
+template class FICNN<DFADT>;
 template class FICNN<RFAD_SFADT>;
 template class FICNN<RFAD_DFADT>;
 
