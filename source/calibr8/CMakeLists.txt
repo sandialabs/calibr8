@@ -28,4 +28,5 @@ find_package(GTest REQUIRED)
 
 include(cmake/dependencies.cmake)
 add_subdirectory(src)
+add_subdirectory(research)
 add_subdirectory(test)
