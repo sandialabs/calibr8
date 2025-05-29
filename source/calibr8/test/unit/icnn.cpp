@@ -46,7 +46,6 @@ TEST(input_convex_nn, does_eigen_with_rfad_work)
   Eigen::Matrix<RAD_DFADT, Eigen::Dynamic, 1> y(1);
   Sacado::Rad::ADvar<DFADT> y_var = DFADT(1, 0, 1.23);
   y(0) = y_var;
-  std::cout << y << "\n";
   Sacado::Rad::ADcontext<DFADT>::zero_out();
   Sacado::Rad::ADcontext<DFADT>::free_all();
 }

@@ -52,9 +52,9 @@ FICNN<T>::FICNN(
     int const n_ip1 = topology[i+1];
     b[i] = Vector(n_ip1);
     x[i] = Vector(n_i);
-    Wy[i] = Matrix(n_ip1, n_i);
+    Wy[i] = Matrix(n_ip1, ny);
     if (i > 0) {
-      Wz[i] = Matrix(ny, n_ip1);
+      Wz[i] = Matrix(n_ip1, n_i);
     }
     for (int j = 0; j < Wy[i].rows(); ++j) {
       for (int k = 0; k < Wy[i].cols(); ++k) {
@@ -80,7 +80,7 @@ typename FICNN<T>::Vector FICNN<T>::f(Vector const& v)
 {
   Vector result(v.size());
   for (int i = 0; i < int(v.size()); ++i) {
-    result[i] = activation(v[i]);
+    result(i) = activation(v(i));
   }
   return result;
 }
@@ -90,11 +90,11 @@ typename FICNN<T>::Vector FICNN<T>::evaluate(Vector const& y)
 {
   x[0] = y; /* just to keep input/output and all internal nodes in same data */
   x[1] = Wy[0]*y + b[0];
-  for (int i = 1; i < num_vectors - 1; ++i) {
+  for (int i = 1; i < num_vectors-1; ++i) {
     Vector const tmp = Wz[i]*x[i] + Wy[i]*y + b[i];
     x[i+1] = f(tmp);
   }
-  int const end = num_vectors - 1;
+  int const end = num_vectors-1;
   return x[end];
 }
 
@@ -105,16 +105,16 @@ typename FICNN<T>::Vector const& FICNN<T>::get_params()
   for (size_t i = 0; i < Wy.size(); ++i) {
     for (int j = 0; j < Wy[i].rows(); ++j) {
       for (int k = 0; k < Wy[i].cols(); ++k) {
-        params[idx++] = Wy[i](j,k);
+        params(idx++) = Wy[i](j,k);
       }
     }
     for (int j = 0; j < Wz[i].rows(); ++j) {
       for (int k = 0; k < Wz[i].cols(); ++k) {
-        params[idx++] = Wz[i](j,k);
+        params(idx++) = Wz[i](j,k);
       }
     }
     for (int j = 0; j < b[i].size(); ++j) {
-      params[idx++] = b[i][j];
+      params(idx++) = b[i](j);
     }
   }
   return params;
@@ -128,16 +128,16 @@ void FICNN<T>::set_params(Vector const& p)
   for (size_t i = 0; i < Wy.size(); ++i) {
     for (int j = 0; j < Wy[i].rows(); ++j) {
       for (int k = 0; k < Wy[i].cols(); ++k) {
-        Wy[i](j,k) = params[idx++];
+        Wy[i](j,k) = params(idx++);
       }
     }
     for (int j = 0; j < Wz[i].rows(); ++j) {
       for (int k = 0; k < Wz[i].cols(); ++k) {
-        Wz[i](j,k) = params[idx++];
+        Wz[i](j,k) = params(idx++);
       }
     }
     for (int j = 0; j < b[i].size(); ++j) {
-      b[i][j] = params[idx++];
+      b[i](j) = params(idx++);
     }
   }
 }
