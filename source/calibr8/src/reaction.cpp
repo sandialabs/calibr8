@@ -76,7 +76,7 @@ T Reaction<T>::compute_load(
   apf::Vector3 r(0, 0, 0);
   for (size_t i = 0; i < num_nodes; ++i) {
     int const node_id = node_ids[i];
-    if (!m_compute_torque) {
+    if (m_compute_torque) {
       mesh->getPoint(elem_verts[node_id], 0, r);
       load_pt += compute_torque(global, r, node_id);
     } else {
