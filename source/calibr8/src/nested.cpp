@@ -289,8 +289,7 @@ void NestedDisc::set_error(
       apf::getScalar(nested_global_error, nested_elem, 0);
     double const nested_local_contrib =
       apf::getScalar(nested_local_error, nested_elem, 0);
-    base_val += nested_global_contrib;
-    base_val += nested_local_contrib;
+    base_val += std::abs(nested_local_contrib + nested_global_contrib);
     apf::setScalar(base_err, base_elem, 0, base_val);
   }
   m_mesh->end(it);
