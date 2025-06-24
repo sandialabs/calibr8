@@ -32,7 +32,6 @@ class Driver {
     Array1D<apf::Field*> estimate_error();
     void localize_error(Array1D<apf::Field*> const& eta);
     double sum_error_estimate();
-    void set_error();
     void clean_up_fine_space();
     void adapt_mesh(int cycle);
     void rebuild_coarse_space();
@@ -284,15 +283,7 @@ void Driver::localize_error(Array1D<apf::Field*> const& eta) {
     m->end(elems);
   }
   m_nested->set_error(error);
-}
-
-void Driver::set_error() {
-  apf::Mesh* m = m_nested->apf_mesh();
-  apf::Field* R_error = m->findField("R_error");
-  apf::Field* C_error = m->findField("C_error");
-  m_nested->set_error(R_error, C_error);
-  apf::destroyField(R_error);
-  apf::destroyField(C_error);
+  apf::destroyField(error);
 }
 
 static apf::Field* get_size_field(apf::Field* error, int cycle, ParameterList& p) {

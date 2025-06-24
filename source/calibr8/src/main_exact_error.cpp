@@ -34,7 +34,7 @@ class Driver {
     void clean_up_fine_space();
     void adapt_mesh(int cycle);
     void rebuild_coarse_space();
-    void print_final_summary();
+    void print_summary();
 
     RCP<ParameterList> m_params;
     RCP<State> m_state;
@@ -44,6 +44,7 @@ class Driver {
     RCP<Adjoint> m_adjoint;
 
     int m_ncycles = 1;
+    bool m_estimate_partial_error = false;
     Array1D<double> m_eta;
     Array1D<double> m_eta_bound;
     Array1D<double> m_J_H;
@@ -61,6 +62,8 @@ Driver::Driver(std::string const& input_file) {
   if (m_params->isSublist("adaptivity")) {
     auto adapt_params = m_params->sublist("adaptivity", true);
     m_ncycles = adapt_params.get<int>("solve cycles");
+    m_estimate_partial_error = adapt_params.get<bool>("estimate partial error",
+        false);
   }
 }
 
@@ -187,6 +190,10 @@ Array1D<apf::Field*> Driver::estimate_error() {
     ELR_owned[i] = rcp(new VectorT(owned_map));
   }
 
+  // only needed for a partial exact error estimate
+  apf::Field* R_error = apf::createStepField(m, "R_error", apf::SCALAR);
+  apf::zeroField(R_error);
+
   apf::Field* C_error = apf::createStepField(m, "C_error", apf::SCALAR);
   apf::zeroField(C_error);
 
@@ -197,37 +204,42 @@ Array1D<apf::Field*> Driver::estimate_error() {
     t = m_state->disc->time(step);
     Array1D<apf::Field*> Z_fields = m_nested->adjoint(step).global;
 
-    for (int i = 0; i < num_global_residuals; ++i) {
-      ELR_ghost[i]->putScalar(0.);
-      ELR_owned[i]->putScalar(0.);
+    if (m_estimate_partial_error) {
+      // account for branching but not linearization error - only want C_error
+      eval_error_contributions(m_state, m_nested, R_error, C_error, step);
+    } else {
+      for (int i = 0; i < num_global_residuals; ++i) {
+        ELR_ghost[i]->putScalar(0.);
+        ELR_owned[i]->putScalar(0.);
+      }
+
+      m_state->la->resume_fill_A();
+      m_state->la->zero_all();
+      eval_global_residual(m_state, m_nested, step);
+      apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
+      m_state->la->gather_A();
+      m_state->la->gather_b();
+      apply_primal_dbcs(dbcs, m_nested, dR_dx, R, Z_fields, t, step,
+          /*is_adjoint=*/true);
+      m_state->la->complete_fill_A();
+
+      apply_primal_tbcs(tbcs, m_nested, ELR_ghost, t);
+      for (int i = 0; i < num_global_residuals; ++i) {
+        ELR_ghost[i]->scale(-1.);
+      }
+      eval_linearization_error_terms(m_state, m_nested, step, ELR_ghost, C_error);
+      m_nested->populate_vector(Z_fields, Z);
+      for (int i = 0; i < num_global_residuals; ++i) {
+        RCP<const ExportT> exporter = m_nested->exporter(i);
+        ELR_owned[i]->doExport(*ELR_ghost[i], *exporter, Tpetra::ADD);
+        double const ELR_dot_z = ELR_owned[i]->dot(*Z_owned[i]);
+        double const R_dot_R = R[i]->dot(*R[i]);
+        R[i]->scale(ELR_dot_z / R_dot_R);
+        R_lin_error += ELR_dot_z;
+      }
+      m_nested->add_to_soln(Z_fields, R, 1.);
     }
 
-    m_state->la->resume_fill_A();
-    m_state->la->zero_all();
-    eval_global_residual(m_state, m_nested, step);
-    apply_primal_tbcs(tbcs, m_nested, R_ghost, t);
-    m_state->la->gather_A();
-    m_state->la->gather_b();
-    apply_primal_dbcs(dbcs, m_nested, dR_dx, R, Z_fields, t, step,
-        /*is_adjoint=*/true);
-    m_state->la->complete_fill_A();
-
-    apply_primal_tbcs(tbcs, m_nested, ELR_ghost, t);
-    for (int i = 0; i < num_global_residuals; ++i) {
-      ELR_ghost[i]->scale(-1.);
-    }
-    eval_linearization_error_terms(m_state, m_nested, step, ELR_ghost, C_error);
-    m_nested->populate_vector(Z_fields, Z);
-    for (int i = 0; i < num_global_residuals; ++i) {
-      RCP<const ExportT> exporter = m_nested->exporter(i);
-      ELR_owned[i]->doExport(*ELR_ghost[i], *exporter, Tpetra::ADD);
-      double const ELR_dot_z = ELR_owned[i]->dot(*Z_owned[i]);
-      double const R_dot_R = R[i]->dot(*R[i]);
-      R[i]->scale(ELR_dot_z / R_dot_R);
-      R_lin_error += ELR_dot_z;
-    }
-
-    m_nested->add_to_soln(Z_fields, R, 1.);
     create_localization_Z(m_nested, Z_fields);
 
     m_state->la->zero_all();
@@ -237,7 +249,11 @@ Array1D<apf::Field*> Driver::estimate_error() {
     m_nested->add_to_soln(eta_field, R, 1.);
   }
 
+  // will be 0. if computing a partial error estimate
   print("R linearization error = %.16e", R_lin_error);
+
+  // not helpful for exact error estimates
+  apf::destroyField(R_error);
 
   double eta_R = 0.;
   double eta_C = 0.;
@@ -343,7 +359,6 @@ void Driver::localize_error(Array1D<apf::Field*> const& eta) {
   apf::destroyField(C_error);
 }
 
-
 static apf::Field* get_size_field(apf::Field* error, int cycle, ParameterList& p) {
   double const scale = p.get<double>("target growth", 1.0);
   int target = p.get<int>("target elems");
@@ -417,10 +432,10 @@ static void write_nested_files(RCP<NestedDisc> disc, int cycle, RCP<ParameterLis
   apf::writeVtkFiles(name.c_str(), disc->apf_mesh());
 }
 
-void Driver::print_final_summary() {
+void Driver::print_summary() {
   ALWAYS_ASSERT(m_J_H.size() == m_eta.size());
   print("*******************************************");
-  print(" FINAL SUMMARY\n");
+  print(" SUMMARY\n");
   print("*******************************************");
   print("step | nodes_H | J_H | J_h | eta | eta_bound");
   print("--------------------------------");
@@ -455,8 +470,8 @@ void Driver::drive() {
       adapt_mesh(cycle);
       rebuild_coarse_space();
     }
+    print_summary();
   }
-  print_final_summary();
 }
 
 int main(int argc, char** argv) {
