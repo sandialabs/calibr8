@@ -256,8 +256,8 @@ template <class ScalarT>
 class FICNN
 {
   public:
-    using Vector = DEBUG::Vector<ScalarT>;
-    using Matrix = DEBUG::Matrix<ScalarT>;
+    using Vector = Eigen::Matrix<ScalarT, Eigen::Dynamic, 1>;
+    using Matrix = Eigen::Matrix<ScalarT, Eigen::Dynamic, Eigen::Dynamic>;
   public:
     FICNN(
         const char* activation,

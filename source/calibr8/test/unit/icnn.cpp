@@ -61,8 +61,6 @@ TEST(input_convex_nn, scalar)
   nn.evaluate(y);
 }
 
-#if 0
-/* this still segfaults */
 TEST(input_convex_nn, rfad_dfadt)
 {
   Sacado::Rad::ADcontext<DFADT>::re_init();
@@ -78,4 +76,3 @@ TEST(input_convex_nn, rfad_dfadt)
   y(0) = RAD_DFADT(y_fad);
   nn.evaluate(y);
 }
-#endif
