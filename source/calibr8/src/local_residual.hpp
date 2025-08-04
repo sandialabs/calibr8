@@ -113,6 +113,15 @@ class LocalResidual {
     //! \details This will set the value of m_params to m_params.val()
     void unseed_wrt_params(int const es);
 
+    //! \brief Scatter the gradient for each element set into the total gradient
+    //! \param es The element set index
+    //! \param es_grad The element set gradient
+    //! \param grad The full gradient
+    void scatter_es_gradient(
+        int const es,
+        EVector const& es_grad,
+        EVector& grad);
+
     //! \brief Solve the nonlinear model at the current integration point
     //! \param global The global residual equations
     //! \details This will fill in the current state m_xi and residuals m_R
@@ -325,8 +334,11 @@ class LocalResidual {
 
     //! \brief Set the active parameter indices for each element set
     //! \param active_indices The active parameter indices
-    void set_active_indices(Array2D<int> const& active_indices) {
+    void set_active_and_grad_indices(
+        Array2D<int> const& active_indices,
+        Array2D<int> const& grad_indices) {
       m_active_indices = active_indices;
+      m_grad_indices = grad_indices;
       int const num_elem_sets = m_elem_set_names.size();
       m_num_active_params = 0;
       for (int es = 0; es < num_elem_sets; ++es) {
@@ -336,6 +348,9 @@ class LocalResidual {
 
     //! \brief Get the active parameter indices for each element set
     Array2D<int> active_indices() const { return m_active_indices; }
+
+    //! \brief Get the gradient parameter indices for each element set
+    Array2D<int> grad_indices() const { return m_grad_indices; }
 
     //! \brief Get the number of active optimization parameters
     int num_active_params() const { return m_num_active_params; }
@@ -422,6 +437,7 @@ class LocalResidual {
     Array2D<double> m_param_values;
     Array1D<std::string> m_param_names;
     Array2D<int> m_active_indices;
+    Array2D<int> m_grad_indices;
     int m_num_active_params = -1;
 
     int m_num_dfad_params = 0;

@@ -20,7 +20,8 @@ def get_run_command(num_proc, evaluate_gradient=True):
         return f"mpiexec -n {num_proc} objective run.yaml false"
 
 
-def objective_and_gradient(params, scales, param_names,
+def objective_and_gradient(params,
+        scales, param_names, block_indices,
         input_yaml, run_command,
         num_text_params, text_params_filename,
         evaluate_objective_only=False):
@@ -34,7 +35,8 @@ def objective_and_gradient(params, scales, param_names,
     if num_input_file_params > 0:
         update_yaml_input_file_parameters(input_yaml,
             param_names[:num_input_file_params],
-            unscaled_params[:num_input_file_params]
+            unscaled_params[:num_input_file_params],
+            block_indices[:num_input_file_params]
         )
 
     with open("run.yaml", "w") as file:

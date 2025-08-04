@@ -65,7 +65,8 @@ def main():
     with open(input_file, "r") as file:
         input_yaml = yaml.safe_load(file)
 
-    opt_param_names, opt_param_scales, opt_init_params, opt_bounds = \
+    opt_param_names, opt_param_scales, opt_param_block_indices, \
+        opt_init_params, opt_bounds = \
         setup_opt_parameters(input_yaml, text_params_data)
 
     num_iters, gradient_tol, max_ls_evals = get_opt_options(input_yaml)
@@ -74,6 +75,7 @@ def main():
 
     pt_objective_and_grad = partial(objective_and_gradient,
         scales=opt_param_scales, param_names=opt_param_names,
+        block_indices=opt_param_block_indices,
         input_yaml=input_yaml, run_command=run_command,
         num_text_params=num_text_params,
         text_params_filename=text_parameters_opt_values_filename

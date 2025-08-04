@@ -30,6 +30,14 @@ def convert_to_floats(data):
         return data
 
 
+def flatten_list_of_lists(list_of_lists):
+    flattened_list = [
+        item for sublist in list_of_lists for item in sublist
+    ]
+
+    return flattened_list
+
+
 def get_yaml_input_file_contents_by_section(entire_yaml_input_file):
     top_key = list(entire_yaml_input_file.keys())[0]
     section_keys = list(entire_yaml_input_file[top_key])
@@ -37,20 +45,19 @@ def get_yaml_input_file_contents_by_section(entire_yaml_input_file):
     return top_key, section_keys
 
 
-def get_local_residual_materials_block(entire_yaml_input_file):
+def get_local_residual_materials_blocks(entire_yaml_input_file):
     top_key = list(entire_yaml_input_file.keys())[0]
     yaml_input_file = entire_yaml_input_file[top_key]
     local_residual_materials_block = \
         yaml_input_file["residuals"]["local residual"]["materials"]
 
-    # only single block calibration problems are supported
     local_residual_elem_set_names = list(local_residual_materials_block.keys())
-    assert len(local_residual_elem_set_names) == 1
-    elem_set_name = local_residual_elem_set_names[0]
+    local_residual_params_blocks = [
+        local_residual_materials_block[elem_set_name]
+        for elem_set_name in local_residual_elem_set_names
+    ]
 
-    local_residual_params_block = local_residual_materials_block[elem_set_name]
-
-    return local_residual_params_block
+    return local_residual_params_blocks
 
 
 def get_materials_and_inverse_blocks(entire_yaml_input_file):
@@ -61,31 +68,49 @@ def get_materials_and_inverse_blocks(entire_yaml_input_file):
     inverse_materials_block = \
         yaml_input_file["inverse"]["materials"]
 
-    # only single block calibration problems are supported
     local_residual_elem_set_names = list(local_residual_materials_block.keys())
     inverse_materials_elem_set_names = list(local_residual_materials_block.keys())
     assert local_residual_elem_set_names == inverse_materials_elem_set_names
-    assert len(local_residual_elem_set_names) == 1
-    elem_set_name = local_residual_elem_set_names[0]
+    local_residual_params_blocks = [
+        local_residual_materials_block[elem_set_name]
+        for elem_set_name in local_residual_elem_set_names
+    ]
+    inverse_params_blocks = [
+        inverse_materials_block[elem_set_name]
+        for elem_set_name in inverse_materials_elem_set_names
+    ]
 
-    local_residual_params_block = local_residual_materials_block[elem_set_name]
-    inverse_params_block = inverse_materials_block[elem_set_name]
-
-    return local_residual_params_block, inverse_params_block
-
-
-def get_opt_param_info(inverse_block):
-    opt_param_names = list(inverse_block.keys())
-    opt_param_scales = convert_to_floats(list(inverse_block.values()))
-
-    return opt_param_names, opt_param_scales
+    return local_residual_params_blocks, inverse_params_blocks
 
 
-def get_initial_opt_params(local_residual_params_block,
-        opt_param_names):
-    initial_opt_params = np.array(convert_to_floats(
-        [local_residual_params_block[name] for name in opt_param_names]
-    ))
+def get_opt_param_info(inverse_blocks):
+    param_names = []
+    param_scales = []
+    param_block_indices = []
+    for block_idx, inverse_block in enumerate(inverse_blocks):
+        block_param_names = list(inverse_block.keys())
+        param_names.append(block_param_names)
+        param_scales.append(convert_to_floats(list(inverse_block.values())))
+        param_block_indices.append([block_idx] * len(block_param_names))
+
+    flat_param_names = flatten_list_of_lists(param_names)
+    flat_param_scales = flatten_list_of_lists(param_scales)
+    flat_param_block_indices = flatten_list_of_lists(param_block_indices)
+
+    return flat_param_names, flat_param_scales, flat_param_block_indices
+
+
+def get_initial_opt_params(local_residual_params_blocks,
+        inverse_blocks):
+    initial_opt_params_list = []
+    params_blocks = zip(local_residual_params_blocks, inverse_blocks)
+    for local_residual_params_block, inverse_block in params_blocks:
+        initial_opt_params_list.append(convert_to_floats([
+            local_residual_params_block[name]
+            for name in list(inverse_block.keys())
+        ]))
+
+    initial_opt_params = flatten_list_of_lists(initial_opt_params_list)
 
     return initial_opt_params
 
@@ -148,16 +173,18 @@ def setup_text_parameters(init_values_file, scales_file, opt_filename):
 
 
 def setup_opt_parameters(input_yaml, text_params_data):
-    local_residual_params_block, inverse_params_block = \
+    local_residual_params_blocks, inverse_params_blocks = \
         get_materials_and_inverse_blocks(input_yaml)
 
     text_params_initial_values, text_param_scales = text_params_data
     num_text_params = len(text_params_initial_values)
     text_param_names = [f"p_{ii}" for ii in range(num_text_params)]
 
-    opt_param_names, opt_param_scales = get_opt_param_info(inverse_params_block)
+    opt_param_names, opt_param_scales, opt_param_block_indices = \
+        get_opt_param_info(inverse_params_blocks)
     initial_param_values = np.r_[
-        get_initial_opt_params(local_residual_params_block, opt_param_names),
+        get_initial_opt_params(local_residual_params_blocks,
+        inverse_params_blocks),
         text_params_initial_values
     ]
 
@@ -170,16 +197,20 @@ def setup_opt_parameters(input_yaml, text_params_data):
 
     opt_bounds = get_opt_bounds(opt_param_scales)
 
-    return opt_param_names, opt_param_scales, initial_opt_params, opt_bounds
+    return (opt_param_names, opt_param_scales, opt_param_block_indices,
+        initial_opt_params, opt_bounds)
 
 
-def update_yaml_input_file_parameters(input_yaml, param_names, param_values):
+def update_yaml_input_file_parameters(input_yaml,
+        param_names, param_values, param_block_indices):
 
-    local_residual_params_block = \
-        get_local_residual_materials_block(input_yaml)
+    local_residual_params_blocks = \
+        get_local_residual_materials_blocks(input_yaml)
 
-    for param_name, param_value in zip(param_names, param_values):
-        local_residual_params_block[param_name] = float(param_value)
+    param_info = zip(param_names, param_values, param_block_indices)
+    for param_name, param_value, param_block_idx in param_info:
+        local_residual_params_blocks[param_block_idx][param_name] = \
+            float(param_value)
 
 
 def write_output_file(opt_params, opt_param_scales, param_names,

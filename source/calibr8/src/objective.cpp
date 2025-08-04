@@ -85,6 +85,7 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
   int const num_params_total = param_names.size();
 
   Array2D<int> active_indices(num_elem_sets);
+  Array2D<int> grad_indices(num_elem_sets);
   m_lower_bounds.resize(0);
   m_upper_bounds.resize(0);
   m_num_opt_params = 0;
@@ -96,6 +97,7 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
       std::string param_name = param_names[i];
       if (material_params.isParameter(param_name)) {
         active_indices[es].push_back(i);
+        grad_indices[es].push_back(m_num_opt_params);
         Teuchos::Array<double> const bounds
             = material_params.get<Teuchos::Array<double>>(param_name);
         m_lower_bounds.push_back(bounds[0]);
@@ -106,8 +108,10 @@ void Objective::setup_opt_params(ParameterList const& inverse_params) {
   }
 
   for (int prob = 0; prob < m_num_problems; ++prob) {
-    m_state[prob]->residuals->local[m_model_form]->set_active_indices(active_indices);
-    m_state[prob]->d_residuals->local[m_model_form]->set_active_indices(active_indices);
+    m_state[prob]->residuals->local[m_model_form]->set_active_and_grad_indices(
+        active_indices, grad_indices);
+    m_state[prob]->d_residuals->local[m_model_form]->set_active_and_grad_indices(
+        active_indices, grad_indices);
   }
 
   // initialize p_old

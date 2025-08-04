@@ -818,7 +818,6 @@ int LocalResidual<FADT>::seed_wrt_params(int const es) {
   return num_es_active_params;
 }
 
-// seed dfad model params
 template <>
 int LocalResidual<DFADT>::seed_wrt_params(int const es) {
   return -1;
@@ -845,9 +844,33 @@ void LocalResidual<FADT>::unseed_wrt_params(int const es) {
   }
 }
 
-// unseed dfad model params
 template <>
 void LocalResidual<DFADT>::unseed_wrt_params(int const es) {
+}
+
+template <>
+void LocalResidual<double>::scatter_es_gradient(
+    int const es,
+    EVector const& es_grad,
+    EVector& grad) {
+}
+
+template <>
+void LocalResidual<FADT>::scatter_es_gradient(
+    int const es,
+    EVector const& es_grad,
+    EVector& grad) {
+  auto const& grad_idx = m_grad_indices[es];
+  for (int i = 0; i < grad_idx.size(); ++i) {
+    grad[grad_idx[i]] = es_grad[i];
+  }
+}
+
+template <>
+void LocalResidual<DFADT>::scatter_es_gradient(
+    int const es,
+    EVector const& es_grad,
+    EVector& grad) {
 }
 
 template <typename T>

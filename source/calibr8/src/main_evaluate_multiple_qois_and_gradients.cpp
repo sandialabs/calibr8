@@ -134,6 +134,7 @@ void MultiQoI::setup_opt_params(ParameterList const& inverse_params)
   int const num_params_total = param_names.size();
 
   Array2D<int> active_indices(num_elem_sets);
+  Array2D<int> grad_indices(num_elem_sets);
   m_num_opt_params = 0;
 
   for (int es = 0; es < num_elem_sets; ++es) {
@@ -143,16 +144,23 @@ void MultiQoI::setup_opt_params(ParameterList const& inverse_params)
       std::string param_name = param_names[i];
       if (material_params.isParameter(param_name)) {
         active_indices[es].push_back(i);
+        grad_indices[es].push_back(m_num_opt_params);
         m_num_opt_params++;
       }
     }
   }
 
+  // Not able to have dfad params with multiple materials yet
   int const num_dfad_params = m_state->residuals->local[m_model_form]->num_dfad_params();
+  if (num_dfad_params > 0) {
+      ALWAYS_ASSERT(num_elem_sets == 1);
+  }
   m_num_opt_params += num_dfad_params;
 
-  m_state->residuals->local[m_model_form]->set_active_indices(active_indices);
-  m_state->d_residuals->local[m_model_form]->set_active_indices(active_indices);
+  m_state->residuals->local[m_model_form]->set_active_and_grad_indices(
+      active_indices, grad_indices);
+  m_state->d_residuals->local[m_model_form]->set_active_and_grad_indices(
+      active_indices, grad_indices);
 }
 
 void MultiQoI::evaluate()

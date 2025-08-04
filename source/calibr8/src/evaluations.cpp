@@ -795,6 +795,9 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
   // loop over all element sets in the discretization
   for (int es = 0; es < disc->num_elem_sets(); ++es) {
 
+    int const num_es_active_params = local->active_indices()[es].size();
+    EVector es_Egrad = EVector::Zero(num_es_active_params);
+
     local->before_elems(es, disc);
     if (num_dfad_params > 0)
       dfad_local->before_elems(es, disc);
@@ -856,12 +859,12 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
             local->evaluate(global);
             EMatrix const dC_dpT = local->eigen_jacobian(nderivs).transpose();
             EVector const phi_pt = local->gather_adjoint(pt, phi);
-            Egrad += dC_dpT * phi_pt;
+            es_Egrad += dC_dpT * phi_pt;
 
             // evaluate the QoI derivatives to obtain dJ_dp
             qoi->evaluate(es, elem, global, local, iota, w, dv);
             EVector const dJ_dp = qoi->eigen_dvector(nderivs);
-            Egrad += dJ_dp;
+            es_Egrad += dJ_dp;
 
             if (num_dfad_params > 0) {
               dfad_global->interpolate(iota);
@@ -876,7 +879,7 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
           global->zero_residual();
           global->evaluate(local, iota, w, dv, ip_set);
           EMatrix const dR_dpT = global->eigen_jacobian(nderivs).transpose();
-          Egrad += dR_dpT * z_nodes;
+          es_Egrad += dR_dpT * z_nodes;
           local->unseed_wrt_params(es);
 
         }
@@ -894,6 +897,8 @@ Array1D<double> eval_qoi_gradient(RCP<State> state, int step) {
       }
 
     }
+
+    local->scatter_es_gradient(es, es_Egrad, Egrad);
 
   }
 
