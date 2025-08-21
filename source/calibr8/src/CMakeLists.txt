@@ -52,6 +52,7 @@ set(CALIBR8_SOURCES
   small_hill_plane_stress.cpp
   small_hosford.cpp
   small_J2.cpp
+  snap.cpp
   state.cpp
   synthetic.cpp
   surface_mismatch.cpp

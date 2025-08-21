@@ -14,6 +14,7 @@
 #include "mesh_size.hpp"
 #include "nested.hpp"
 #include "primal.hpp"
+#include "snap.hpp"
 #include "state.hpp"
 #include "tbcs.hpp"
 
@@ -416,6 +417,10 @@ void Driver::rebuild_coarse_space() {
   auto d_global = m_state->d_residuals->global;
   global->set_stabilization_h(CURRENT);
   d_global->set_stabilization_h(CURRENT);
+  /* snapping nodes needs to occur after the coarse space has been
+     rebuilt b/c it depends on side sets existing */
+  ParameterList adapt_params = m_params->sublist("adaptivity", true);
+  snap_nodes(m_state->disc, adapt_params);
 }
 
 static void write_primal_files(RCP<State> state, int cycle, RCP<ParameterList> p) {
