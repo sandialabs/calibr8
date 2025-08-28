@@ -1,4 +1,5 @@
 #include "avg_disp.hpp"
+#include "avg_local_var.hpp"
 #include "avg_stress.hpp"
 #include "calibration.hpp"
 #include "disc.hpp"
@@ -266,6 +267,8 @@ RCP<QoI<T>> create_qoi(ParameterList const& params) {
     return rcp(new DispComp<T>(params));
   } else if (type == "average stress") {
     return rcp(new AvgStress<T>(params));
+  } else if (type == "average local variable") {
+    return rcp(new AvgLocalVar<T>(params));
   } else if (type == "surface mismatch") {
     return rcp(new SurfaceMismatch<T>(params));
   } else if (type == "load mismatch") {

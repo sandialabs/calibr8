@@ -3,6 +3,7 @@ set(CALIBR8_SOURCES
   adjoint_objective.cpp
   adjoint_sens_vfm_objective.cpp
   avg_disp.cpp
+  avg_local_var.cpp
   avg_stress.cpp
   calibration.cpp
   control.cpp
