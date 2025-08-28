@@ -251,7 +251,7 @@ class Matrix
 
 }
 
-/* \brief a feed forward input convex neural network */
+/* \brief a fully input convex neural network */
 template <class ScalarT>
 class FICNN
 {
