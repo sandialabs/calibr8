@@ -23,7 +23,6 @@ static ParameterList get_valid_params()
   p.sublist("traction bcs");
   p.sublist("linear algebra");
   p.sublist("quantities of interest");
-  p.sublist("inverse");
   return p;
 }
 
@@ -50,6 +49,7 @@ class MultiQoI
     int m_num_qois = 0;
     int const m_model_form = 0;
     int m_num_opt_params;
+    bool m_compute_qoi_gradients = false;
 };
 
 MultiQoI::MultiQoI(RCP<ParameterList> params)
@@ -57,8 +57,11 @@ MultiQoI::MultiQoI(RCP<ParameterList> params)
   m_params = params;
   m_state = rcp(new State(*m_params));
   m_primal = rcp(new Primal(m_params, m_state, m_state->disc));
-  m_adjoint = rcp(new Adjoint(m_params, m_state, m_state->disc));
-  setup_opt_params(m_params->sublist("inverse", true));
+  if (m_params->isSublist("inverse")) {
+    m_compute_qoi_gradients = true;
+    m_adjoint = rcp(new Adjoint(m_params, m_state, m_state->disc));
+    setup_opt_params(m_params->sublist("inverse", true));
+  }
   create_qois();
 }
 
@@ -74,11 +77,17 @@ void MultiQoI::create_qois()
   }
   m_num_qois = m_qois.size();
   int const nsteps = m_state->disc->num_time_steps();
+
   m_qoi_values.resize(m_num_qois);
-  m_qoi_gradients.resize(m_num_qois);
   for (int q = 0; q < m_num_qois; ++q) {
     m_qoi_values[q].resize(nsteps);
-    m_qoi_gradients[q].resize(nsteps, m_num_opt_params);
+  }
+
+  if (m_compute_qoi_gradients) {
+    m_qoi_gradients.resize(m_num_qois);
+    for (int q = 0; q < m_num_qois; ++q) {
+      m_qoi_gradients[q].resize(nsteps, m_num_opt_params);
+    }
   }
 }
 
@@ -104,13 +113,15 @@ void MultiQoI::write_output()
       obj_file << qoi_values_ss.str();
       obj_file.close();
 
-      std::ofstream grad_file;
-      std::string const grad_filename = "objective_gradient_" + qoi_index_str + ".txt";
-      grad_file.open(grad_filename);
-      std::stringstream qoi_gradients_ss;
-      qoi_gradients_ss << m_qoi_gradients[q].format(out_format);
-      grad_file << qoi_gradients_ss.str();
-      grad_file.close();
+      if (m_compute_qoi_gradients) {
+        std::ofstream grad_file;
+        std::string const grad_filename = "objective_gradient_" + qoi_index_str + ".txt";
+        grad_file.open(grad_filename);
+        std::stringstream qoi_gradients_ss;
+        qoi_gradients_ss << m_qoi_gradients[q].format(out_format);
+        grad_file << qoi_gradients_ss.str();
+        grad_file.close();
+      }
     }
   }
 }
@@ -178,19 +189,21 @@ void MultiQoI::evaluate()
     }
   }
 
-  Array1D<double> grad_at_step(m_num_opt_params);
-  for (int q = 0; q < m_num_qois; ++q) {
-    set_qois(q);
-    m_state->disc->create_adjoint(m_state->residuals, nsteps);
-    for (int step = nsteps; step > 0; --step) {
-      m_adjoint->solve_at_step(step);
-      grad_at_step = eval_qoi_gradient(m_state, step);
-      PCU_Add_Doubles(grad_at_step.data(), m_num_opt_params);
-      for (int p = 0; p < m_num_opt_params; ++p) {
-        m_qoi_gradients[q](step - 1, p) = grad_at_step[p];
+  if (m_compute_qoi_gradients) {
+    Array1D<double> grad_at_step(m_num_opt_params);
+    for (int q = 0; q < m_num_qois; ++q) {
+      set_qois(q);
+      m_state->disc->create_adjoint(m_state->residuals, nsteps);
+      for (int step = nsteps; step > 0; --step) {
+        m_adjoint->solve_at_step(step);
+        grad_at_step = eval_qoi_gradient(m_state, step);
+        PCU_Add_Doubles(grad_at_step.data(), m_num_opt_params);
+        for (int p = 0; p < m_num_opt_params; ++p) {
+          m_qoi_gradients[q](step - 1, p) = grad_at_step[p];
+        }
       }
+      m_state->disc->destroy_adjoint();
     }
-    m_state->disc->destroy_adjoint();
   }
 }
 

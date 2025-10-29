@@ -160,10 +160,10 @@ template <typename T>
 bool QoI<T>::setup_coord_based_node_mapping(
     int coord_idx,
     double coord_value,
+    double coord_tol,
     RCP<Disc> disc,
     Array3D<int>& mapping) {
 
-  double const tol = 1e-12;
   Array1D<int> node_ids;
   apf::Vector3 x;
   int ndims = m_num_dims;
@@ -180,7 +180,7 @@ bool QoI<T>::setup_coord_based_node_mapping(
       for (int down = 0; down < ndown; ++down) {
         apf::MeshEntity* downward_entity = downward_nodes[down];
         m_mesh->getPoint(downward_entity, 0, x);
-        if (std::abs(x[coord_idx] - coord_value) < tol) {
+        if (std::abs(x[coord_idx] - coord_value) < coord_tol) {
           node_ids.push_back(down);
         }
       }

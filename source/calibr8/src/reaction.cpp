@@ -14,6 +14,9 @@ template <typename T>
 Reaction<T>::Reaction(ParameterList const& params) {
   m_coord_idx = params.get<int>("coordinate index");
   m_coord_value = params.get<double>("coordinate value");
+  if (params.isParameter("coordinate tolerance")) {
+    m_coord_tol = params.get<double>("coordinate tolerance");
+  }
   m_reaction_force_comp = params.get<int>("reaction force component");
   if (params.isParameter("compute torque")) {
     m_compute_torque = params.get<bool>("compute torque");
@@ -35,7 +38,7 @@ void Reaction<T>::before_elems(RCP<Disc> disc, int step) {
 
   if (!is_initd) {
     is_initd = this->setup_coord_based_node_mapping(m_coord_idx, m_coord_value,
-        disc, m_mapping);
+        m_coord_tol, disc, m_mapping);
   }
 
 }

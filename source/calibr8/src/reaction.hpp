@@ -69,6 +69,7 @@ class Reaction : public QoI<T> {
     Array3D<int> m_mapping; // m_mapping[es_idx][elem_idx][node_idx]
     int m_coord_idx = -1;
     double m_coord_value = 0.;
+    double m_coord_tol = 1e-12;
     int m_reaction_force_comp = -1;
     bool m_compute_torque = false;
 

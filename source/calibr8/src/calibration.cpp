@@ -15,6 +15,9 @@ Calibration<T>::Calibration(ParameterList const& params) {
   m_balance_factor = params.get<double>("balance factor");
   m_coord_idx = params.get<int>("coordinate index");
   m_coord_value = params.get<double>("coordinate value");
+  if (params.isParameter("coordinate tolerance")) {
+    m_coord_tol = params.get<double>("coordinate tolerance");
+  }
   m_reaction_force_comp = params.get<int>("reaction force component");
   m_write_obj_at_step = params.isParameter("objective out file");
   m_write_load = params.isParameter("load out file");
@@ -145,7 +148,7 @@ void Calibration<T>::before_elems(RCP<Disc> disc, int step) {
 
   if (!is_initd_load) {
     is_initd_load = this->setup_coord_based_node_mapping(m_coord_idx, m_coord_value,
-        disc, m_mapping_load);
+        m_coord_tol, disc, m_mapping_load);
   }
 
   this->m_dt = disc->dt(step);

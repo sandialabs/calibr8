@@ -102,6 +102,7 @@ class Calibration : public QoI<T> {
     Array1D<double> m_load_data;
     int m_coord_idx = -1;
     double m_coord_value = 0.;
+    double m_coord_tol = 1e-12;
     int m_reaction_force_comp = -1;
 
     // only in 3D

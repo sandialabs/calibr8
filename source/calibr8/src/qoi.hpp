@@ -127,12 +127,14 @@ class QoI {
     //! \brief Initialize the mapping from elements to nodes with a fixed coordinate value
     //! \param coord_idx Index of the coordinate
     //! \param coord_value Value for the coordinate
+    //! \param coord_tol Tolerance for the coordinate abs distance check
     //! \param disc Discretization object
     //! \param mapping The element to nodes mapping array
     //! \returns Flag for whether the mapping array exists
     bool setup_coord_based_node_mapping(
         int coord_idx,
         double coord_value,
+        double coord_tol,
         RCP<Disc> disc,
         Array3D<int>& mapping);
 
