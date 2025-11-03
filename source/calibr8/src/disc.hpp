@@ -261,6 +261,10 @@ class Disc {
     //! \param keep_ic Keep the initial condition?
     void destroy_primal(bool keep_ic = true);
 
+    //! \brief Destroy the primal fields at a specific step
+    //! \param step index
+    void destroy_primal_at_step(int step);
+
     //! \brief Create all adjoint fields
     //! \parma R The global/local residuals defining the problem
     //! \param num_steps The number of load/time steps

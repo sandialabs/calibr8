@@ -93,7 +93,7 @@ void HypoHosford<T>::init_params() {
   this->m_param_names[0] = "E";
   this->m_param_names[1] = "nu";
   this->m_param_names[2] = "Y";
-  this->m_param_names[3] = "Y";
+  this->m_param_names[3] = "a";
   this->m_param_names[4] = "K";
   this->m_param_names[5] = "S";
   this->m_param_names[6] = "D";

@@ -187,6 +187,9 @@ void MultiQoI::evaluate()
       J_at_step = PCU_Add_Double(J_at_step);
       m_qoi_values[q](step - 1) = J_at_step;
     }
+    if (!m_compute_qoi_gradients && step > 1) {
+      m_state->disc->destroy_primal_at_step(step - 2);
+    }
   }
 
   if (m_compute_qoi_gradients) {

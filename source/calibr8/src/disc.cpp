@@ -725,14 +725,17 @@ void Disc::set_virtual_field_from_node_set(
 static void destroy_fields(Fields& fields) {
   for (size_t i = 0; i < fields.global.size(); ++i) {
     apf::destroyField(fields.global[i]);
+    fields.global[i] = nullptr;
   }
   for (size_t m = 0; m < 2; ++m) {
     for (size_t i = 0; i < fields.local[m].size(); ++i) {
       apf::destroyField(fields.local[m][i]);
+      fields.local[m][i] = nullptr;
     }
   }
   for (size_t i = 0; i < fields.virtual_field.size(); ++i) {
     apf::destroyField(fields.virtual_field[i]);
+    fields.virtual_field[i] = nullptr;
   }
 }
 
@@ -762,6 +765,10 @@ void Disc::destroy_primal(bool keep_ic) {
   } else {
     m_primal_fine.resize(0);
   }
+}
+
+void Disc::destroy_primal_at_step(int step) {
+  destroy_fields(m_primal[step]);
 }
 
 void Disc::create_adjoint(
