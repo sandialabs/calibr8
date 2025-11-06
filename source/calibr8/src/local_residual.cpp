@@ -883,6 +883,7 @@ void LocalResidual<T>::after_elems() {
   m_num_dims = -1;
   m_num_dofs = -1;
   m_shape = nullptr;
+  m_R.resize(0);
   m_xi.resize(0);
   m_xi_prev.resize(0);
   m_dxi_offsets.resize(0);

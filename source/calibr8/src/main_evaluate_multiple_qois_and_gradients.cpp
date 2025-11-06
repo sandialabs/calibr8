@@ -23,6 +23,7 @@ static ParameterList get_valid_params()
   p.sublist("traction bcs");
   p.sublist("linear algebra");
   p.sublist("quantities of interest");
+  p.sublist("inverse");
   return p;
 }
 
