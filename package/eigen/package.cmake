@@ -1,6 +1,6 @@
 capp_package(
   GIT_URL https://gitlab.com/libeigen/eigen.git
-  COMMIT 96007cae8c48f9a3cc3a67638ee8bf25ddf1517e
+  COMMIT bc3b39870ecb690a623a3f49149a358b95c5781d
   OPTIONS
   DEPENDENCIES 
   IGNORE_UNCOMMITTED

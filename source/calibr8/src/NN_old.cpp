@@ -179,7 +179,7 @@ std::array<Matrix, 2> NN::differentiate(Vector const& y_out)
     }
     offset -= (W[l].size() + b[l].size());
     for (int i = 0; i < num_outputs; ++i) {
-      Vector U_i = U(i, Eigen::all);
+      Vector U_i = U(i, Eigen::indexing::all);
       Vector a = x[l];
       Matrix dy_dW = U_i * a.transpose();
       Vector dy_db = U_i;
