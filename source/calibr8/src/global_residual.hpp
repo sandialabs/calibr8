@@ -287,6 +287,7 @@ class GlobalResidual {
     void set_time_info(double time, double dt);
     double time() const {return m_time;}
     double delta_t() const {return m_delta_t;}
+    Eigen::Vector3d pt_global_coords() const {return m_pt_global_coords;}
 
   private:
 
@@ -326,6 +327,8 @@ class GlobalResidual {
 
     Weight* m_weight = nullptr;
     Weight* m_stab_weight = nullptr;
+
+    Eigen::Vector3d m_pt_global_coords = Eigen::Vector3d::Zero();
 
     double m_time = -1.;
     double m_delta_t = -1.;

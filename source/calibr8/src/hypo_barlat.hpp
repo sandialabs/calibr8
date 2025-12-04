@@ -64,11 +64,15 @@ class HypoBarlat : public LocalResidual<T> {
 
   private:
 
+    Tensor<T> eval_d(RCP<GlobalResidual<T>> global);
+    void compute_Q(RCP<GlobalResidual<T>> global);
+
     //! \brief Get the rotated Cauchy stress tensor
     //! \param global The global residual equations
     Tensor<T> rotated_cauchy(RCP<GlobalResidual<T>> global);
 
     void evaluate_phi_and_normal(T const& a, T& phi, Tensor<T>& n);
+    void compute_cartesian_lab_to_mat_rotation(ParameterList const& inputs);
 
     int m_max_iters;
     double m_abs_tol;
@@ -77,6 +81,12 @@ class HypoBarlat : public LocalResidual<T> {
     double m_ls_eta;
     int m_ls_max_evals;
     bool m_ls_print;
+
+    bool m_compute_cylindrical_transform = false;
+    // lab to material cartesian coordinate system transformation matrix
+    Eigen::Matrix3d m_cartesian_lab_to_mat_rotation = Eigen::Matrix3d::Identity(3, 3);
+    // lab to material cylindrical coordinate system transformation matrix
+    Tensor<T> m_Q = minitensor::eye<T>(3);
 
     enum {ELASTIC = 0, PLASTIC = 1};
 

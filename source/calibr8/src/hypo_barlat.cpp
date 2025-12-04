@@ -4,6 +4,7 @@
 #include "fad.hpp"
 #include "global_residual.hpp"
 #include "hypo_barlat.hpp"
+#include "macros.hpp"
 #include "material_params.hpp"
 #include "yield_functions.hpp"
 
@@ -68,6 +69,38 @@ static ParameterList get_valid_material_params() {
 }
 
 template <typename T>
+void HypoBarlat<T>::compute_cartesian_lab_to_mat_rotation(ParameterList const& inputs) {
+  if (inputs.isSublist("cylindrical coordinate system points")) {
+    m_compute_cylindrical_transform = true;
+    auto const input_cylindrical_cs_origin = inputs.get<Teuchos::Array<double>>("origin").toVector();
+    auto const input_cylindrical_cs_point_on_z_axis = inputs.get<Teuchos::Array<double>>("point on z axis").toVector();
+    auto const input_cylindrical_cs_point_on_x_axis = inputs.get<Teuchos::Array<double>>("point on x axis").toVector();
+    ALWAYS_ASSERT(input_cylindrical_cs_origin.size() == 3);
+    ALWAYS_ASSERT(input_cylindrical_cs_point_on_z_axis.size() == 3);
+    ALWAYS_ASSERT(input_cylindrical_cs_point_on_x_axis.size() == 3);
+
+    Eigen::Vector3d const cylindrical_cs_origin = Eigen::Vector3d::Map(
+        input_cylindrical_cs_origin.data(), 3
+    );
+    Eigen::Vector3d const cylindrical_cs_point_on_z_axis = Eigen::Vector3d::Map(
+        input_cylindrical_cs_point_on_z_axis.data(), 3
+    );
+    Eigen::Vector3d const cylindrical_cs_point_on_x_axis = Eigen::Vector3d::Map(
+        input_cylindrical_cs_point_on_x_axis.data(), 3
+    );
+    auto const cylindrical_cs_x_dir = (cylindrical_cs_point_on_x_axis - cylindrical_cs_origin).normalized();
+    auto const cylindrical_cs_z_dir = (cylindrical_cs_point_on_z_axis - cylindrical_cs_origin).normalized();
+    auto const cylindrical_cs_y_dir = cylindrical_cs_z_dir.cross(cylindrical_cs_x_dir);
+
+    m_cartesian_lab_to_mat_rotation <<
+        cylindrical_cs_x_dir[0], cylindrical_cs_x_dir[1], cylindrical_cs_x_dir[2],
+        cylindrical_cs_y_dir[0], cylindrical_cs_y_dir[1], cylindrical_cs_y_dir[2],
+        cylindrical_cs_z_dir[0], cylindrical_cs_z_dir[1], cylindrical_cs_z_dir[2];
+  }
+}
+
+
+template <typename T>
 HypoBarlat<T>::HypoBarlat(ParameterList const& inputs, int ndims) {
 
   this->m_params_list = inputs;
@@ -98,6 +131,7 @@ HypoBarlat<T>::HypoBarlat(ParameterList const& inputs, int ndims) {
   m_ls_max_evals = inputs.get<int>("line search max evals");
   m_ls_print = inputs.get<bool>("line search print");
 
+  compute_cartesian_lab_to_mat_rotation(inputs);
 }
 
 template <typename T>
@@ -200,7 +234,36 @@ void HypoBarlat<T>::init_variables_impl() {
 }
 
 template <typename T>
-Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
+void HypoBarlat<T>::compute_Q(RCP<GlobalResidual<T>> global) {
+  if (m_compute_cylindrical_transform) {
+    auto const& pt_global_coords = global->pt_global_coords();
+    auto const cartesian_mat_coords = m_cartesian_lab_to_mat_rotation * pt_global_coords;
+
+    double x = cartesian_mat_coords(0);
+    double y = cartesian_mat_coords(1);
+    double rho = std::sqrt(x*x + y*y);
+    double theta = std::atan2(y, x);
+
+    auto const& e_x = m_cartesian_lab_to_mat_rotation.row(0);
+    auto const& e_y = m_cartesian_lab_to_mat_rotation.row(1);
+    auto const e_rho = std::cos(theta) * e_x + std::sin(theta) * e_y;
+    auto const e_theta = -std::sin(theta) * e_x + std::cos(theta) * e_y;
+    auto const e_zeta = m_cartesian_lab_to_mat_rotation.row(2);
+
+    m_Q(0, 0) = e_rho(0);
+    m_Q(0, 1) = e_rho(1);
+    m_Q(0, 2) = e_rho(2);
+    m_Q(1, 0) = e_theta(0);
+    m_Q(1, 1) = e_theta(1);
+    m_Q(1, 2) = e_theta(2);
+    m_Q(2, 0) = e_zeta(0);
+    m_Q(2, 1) = e_zeta(1);
+    m_Q(2, 2) = e_zeta(2);
+  }
+}
+
+template <typename T>
+Tensor<T> HypoBarlat<T>::eval_d(RCP<GlobalResidual<T>> global) {
   int const ndims = global->num_dims();
   Tensor<T> const I = minitensor::eye<T>(ndims);
   Tensor<T> const grad_u = global->grad_vector_x(0);
@@ -211,7 +274,8 @@ Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
   Tensor<T> const R = minitensor::polar_rotation(F);
   Tensor<T> const L = (F - F_prev) * Finv;
   Tensor<T> const D = 0.5 * (L + transpose(L));
-  Tensor<T> const d = transpose(R) * D * R;
+  compute_Q(global);
+  Tensor<T> const d = m_Q * transpose(R) * D * R * transpose(m_Q);
   return d;
 }
 
@@ -468,7 +532,8 @@ Tensor<T> HypoBarlat<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const F = grad_u + I;
   Tensor<T> const TC = this->sym_tensor_xi(0);
   Tensor<T> const R = minitensor::polar_rotation(F);
-  Tensor<T> const RC = R * TC * transpose(R);
+  compute_Q(global);
+  Tensor<T> const RC = R * transpose(m_Q) * TC * m_Q * transpose(R);
   return RC;
 }
 

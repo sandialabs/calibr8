@@ -321,6 +321,12 @@ void GlobalResidual<T>::interpolate(apf::Vector3 const& iota) {
     }
   }
 
+  apf::Vector3 x(0, 0, 0);
+  apf::mapLocalToGlobal(m_mesh_elem, iota, x);
+  m_pt_global_coords(0) = x[0];
+  m_pt_global_coords(1) = x[1];
+  m_pt_global_coords(2) = x[2];
+
 }
 
 template <typename T>
