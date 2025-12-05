@@ -72,7 +72,7 @@ class HypoBarlat : public LocalResidual<T> {
     Tensor<T> rotated_cauchy(RCP<GlobalResidual<T>> global);
 
     void evaluate_phi_and_normal(T const& a, T& phi, Tensor<T>& n);
-    void compute_cartesian_lab_to_mat_rotation(ParameterList const& inputs);
+    void compute_cartesian_lab_to_mat_rotation();
 
     int m_max_iters;
     double m_abs_tol;

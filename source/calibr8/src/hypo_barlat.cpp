@@ -32,6 +32,7 @@ static ParameterList get_valid_local_residual_params() {
   p.set<double>("line search eta", 0.5);
   p.set<int>("line search max evals", 10);
   p.set<bool>("line search print", false);
+  p.sublist("cylindrical coordinate system points");
   return p;
 }
 
@@ -69,34 +70,33 @@ static ParameterList get_valid_material_params() {
 }
 
 template <typename T>
-void HypoBarlat<T>::compute_cartesian_lab_to_mat_rotation(ParameterList const& inputs) {
-  if (inputs.isSublist("cylindrical coordinate system points")) {
-    m_compute_cylindrical_transform = true;
-    auto const input_cylindrical_cs_origin = inputs.get<Teuchos::Array<double>>("origin").toVector();
-    auto const input_cylindrical_cs_point_on_z_axis = inputs.get<Teuchos::Array<double>>("point on z axis").toVector();
-    auto const input_cylindrical_cs_point_on_x_axis = inputs.get<Teuchos::Array<double>>("point on x axis").toVector();
-    ALWAYS_ASSERT(input_cylindrical_cs_origin.size() == 3);
-    ALWAYS_ASSERT(input_cylindrical_cs_point_on_z_axis.size() == 3);
-    ALWAYS_ASSERT(input_cylindrical_cs_point_on_x_axis.size() == 3);
+void HypoBarlat<T>::compute_cartesian_lab_to_mat_rotation() {
+  m_compute_cylindrical_transform = true;
+  ParameterList& inputs = this->m_params_list.sublist("cylindrical coordinate system points", true);
+  auto const input_cylindrical_cs_origin = inputs.get<Teuchos::Array<double>>("origin").toVector();
+  auto const input_cylindrical_cs_point_on_z_axis = inputs.get<Teuchos::Array<double>>("point on z axis").toVector();
+  auto const input_cylindrical_cs_point_on_x_axis = inputs.get<Teuchos::Array<double>>("point on x axis").toVector();
+  ALWAYS_ASSERT(input_cylindrical_cs_origin.size() == 3);
+  ALWAYS_ASSERT(input_cylindrical_cs_point_on_z_axis.size() == 3);
+  ALWAYS_ASSERT(input_cylindrical_cs_point_on_x_axis.size() == 3);
 
-    Eigen::Vector3d const cylindrical_cs_origin = Eigen::Vector3d::Map(
-        input_cylindrical_cs_origin.data(), 3
-    );
-    Eigen::Vector3d const cylindrical_cs_point_on_z_axis = Eigen::Vector3d::Map(
-        input_cylindrical_cs_point_on_z_axis.data(), 3
-    );
-    Eigen::Vector3d const cylindrical_cs_point_on_x_axis = Eigen::Vector3d::Map(
-        input_cylindrical_cs_point_on_x_axis.data(), 3
-    );
-    auto const cylindrical_cs_x_dir = (cylindrical_cs_point_on_x_axis - cylindrical_cs_origin).normalized();
-    auto const cylindrical_cs_z_dir = (cylindrical_cs_point_on_z_axis - cylindrical_cs_origin).normalized();
-    auto const cylindrical_cs_y_dir = cylindrical_cs_z_dir.cross(cylindrical_cs_x_dir);
+  Eigen::Vector3d const cylindrical_cs_origin = Eigen::Vector3d::Map(
+      input_cylindrical_cs_origin.data(), 3
+  );
+  Eigen::Vector3d const cylindrical_cs_point_on_z_axis = Eigen::Vector3d::Map(
+      input_cylindrical_cs_point_on_z_axis.data(), 3
+  );
+  Eigen::Vector3d const cylindrical_cs_point_on_x_axis = Eigen::Vector3d::Map(
+      input_cylindrical_cs_point_on_x_axis.data(), 3
+  );
+  auto const cylindrical_cs_x_dir = (cylindrical_cs_point_on_x_axis - cylindrical_cs_origin).normalized();
+  auto const cylindrical_cs_z_dir = (cylindrical_cs_point_on_z_axis - cylindrical_cs_origin).normalized();
+  auto const cylindrical_cs_y_dir = cylindrical_cs_z_dir.cross(cylindrical_cs_x_dir);
 
-    m_cartesian_lab_to_mat_rotation <<
-        cylindrical_cs_x_dir[0], cylindrical_cs_x_dir[1], cylindrical_cs_x_dir[2],
-        cylindrical_cs_y_dir[0], cylindrical_cs_y_dir[1], cylindrical_cs_y_dir[2],
-        cylindrical_cs_z_dir[0], cylindrical_cs_z_dir[1], cylindrical_cs_z_dir[2];
-  }
+  m_cartesian_lab_to_mat_rotation <<
+      cylindrical_cs_x_dir[0], cylindrical_cs_x_dir[1], cylindrical_cs_x_dir[2],
+      cylindrical_cs_y_dir[0], cylindrical_cs_y_dir[1], cylindrical_cs_y_dir[2],
+      cylindrical_cs_z_dir[0], cylindrical_cs_z_dir[1], cylindrical_cs_z_dir[2];
 }
 
 
@@ -131,7 +131,9 @@ HypoBarlat<T>::HypoBarlat(ParameterList const& inputs, int ndims) {
   m_ls_max_evals = inputs.get<int>("line search max evals");
   m_ls_print = inputs.get<bool>("line search print");
 
-  compute_cartesian_lab_to_mat_rotation(inputs);
+  if (inputs.isSublist("cylindrical coordinate system points")) {
+    compute_cartesian_lab_to_mat_rotation();
+  }
 }
 
 template <typename T>
@@ -248,7 +250,7 @@ void HypoBarlat<T>::compute_Q(RCP<GlobalResidual<T>> global) {
     auto const& e_y = m_cartesian_lab_to_mat_rotation.row(1);
     auto const e_rho = std::cos(theta) * e_x + std::sin(theta) * e_y;
     auto const e_theta = -std::sin(theta) * e_x + std::cos(theta) * e_y;
-    auto const e_zeta = m_cartesian_lab_to_mat_rotation.row(2);
+    auto const& e_zeta = m_cartesian_lab_to_mat_rotation.row(2);
 
     m_Q(0, 0) = e_rho(0);
     m_Q(0, 1) = e_rho(1);
