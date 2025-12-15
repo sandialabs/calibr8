@@ -18,6 +18,7 @@ static ParameterList get_valid_pdeco_params()
   ParameterList p;
   p.sublist("discretization");
   p.sublist("residuals");
+  p.sublist("problems");
   p.sublist("problem");
   p.sublist("dirichlet bcs");
   p.sublist("traction bcs");

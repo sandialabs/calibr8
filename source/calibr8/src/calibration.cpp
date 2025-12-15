@@ -210,8 +210,6 @@ T Calibration<T>::compute_disp_mismatch(
       qoi += m_weights[d] * (u_fem[d] - u_meas[d]) * (u_fem[d] - u_meas[d]);
     }
 
-    // compute the difference between the FEM displacement and
-    // the measured input displacement data
     mismatch += 0.5 * qoi * w * dv / m_area * m_dt / m_total_time;
   }
 

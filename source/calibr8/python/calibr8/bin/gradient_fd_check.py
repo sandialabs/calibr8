@@ -84,7 +84,7 @@ def main():
     rng = np.random.default_rng(rng_seed)
     num_params = len(opt_init_params)
     random_direction = rng.uniform(-1., 1., num_params)
-    perturbations = np.logspace(0, -12, 13)
+    perturbations = np.logspace(-2, -9, 8)
 
     obj_and_grad_run_command = get_run_command(num_procs)
     obj_only_run_command = get_run_command(num_procs, False)

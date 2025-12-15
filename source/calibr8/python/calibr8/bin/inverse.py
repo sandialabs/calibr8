@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 import argparse
 import yaml
@@ -87,6 +88,8 @@ def main():
         maxiter=num_iters, pgtol=gradient_tol, maxls=max_ls_evals,
         iprint=1, factr=10
     )
+    with open("cvg_dict.pkl", "wb") as file:
+        pickle.dump(cvg_dict, file)
 
     write_output_file(opt_params, opt_param_scales, opt_param_names,
         output_file)

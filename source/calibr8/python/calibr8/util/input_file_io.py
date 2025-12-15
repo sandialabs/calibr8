@@ -48,39 +48,58 @@ def get_yaml_input_file_contents_by_section(entire_yaml_input_file):
 def get_local_residual_materials_blocks(entire_yaml_input_file):
     top_key = list(entire_yaml_input_file.keys())[0]
     yaml_input_file = entire_yaml_input_file[top_key]
-    local_residual_materials_block = \
-        yaml_input_file["residuals"]["local residual"]["materials"]
+    if "problems" in yaml_input_file.keys():
+        problem_blocks = [
+            yaml_input_file["problems"][problem_key]
+            for problem_key in yaml_input_file["problems"].keys()
+        ]
+    else:
+        problem_blocks = [yaml_input_file]
 
-    local_residual_elem_set_names = list(local_residual_materials_block.keys())
-    local_residual_params_blocks = [
-        local_residual_materials_block[elem_set_name]
-        for elem_set_name in local_residual_elem_set_names
-    ]
+    local_residual_params_blocks = []
+    for problem_block in problem_blocks:
+        local_residual_materials_block = \
+            problem_block["residuals"]["local residual"]["materials"]
+        local_residual_elem_set_names = list(local_residual_materials_block.keys())
+        local_residual_params_block = [
+            local_residual_materials_block[elem_set_name]
+            for elem_set_name in local_residual_elem_set_names
+        ]
+        local_residual_params_blocks.append(local_residual_params_block)
 
     return local_residual_params_blocks
 
 
-def get_materials_and_inverse_blocks(entire_yaml_input_file):
+def get_first_materials_and_inverse_blocks(entire_yaml_input_file):
     top_key = list(entire_yaml_input_file.keys())[0]
     yaml_input_file = entire_yaml_input_file[top_key]
-    local_residual_materials_block = \
-        yaml_input_file["residuals"]["local residual"]["materials"]
+    if "problems" in yaml_input_file.keys():
+        first_problem_key = list(yaml_input_file["problems"].keys())[0]
+        first_problem_block = \
+            yaml_input_file["problems"][first_problem_key]
+        first_local_residual_materials_block = \
+            first_problem_block["residuals"]["local residual"]["materials"]
+    else:
+        first_local_residual_materials_block = \
+            yaml_input_file["residuals"]["local residual"]["materials"]
     inverse_materials_block = \
         yaml_input_file["inverse"]["materials"]
 
-    local_residual_elem_set_names = list(local_residual_materials_block.keys())
-    inverse_materials_elem_set_names = list(local_residual_materials_block.keys())
+    local_residual_elem_set_names = \
+        list(first_local_residual_materials_block.keys())
+    inverse_materials_elem_set_names = \
+        list(inverse_materials_block.keys())
     assert local_residual_elem_set_names == inverse_materials_elem_set_names
-    local_residual_params_blocks = [
-        local_residual_materials_block[elem_set_name]
+    first_local_residual_params_block = [
+        first_local_residual_materials_block[elem_set_name]
         for elem_set_name in local_residual_elem_set_names
     ]
-    inverse_params_blocks = [
+    inverse_params_block = [
         inverse_materials_block[elem_set_name]
         for elem_set_name in inverse_materials_elem_set_names
     ]
 
-    return local_residual_params_blocks, inverse_params_blocks
+    return first_local_residual_params_block, inverse_params_block
 
 
 def get_opt_param_info(inverse_blocks):
@@ -173,18 +192,18 @@ def setup_text_parameters(init_values_file, scales_file, opt_filename):
 
 
 def setup_opt_parameters(input_yaml, text_params_data):
-    local_residual_params_blocks, inverse_params_blocks = \
-        get_materials_and_inverse_blocks(input_yaml)
+    first_local_residual_params_block, inverse_params_block = \
+        get_first_materials_and_inverse_blocks(input_yaml)
 
     text_params_initial_values, text_param_scales = text_params_data
     num_text_params = len(text_params_initial_values)
     text_param_names = [f"p_{ii}" for ii in range(num_text_params)]
 
     opt_param_names, opt_param_scales, opt_param_block_indices = \
-        get_opt_param_info(inverse_params_blocks)
+        get_opt_param_info(inverse_params_block)
     initial_param_values = np.r_[
-        get_initial_opt_params(local_residual_params_blocks,
-        inverse_params_blocks),
+        get_initial_opt_params(first_local_residual_params_block,
+        inverse_params_block),
         text_params_initial_values
     ]
 
@@ -207,10 +226,11 @@ def update_yaml_input_file_parameters(input_yaml,
     local_residual_params_blocks = \
         get_local_residual_materials_blocks(input_yaml)
 
-    param_info = zip(param_names, param_values, param_block_indices)
-    for param_name, param_value, param_block_idx in param_info:
-        local_residual_params_blocks[param_block_idx][param_name] = \
-            float(param_value)
+    param_info = list(zip(param_names, param_values, param_block_indices))
+    for local_residual_params_block in local_residual_params_blocks:
+        for param_name, param_value, param_block_idx in param_info:
+            local_residual_params_block[param_block_idx][param_name] = \
+                float(param_value)
 
 
 def write_output_file(opt_params, opt_param_scales, param_names,
