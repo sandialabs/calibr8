@@ -94,14 +94,8 @@ def main():
         callback=opt_iterator.callback
     )
 
-    inverse_results = {
-        "minimize results": res,
-        "optimization history": opt_iterator.history,
-        "param names": opt_param_names
-    }
-
-    with open("inverse_results.pkl", "wb") as file:
-        pickle.dump(inverse_results, file)
+    with open("minimize_results.pkl", "wb") as file:
+        pickle.dump(res, file)
 
     write_output_file(res.x, opt_param_scales, opt_param_names,
         output_file)
