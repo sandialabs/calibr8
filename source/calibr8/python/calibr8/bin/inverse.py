@@ -7,8 +7,7 @@ import yaml
 from scipy.optimize import minimize
 
 from calibr8.util.driver_support import (
-    evaluate_objective_and_gradient,
-    evaluate_objective_or_gradient
+    OptimizationIterator
 )
 
 from calibr8.util.input_file_io import (
@@ -83,21 +82,26 @@ def main():
         input_yaml, num_procs,
         num_text_params, text_parameters_opt_values_filename
     )
+    opt_iterator = OptimizationIterator(objective_args)
 
-    obj_fun_and_grad = lambda x: evaluate_objective_and_gradient(
-        x, *objective_args
-    )
     res = minimize(
-        fun=obj_fun_and_grad,
+        fun=opt_iterator.objective_fun_and_grad,
         x0=opt_init_params,
         method="L-BFGS-B",
         jac=True,
         bounds=opt_bounds,
-        options=l_bfgs_b_opts
+        options=l_bfgs_b_opts,
+        callback=opt_iterator.callback
     )
 
-    with open("l_bfgs_b_results.pkl", "wb") as file:
-        pickle.dump(res, file)
+    inverse_results = {
+        "minimize results": res,
+        "optimization history": opt_iterator.history,
+        "param names": opt_param_names
+    }
+
+    with open("inverse_results.pkl", "wb") as file:
+        pickle.dump(inverse_results, file)
 
     write_output_file(res.x, opt_param_scales, opt_param_names,
         output_file)
