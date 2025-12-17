@@ -4,12 +4,11 @@ import pickle
 import argparse
 import yaml
 
-from functools import partial
-from scipy.optimize import fmin_l_bfgs_b
+from scipy.optimize import minimize
 
 from calibr8.util.driver_support import (
-    get_run_command,
-    objective_and_gradient
+    evaluate_objective_and_gradient,
+    evaluate_objective_or_gradient
 )
 
 from calibr8.util.input_file_io import (
@@ -70,28 +69,52 @@ def main():
         opt_init_params, opt_bounds = \
         setup_opt_parameters(input_yaml, text_params_data)
 
+
     num_iters, gradient_tol, max_ls_evals = get_opt_options(input_yaml)
+    l_bfgs_b_opts = {
+        "maxiter": num_iters,
+        "gtol": gradient_tol,
+        "maxls": max_ls_evals,
+        "ftol": 10. * np.finfo(float).eps
+    }
 
-    run_command = get_run_command(num_procs)
-
-    pt_objective_and_grad = partial(objective_and_gradient,
-        scales=opt_param_scales, param_names=opt_param_names,
-        block_indices=opt_param_block_indices,
-        input_yaml=input_yaml, run_command=run_command,
-        num_text_params=num_text_params,
-        text_params_filename=text_parameters_opt_values_filename
+    objective_args = (
+        opt_param_scales, opt_param_names, opt_param_block_indices,
+        input_yaml, num_procs,
+        num_text_params, text_parameters_opt_values_filename
     )
 
-    opt_params, fun_vals, cvg_dict = fmin_l_bfgs_b(
-        pt_objective_and_grad, opt_init_params,
+    obj_fun_and_grad = lambda x: evaluate_objective_and_gradient(
+        x, *objective_args
+    )
+    res = minimize(
+        fun=obj_fun_and_grad,
+        x0=opt_init_params,
+        method="L-BFGS-B",
+        jac=True,
         bounds=opt_bounds,
-        maxiter=num_iters, pgtol=gradient_tol, maxls=max_ls_evals,
-        iprint=1, factr=10
+        options=l_bfgs_b_opts
     )
-    with open("cvg_dict.pkl", "wb") as file:
-        pickle.dump(cvg_dict, file)
 
-    write_output_file(opt_params, opt_param_scales, opt_param_names,
-        output_file)
+    #obj_fun = lambda x: evaluate_objective_or_gradient(
+    #    x, *objective_args, False
+    #)
+    #obj_grad = lambda x: evaluate_objective_or_gradient(
+    #    x, *objective_args, True
+    #)
+    #res = minimize(
+    #    fun=obj_fun,
+    #    x0=opt_init_params,
+    #    method="L-BFGS-B",
+    #    jac=obj_grad,
+    #    bounds=opt_bounds,
+    #    options=l_bfgs_b_opts
+    #)
+
+    with open("l_bfgs_b_results.pkl", "wb") as file:
+        pickle.dump(res, file)
+
+    #write_output_file(opt_params, opt_param_scales, opt_param_names,
+    #    output_file)
 
     cleanup_files()

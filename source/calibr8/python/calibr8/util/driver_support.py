@@ -13,19 +13,19 @@ from calibr8.util.parameter_transforms import (
 )
 
 
-def get_run_command(num_proc, evaluate_gradient=True):
+def get_run_command(num_procs, evaluate_gradient=True):
     if evaluate_gradient:
-        return f"mpiexec -n {num_proc} objective run.yaml true"
+        return f"mpiexec -n {num_procs} objective run.yaml true"
     else:
-        return f"mpiexec -n {num_proc} objective run.yaml false"
+        return f"mpiexec -n {num_procs} objective run.yaml false"
 
 
-def objective_and_gradient(params,
-        scales, param_names, block_indices,
-        input_yaml, run_command,
-        num_text_params, text_params_filename,
-        evaluate_objective_only=False):
-
+def run_objective_binary(params,
+    scales, param_names, block_indices,
+    input_yaml, num_procs,
+    num_text_params, text_params_filename,
+    evaluate_gradient
+):
     unscaled_params = transform_parameters(params, scales,
         transform_from_canonical=True)
 
@@ -46,13 +46,52 @@ def objective_and_gradient(params,
     if text_params_filename is not None:
         np.savetxt(text_params_filename, unscaled_params[-num_text_params:])
 
-    subprocess.run(["bash", "-c", run_command])
+    subprocess.run(["bash", "-c", get_run_command(num_procs, evaluate_gradient)])
+
+
+def evaluate_objective_and_gradient(
+    params,
+    scales, param_names, block_indices,
+    input_yaml, num_procs,
+    num_text_params, text_params_filename,
+):
+
+    run_objective_binary(params,
+        scales, param_names, block_indices,
+        input_yaml, num_procs,
+        num_text_params, text_params_filename,
+        evaluate_gradient=True
+    )
 
     J = np.loadtxt("objective_value.txt")
-    if evaluate_objective_only:
-        return J
-
+    unscaled_params = transform_parameters(params, scales,
+        transform_from_canonical=True)
     grad = grad_transform(np.loadtxt("objective_gradient.txt"),
         unscaled_params, scales)
-
     return J, grad
+
+
+def evaluate_objective_or_gradient(
+    params,
+    scales, param_names, block_indices,
+    input_yaml, num_procs,
+    num_text_params, text_params_filename,
+    evaluate_gradient
+):
+
+    run_objective_binary(params,
+        scales, param_names, block_indices,
+        input_yaml, num_procs,
+        num_text_params, text_params_filename,
+        evaluate_gradient
+    )
+
+    if not evaluate_gradient:
+        J = np.loadtxt("objective_value.txt")
+        return J
+    else:
+        unscaled_params = transform_parameters(params, scales,
+            transform_from_canonical=True)
+        grad = grad_transform(np.loadtxt("objective_gradient.txt"),
+            unscaled_params, scales)
+        return grad
