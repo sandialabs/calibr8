@@ -292,7 +292,7 @@ int HybridHyperJ2PlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> gl
   }
 
   if ((iter > m_max_iters) && (!converged)) {
-    std::cout << "HybridHyperJ2PlaneStress:solve_nonlinear failed in "  << iter << " iterations\n";
+    // std::cout << "HybridHyperJ2PlaneStress:solve_nonlinear failed in "  << iter << " iterations\n";
     return -1;
   }
 

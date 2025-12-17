@@ -209,7 +209,7 @@ int HyperJ2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
   }
 
   if ((iter > m_max_iters) && (!converged)) {
-    std::cout << "HyperJ2:solve_nonlinear failed in "  << iter << " iterations\n";
+    // std::cout << "HyperJ2:solve_nonlinear failed in "  << iter << " iterations\n";
     return -1;
   }
 

@@ -178,7 +178,7 @@ int SmallHillPlaneStress<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global
   }
 
   if ((iter > m_max_iters) && (!converged)) {
-    std::cout << "SmallHillPlaneStress:solve_nonlinear failed in "  << iter << " iterations\n";
+    // std::cout << "SmallHillPlaneStress:solve_nonlinear failed in "  << iter << " iterations\n";
     return -1;
   }
 

@@ -402,7 +402,7 @@ int HypoBarlat<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
   }
 
   if ((iter > m_max_iters) && (!converged)) {
-    std::cout << "HypoBarlat:solve_nonlinear failed in "  << iter << " iterations\n";
+    // std::cout << "HypoBarlat:solve_nonlinear failed in "  << iter << " iterations\n";
     return -1;
   }
 

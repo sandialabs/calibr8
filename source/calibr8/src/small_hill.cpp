@@ -180,7 +180,7 @@ int SmallHill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
   }
 
   if ((iter > m_max_iters) && (!converged)) {
-    std::cout << "SmallHill:solve_nonlinear failed in "  << iter << " iterations\n";
+    // std::cout << "SmallHill:solve_nonlinear failed in "  << iter << " iterations\n";
     return -1;
   }
 

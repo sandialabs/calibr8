@@ -164,7 +164,7 @@ int SmallJ2<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
   }
 
   if ((iter > m_max_iters) && (!converged)) {
-    std::cout << "SmallJ2:solve_nonlinear failed in "  << iter << " iterations\n";
+    // std::cout << "SmallJ2:solve_nonlinear failed in "  << iter << " iterations\n";
     return -1;
   }
 

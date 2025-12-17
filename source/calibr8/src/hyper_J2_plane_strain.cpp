@@ -211,7 +211,7 @@ int HyperJ2PlaneStrain<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) 
   }
 
   if ((iter > m_max_iters) && (!converged)) {
-    std::cout << "HyperJ2PlaneStrain:solve_nonlinear failed in "  << iter << " iterations\n";
+    // std::cout << "HyperJ2PlaneStrain:solve_nonlinear failed in "  << iter << " iterations\n";
     return -1;
   }
 

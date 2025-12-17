@@ -96,25 +96,10 @@ def main():
         options=l_bfgs_b_opts
     )
 
-    #obj_fun = lambda x: evaluate_objective_or_gradient(
-    #    x, *objective_args, False
-    #)
-    #obj_grad = lambda x: evaluate_objective_or_gradient(
-    #    x, *objective_args, True
-    #)
-    #res = minimize(
-    #    fun=obj_fun,
-    #    x0=opt_init_params,
-    #    method="L-BFGS-B",
-    #    jac=obj_grad,
-    #    bounds=opt_bounds,
-    #    options=l_bfgs_b_opts
-    #)
-
     with open("l_bfgs_b_results.pkl", "wb") as file:
         pickle.dump(res, file)
 
-    #write_output_file(opt_params, opt_param_scales, opt_param_names,
-    #    output_file)
+    write_output_file(res.x, opt_param_scales, opt_param_names,
+        output_file)
 
     cleanup_files()

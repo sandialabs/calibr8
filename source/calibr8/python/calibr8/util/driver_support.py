@@ -69,29 +69,3 @@ def evaluate_objective_and_gradient(
     grad = grad_transform(np.loadtxt("objective_gradient.txt"),
         unscaled_params, scales)
     return J, grad
-
-
-def evaluate_objective_or_gradient(
-    params,
-    scales, param_names, block_indices,
-    input_yaml, num_procs,
-    num_text_params, text_params_filename,
-    evaluate_gradient
-):
-
-    run_objective_binary(params,
-        scales, param_names, block_indices,
-        input_yaml, num_procs,
-        num_text_params, text_params_filename,
-        evaluate_gradient
-    )
-
-    if not evaluate_gradient:
-        J = np.loadtxt("objective_value.txt")
-        return J
-    else:
-        unscaled_params = transform_parameters(params, scales,
-            transform_from_canonical=True)
-        grad = grad_transform(np.loadtxt("objective_gradient.txt"),
-            unscaled_params, scales)
-        return grad
