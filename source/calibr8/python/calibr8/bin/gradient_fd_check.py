@@ -8,7 +8,8 @@ from scipy.optimize import fmin_l_bfgs_b
 
 from calibr8.util.driver_support import (
     get_run_command,
-    objective_and_gradient
+    evaluate_objective_and_gradient,
+    evaluate_objective_or_gradient
 )
 
 from calibr8.util.input_file_io import (
@@ -86,25 +87,21 @@ def main():
     random_direction = rng.uniform(-1., 1., num_params)
     perturbations = np.logspace(-2, -9, 8)
 
-    obj_and_grad_run_command = get_run_command(num_procs)
-    obj_only_run_command = get_run_command(num_procs, False)
+    objective_args = (
+        opt_param_scales, opt_param_names, opt_param_block_indices,
+        input_yaml, num_procs,
+        num_text_params, text_parameters_opt_values_filename
+    )
 
-    J_ref, grad_ref = objective_and_gradient(opt_init_params,
-        scales=opt_param_scales, param_names=opt_param_names,
-        block_indices=opt_param_block_indices,
-        input_yaml=input_yaml, run_command=obj_and_grad_run_command,
-        num_text_params=num_text_params,
-        text_params_filename=text_parameters_opt_values_filename
+    J_ref, grad_ref = evaluate_objective_and_gradient(
+        opt_init_params, *objective_args
     )
     ref_dir_deriv = random_direction @ grad_ref
 
-    objective_value = partial(objective_and_gradient,
-        scales=opt_param_scales, param_names=opt_param_names,
-        block_indices=opt_param_block_indices,
-        input_yaml=input_yaml, run_command=obj_only_run_command,
-        num_text_params=num_text_params,
-        text_params_filename=text_parameters_opt_values_filename,
-        evaluate_objective_only=True
+    objective_value = (
+        lambda x: evaluate_objective_or_gradient(
+            x, *(objective_args + (False,))
+        )
     )
 
     print_header(ref_dir_deriv)
@@ -120,7 +117,7 @@ def main():
         fd_dir_deriv = (J_plus - J_minus) / (2. * perturbation)
         abs_diff_dir_deriv = np.abs(ref_dir_deriv - fd_dir_deriv)
 
-        print(f"{perturbation:>19.11e}  {ref_dir_deriv:>15.11e}  "
+        print(f"{perturbation:>19.11e}  {ref_dir_deriv:>15.11e}  " \
               f"{fd_dir_deriv:>15.11e}  {abs_diff_dir_deriv:>15.11e}")
 
     cleanup_files()

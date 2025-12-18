@@ -1,5 +1,6 @@
 import numpy as np
 
+import pickle
 import subprocess
 import yaml
 
@@ -49,6 +50,53 @@ def run_objective_binary(params,
     subprocess.run(["bash", "-c", get_run_command(num_procs, evaluate_gradient)])
 
 
+def evaluate_objective_and_gradient(
+    params,
+    scales, param_names, block_indices,
+    input_yaml, num_procs,
+    num_text_params, text_params_filename,
+):
+    run_objective_binary(params,
+        scales, param_names, block_indices,
+        input_yaml, num_procs,
+        num_text_params, text_params_filename,
+        evaluate_gradient=True
+    )
+
+    obj = np.loadtxt("objective_value.txt")
+
+    unscaled_params = transform_parameters(params, scales,
+        transform_from_canonical=True)
+    grad = grad_transform(np.loadtxt("objective_gradient.txt"),
+        unscaled_params, scales)
+
+    return obj, grad
+
+
+def evaluate_objective_or_gradient(
+    params,
+    scales, param_names, block_indices,
+    input_yaml, num_procs,
+    num_text_params, text_params_filename,
+    evaluate_gradient
+):
+    run_objective_binary(params,
+        scales, param_names, block_indices,
+        input_yaml, num_procs,
+        num_text_params, text_params_filename,
+        evaluate_gradient
+    )
+
+    if not evaluate_gradient:
+        return np.loadtxt("objective_value.txt")
+    else:
+        unscaled_params = transform_parameters(params, scales,
+            transform_from_canonical=True)
+        grad = grad_transform(np.loadtxt("objective_gradient.txt"),
+            unscaled_params, scales)
+
+    return grad
+
 
 class OptimizationIterator():
     def __init__(self, objective_args):
@@ -58,26 +106,16 @@ class OptimizationIterator():
             )
         )
 
+        self._iterate = None
+        self._objective = None
+        self._gradient = None
         self._num_calls = 0
-        self.reset_iteration_history_variables()
 
         self.history = {}
-        self.history["first iterate"] = []
-        self.history["first objective"] = []
-        self.history["first gradient"] = []
-        self.history["last iterate"] = []
-        self.history["last objective"] = []
-        self.history["last gradient"] = []
+        self.history["iterate"] = []
+        self.history["objective"] = []
+        self.history["gradient"] = []
         self.history["num_calls"] = []
-
-
-    def reset_iteration_history_variables(self):
-        self._first_iterate = None
-        self._first_objective = None
-        self._first_gradient = None
-        self._last_iterate = None
-        self._last_objective = None
-        self._last_gradient = None
 
 
     def evaluate_objective_and_gradient(self,
@@ -86,9 +124,7 @@ class OptimizationIterator():
         input_yaml, num_procs,
         num_text_params, text_params_filename,
     ):
-
         self._num_calls += 1
-        self.reset_iteration_history_variables()
 
         run_objective_binary(params,
             scales, param_names, block_indices,
@@ -105,26 +141,20 @@ class OptimizationIterator():
             unscaled_params, scales)
 
         if self._num_calls == 1:
-            self._first_iterate = unscaled_params.copy()
-            self._first_objective = obj
-            self._first_gradient = grad.copy()
-        else:
-            self._last_iterate = unscaled_params.copy()
-            self._last_objective = obj
-            self._last_gradient = grad.copy()
+            self._iterate = unscaled_params.copy()
+            self._objective = obj
+            self._gradient = grad.copy()
 
         return obj, grad
 
 
     def callback(self, x):
-        self.history["first iterate"].append(self._first_iterate)
-        self.history["first objective"].append(self._first_objective)
-        self.history["first gradient"].append(self._first_gradient)
-
-        self.history["last iterate"].append(self._last_iterate)
-        self.history["last objective"].append(self._last_objective)
-        self.history["last gradient"].append(self._last_gradient)
-
+        self.history["iterate"].append(self._iterate)
+        self.history["objective"].append(self._objective)
+        self.history["gradient"].append(self._gradient)
         self.history["num_calls"].append(self._num_calls)
+
+        with open("optimization_history.pkl", "wb") as file:
+            pickle.dump(self.history, file)
+
         self._num_calls = 0
-        self.reset_iteration_history_variables
