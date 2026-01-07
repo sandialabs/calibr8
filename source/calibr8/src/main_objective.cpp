@@ -45,7 +45,7 @@ class Objective
     Objective(RCP<ParameterList> params, bool evaluate_gradient);
     ~Objective() {};
     virtual void evaluate() = 0;
-    void write_output();
+    void write_output(std::string const output_label);
     void cleanup();
   protected:
     void setup_opt_params(ParameterList const& inverse_params);
@@ -92,18 +92,18 @@ Objective::Objective(RCP<ParameterList> params, bool evaluate_gradient)
   setup_opt_params(m_params->sublist("inverse", true));
 }
 
-void Objective::write_output()
+void Objective::write_output(std::string const output_label)
 {
   if (PCU_Comm_Self() == 0) {
     std::ofstream obj_file;
-    std::string const obj_filename = "objective_value.txt";
+    std::string const obj_filename = "objective_value" + output_label + ".txt";
     obj_file.open(obj_filename);
     obj_file << std::scientific << std::setprecision(17);
     obj_file << m_objective_value << "\n";
     obj_file.close();
     if (m_evaluate_gradient) {
       std::ofstream grad_file;
-      std::string const grad_filename = "objective_gradient.txt";
+      std::string const grad_filename = "objective_gradient" + output_label + ".txt";
       grad_file.open(grad_filename);
       grad_file << std::scientific << std::setprecision(17);
       for (int i = 0; i < m_num_opt_params; ++i) {
@@ -426,7 +426,7 @@ static RCP<Objective> create_objective(
 int main(int argc, char** argv)
 {
   initialize();
-  ALWAYS_ASSERT(argc == 3);
+  ALWAYS_ASSERT(argc == 3 || argc == 4);
   {
     std::string const yaml_input = argv[1];
     std::string const compute_gradient = argv[2];
@@ -437,13 +437,18 @@ int main(int argc, char** argv)
       evaluate_gradient = false;
     }
 
+    std::string output_label = "";
+    if (argc == 4) {
+      output_label = "_" + std::string(argv[3]);
+    };
+
     auto params = rcp(new ParameterList);
     Teuchos::updateParametersFromYamlFile(yaml_input, params.ptr());
 
     RCP<Objective> objective = create_objective(params, evaluate_gradient);
     objective->evaluate();
     objective->cleanup();
-    objective->write_output();
+    objective->write_output(output_label);
   }
   finalize();
 }
