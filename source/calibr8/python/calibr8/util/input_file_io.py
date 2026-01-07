@@ -244,5 +244,5 @@ def write_output_file(opt_params, opt_param_scales, param_names,
 
 
 def cleanup_files():
-    files = ["run.yaml", "objective_value.txt", "objective_gradient.txt"]
-    subprocess.run(["rm"] + files)
+    files = "run*.yaml objective_value*.txt objective_gradient*.txt"
+    subprocess.run(f"rm {files}", shell=True)
