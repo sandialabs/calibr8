@@ -37,35 +37,6 @@ def get_run_command(num_procs, evaluate_gradient=True, problem_idx=None):
     return cmd
 
 
-def run_objective_binary(params,
-    scales, param_names, block_indices,
-    input_yaml, num_procs,
-    num_text_params, text_params_filename,
-    evaluate_gradient
-):
-    unscaled_params = transform_parameters(params, scales,
-        transform_from_canonical=True)
-
-    num_params = len(params)
-    num_input_file_params = num_params - num_text_params
-
-    if num_input_file_params > 0:
-        update_yaml_input_file_parameters(input_yaml,
-            param_names[:num_input_file_params],
-            unscaled_params[:num_input_file_params],
-            block_indices[:num_input_file_params]
-        )
-
-    with open("run.yaml", "w") as file:
-        yaml.dump(input_yaml, file, default_flow_style=False, sort_keys=False,
-            Dumper=IndentDumper)
-
-    if text_params_filename is not None:
-        np.savetxt(text_params_filename, unscaled_params[-num_text_params:])
-
-    subprocess.run(get_run_command(num_procs, evaluate_gradient))
-
-
 def run_objective_binaries(params,
     scales, param_names, block_indices,
     input_yamls, num_procs,
@@ -108,22 +79,33 @@ def run_objective_binaries(params,
 def evaluate_objective_and_gradient(
     params,
     scales, param_names, block_indices,
-    input_yaml, num_procs,
+    input_yamls, num_procs,
     num_text_params, text_params_filename,
 ):
-    run_objective_binary(params,
+    run_objective_binaries(params,
         scales, param_names, block_indices,
-        input_yaml, num_procs,
+        input_yamls, num_procs,
         num_text_params, text_params_filename,
         evaluate_gradient=True
     )
 
-    obj = np.loadtxt("objective_value.txt")
+    obj = 0.
 
     unscaled_params = transform_parameters(params, scales,
         transform_from_canonical=True)
-    grad = grad_transform(np.loadtxt("objective_gradient.txt"),
-        unscaled_params, scales)
+    unscaled_grad = np.zeros(len(unscaled_params))
+
+    for idx in range(len(input_yamls)):
+        obj_file = f"objective_value_{idx}.txt"
+        obj += np.loadtxt(obj_file)
+
+        unscaled_grad_file = f"objective_gradient_{idx}.txt"
+        unscaled_grad += np.loadtxt(unscaled_grad_file)
+
+    grad = grad_transform(
+        unscaled_grad,
+        unscaled_params, scales
+    )
 
     return obj, grad
 
@@ -131,24 +113,38 @@ def evaluate_objective_and_gradient(
 def evaluate_objective_or_gradient(
     params,
     scales, param_names, block_indices,
-    input_yaml, num_procs,
+    input_yamls, num_procs,
     num_text_params, text_params_filename,
     evaluate_gradient
 ):
-    run_objective_binary(params,
+    run_objective_binaries(params,
         scales, param_names, block_indices,
-        input_yaml, num_procs,
+        input_yamls, num_procs,
         num_text_params, text_params_filename,
         evaluate_gradient
     )
 
     if not evaluate_gradient:
-        return np.loadtxt("objective_value.txt")
+
+        obj = 0.
+        for idx in range(len(input_yamls)):
+            obj_file = f"objective_value_{idx}.txt"
+            obj += np.loadtxt(obj_file)
+        return obj
+
     else:
+
         unscaled_params = transform_parameters(params, scales,
             transform_from_canonical=True)
-        grad = grad_transform(np.loadtxt("objective_gradient.txt"),
-            unscaled_params, scales)
+        unscaled_grad = np.zeros(len(unscaled_params))
+        for idx in range(len(input_yamls)):
+            unscaled_grad_file = f"objective_gradient_{idx}.txt"
+            unscaled_grad += np.loadtxt(unscaled_grad_file)
+
+        grad = grad_transform(
+            unscaled_grad,
+            unscaled_params, scales
+        )
 
     return grad
 
@@ -181,49 +177,16 @@ class OptimizationIterator():
     ):
         self._num_calls += 1
 
+        obj, grad = evaluate_objective_and_gradient(
+            params,
+            scales, param_names, block_indices,
+            input_yamls, num_procs,
+            num_text_params, text_params_filename,
+        )
+
         unscaled_params = transform_parameters(params, scales,
             transform_from_canonical=True
         )
-
-        if len(input_yamls) == 1:
-
-            run_objective_binary(params,
-                scales, param_names, block_indices,
-                input_yamls[0], num_procs,
-                num_text_params, text_params_filename,
-                evaluate_gradient=True
-            )
-
-            obj = np.loadtxt("objective_value.txt")
-
-            grad = grad_transform(
-                np.loadtxt("objective_gradient.txt"),
-                unscaled_params, scales
-            )
-
-        else:
-
-            run_objective_binaries(params,
-                scales, param_names, block_indices,
-                input_yamls, num_procs,
-                num_text_params, text_params_filename,
-                evaluate_gradient=True
-            )
-
-            obj = 0.
-            unscaled_grad = np.zeros(len(unscaled_params))
-
-            for idx in range(len(input_yamls)):
-                obj_file = f"objective_value_{idx}.txt"
-                obj += np.loadtxt(obj_file)
-
-                unscaled_grad_file = f"objective_gradient_{idx}.txt"
-                unscaled_grad += np.loadtxt(unscaled_grad_file)
-
-            grad = grad_transform(
-                unscaled_grad,
-                unscaled_params, scales
-            )
 
         if self._num_calls == 1:
             self._iterate = unscaled_params.copy()

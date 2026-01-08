@@ -36,7 +36,8 @@ def print_header(ref_dir_deriv):
 def main():
     parser = \
         argparse.ArgumentParser(description="calibrate with a python optimizer")
-    parser.add_argument("input_file", type=str, help="inverse input yaml file")
+    parser.add_argument("input_files", type=str,
+        nargs="+", help="inverse input yaml file(s)")
     parser.add_argument("-n", "--num_procs", type=int, default=1,
         help="number of MPI ranks")
     parser.add_argument("-s", "--seed", type=int, default=22,
@@ -54,7 +55,7 @@ def main():
 
     args = parser.parse_args()
 
-    input_file = args.input_file
+    input_files = args.input_files
 
     # optional arguments that have defaults
     num_procs = args.num_procs
@@ -74,12 +75,13 @@ def main():
     )
     num_text_params = len(text_params_data[0])
 
-    with open(input_file, "r") as file:
-        input_yaml = yaml.safe_load(file)
+    input_yamls = [
+        yaml.safe_load(open(input_file, "r")) for input_file in input_files
+    ]
 
     opt_param_names, opt_param_scales, opt_param_block_indices, \
         opt_init_params, opt_bounds = \
-        setup_opt_parameters(input_yaml, text_params_data)
+        setup_opt_parameters(input_yamls[0], text_params_data)
 
     # make input parameter
     rng = np.random.default_rng(rng_seed)
@@ -89,7 +91,7 @@ def main():
 
     objective_args = (
         opt_param_scales, opt_param_names, opt_param_block_indices,
-        input_yaml, num_procs,
+        input_yamls, num_procs,
         num_text_params, text_parameters_opt_values_filename
     )
 
