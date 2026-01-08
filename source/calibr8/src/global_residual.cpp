@@ -527,7 +527,11 @@ void GlobalResidual<FADT>::scatter_lhs(
     EMatrix const& dtotal,
     Array2D<RCP<MatrixT>>& dR_dx) {
 
-  using Teuchos::arrayView;
+  Teuchos::Array<LO> colIndices;
+  Teuchos::Array<double> values;
+
+  colIndices.reserve(m_num_dofs);
+  values.reserve(m_num_dofs);
 
   // get the mesh entity associated with the 'mesh element'
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
@@ -543,21 +547,23 @@ void GlobalResidual<FADT>::scatter_lhs(
         // loop over the second residual index
         for (int j = 0; j < m_num_residuals; ++j) {
           Array2D<LO> const cols = disc->get_element_lids(ent, j);
+          colIndices.clear();
+          values.clear();
           for (int j_node = 0; j_node < m_num_nodes; ++j_node) {
             for (int j_eq = 0; j_eq < m_num_eqs[j]; ++j_eq) {
               int const j_idx = dx_idx(j, j_node, j_eq);
               LO const col = cols[j_node][j_eq];
               double const dx = dtotal(i_idx, j_idx);
-              dR_dx[i][j]->sumIntoLocalValues(
-                  row, arrayView(&col, 1), arrayView(&dx, 1), 1);
+              colIndices.push_back(col);
+              values.push_back(dx);
             }
           }
-
+          dR_dx[i][j]->sumIntoLocalValues(row, colIndices, values);
         }
+
       }
     }
   }
-
 }
 
 template <>
