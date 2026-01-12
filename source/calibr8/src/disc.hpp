@@ -206,7 +206,9 @@ class Disc {
     //! \brief Get the local IDs associated with a PDE residual
     //! \param elem The mesh entity corresponding to an element
     //! \param i The residual index of interest
-    Array2D<LO> get_element_lids(apf::MeshEntity* elem, int i);
+    //! \param Array2D<LO>& element local ids
+    inline Array2D<LO>& elem_lids(apf::MeshEntity* elem, int i)
+    { return m_elem_lids[m_elem_map[elem]][i]; }
 
     //! \brief Get the local ID associated with a PDE residual
     //! \param n The node object
@@ -434,6 +436,7 @@ class Disc {
     void initialize();
 
     void compute_node_map();
+    void compute_elem_lids();
     void compute_coords();
     void compute_owned_maps();
     void compute_ghost_maps();
@@ -455,6 +458,8 @@ class Disc {
 
     void create_time(ParameterList const& params);
 
+    std::unordered_map<apf::MeshEntity*, LO> m_elem_map;
+    Array2D<Array2D<LO>> m_elem_lids;
 };
 
 }

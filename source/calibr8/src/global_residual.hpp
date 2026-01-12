@@ -310,6 +310,9 @@ class GlobalResidual {
 
     Array1D<int> m_dx_offsets;
 
+    Teuchos::Array<LO> m_col_indices;
+    Teuchos::Array<double> m_col_values;
+
     apf::Mesh* m_mesh = nullptr;
     apf::FieldShape* m_shape = nullptr;
     apf::MeshElement* m_mesh_elem = nullptr;

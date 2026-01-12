@@ -410,6 +410,31 @@ void Disc::compute_graphs() {
   m_global_nmbr = 0;
 }
 
+void Disc::compute_elem_lids() {
+  resize(m_elem_lids, apf::countOwned(m_mesh, m_num_dims), m_num_residuals);
+  apf::MeshEntity* elem;
+  apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
+  LO elem_number = 0;
+  while ((elem = m_mesh->iterate(elems))) {
+    apf::NewArray<int> node_ids;
+    size_t const num_nodes = apf::getElementNumbers(m_ghost_nmbr, elem, node_ids);
+    for (size_t i = 0; i < m_num_residuals; ++i) {
+      int const num_i_eqs = m_num_eqs[i];
+      Array2D<LO> lids;
+      resize(lids, num_nodes, num_i_eqs);
+      for (size_t n = 0; n < num_nodes; ++n) {
+        for (size_t eq = 0; eq < num_i_eqs; ++eq) {
+          lids[n][eq] = get_dof(node_ids[n], eq, num_i_eqs);
+        }
+      }
+      m_elem_lids[elem_number][i] = lids;
+      m_elem_map[elem] = elem_number;
+    }
+    ++elem_number;
+  }
+  m_mesh->end(elems);
+}
+
 void Disc::compute_elem_sets() {
   for (int i = 0; i < m_num_elem_sets; ++i) {
     resize(m_elem_sets[ elem_set_name(i) ], 0);
@@ -498,6 +523,7 @@ void Disc::build_data(int num_residuals, Array1D<int> const& num_eqs) {
   compute_exporters();
   compute_importers();
   compute_graphs();
+  compute_elem_lids();
   compute_elem_sets();
   compute_side_sets();
   if (!m_is_null_model) {
@@ -536,20 +562,7 @@ void Disc::destroy_data() {
   m_global_nmbr = nullptr;
   m_num_residuals = -1;
   m_num_eqs = {};
-}
-
-Array2D<LO> Disc::get_element_lids(apf::MeshEntity* e, int i) {
-  Array2D<LO> lids;
-  apf::NewArray<int> node_ids;
-  int const num_i_eqs = num_eqs(i);
-  int const num_nodes = apf::getElementNumbers(m_ghost_nmbr, e, node_ids);
-  resize(lids, num_nodes, num_i_eqs);
-  for (int n = 0; n < num_nodes; ++n) {
-    for (int eq = 0; eq < num_i_eqs; ++eq) {
-      lids[n][eq] = get_dof(node_ids[n], eq, num_i_eqs);
-    }
-  }
-  return lids;
+  resize(m_elem_lids, 0, 0);
 }
 
 LO Disc::get_lid(apf::Node const& n, int i, int eq) {

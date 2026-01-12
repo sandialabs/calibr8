@@ -140,6 +140,8 @@ void GlobalResidual<T>::before_elems(
     m_num_dofs += m_num_eqs[i] * m_num_nodes;
   }
 
+  m_col_indices.reserve(m_num_dofs);
+  m_col_values.reserve(m_num_dofs);
 }
 
 template <typename T>
@@ -463,7 +465,7 @@ void GlobalResidual<T>::scatter_rhs(
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
   for (int i = 0; i < m_num_residuals; ++i) {
     auto R_data = RHS[i]->get1dViewNonConst();
-    Array2D<LO> const rows = disc->get_element_lids(ent, i);
+    Array2D<LO> const& rows = disc->elem_lids(ent, i);
     for (int n = 0; n < m_num_nodes; ++n) {
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
         LO const row = rows[n][eq];
@@ -482,7 +484,7 @@ void GlobalResidual<T>::scatter_sens(
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
   int const num_params = sens.cols();
   for (int i = 0; i < m_num_residuals; ++i) {
-    Array2D<LO> const rows = disc->get_element_lids(ent, i);
+    Array2D<LO> const& rows = disc->elem_lids(ent, i);
     for (int p = 0 ; p < num_params; ++p) {
       auto dR_data = MV[i]->getVectorNonConst(p)->get1dViewNonConst();
       for (int n = 0; n < m_num_nodes; ++n) {
@@ -504,7 +506,7 @@ void GlobalResidual<T>::assign_rhs(
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
   for (int i = 0; i < m_num_residuals; ++i) {
     auto R_data = RHS[i]->get1dViewNonConst();
-    Array2D<LO> const rows = disc->get_element_lids(ent, i);
+    Array2D<LO> const& rows = disc->elem_lids(ent, i);
     for (int n = 0; n < m_num_nodes; ++n) {
       for (int eq = 0; eq < m_num_eqs[i]; ++eq) {
         LO const row = rows[n][eq];
@@ -527,18 +529,12 @@ void GlobalResidual<FADT>::scatter_lhs(
     EMatrix const& dtotal,
     Array2D<RCP<MatrixT>>& dR_dx) {
 
-  Teuchos::Array<LO> colIndices;
-  Teuchos::Array<double> values;
-
-  colIndices.reserve(m_num_dofs);
-  values.reserve(m_num_dofs);
-
   // get the mesh entity associated with the 'mesh element'
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
 
   // loop over the first residual index
   for (int i = 0; i < m_num_residuals; ++i) {
-    Array2D<LO> const rows = disc->get_element_lids(ent, i);
+    Array2D<LO> const& rows = disc->elem_lids(ent, i);
     for (int i_node = 0; i_node < m_num_nodes; ++i_node) {
       for (int i_eq = 0; i_eq < m_num_eqs[i]; ++i_eq) {
         int const i_idx = dx_idx(i, i_node, i_eq);
@@ -546,19 +542,19 @@ void GlobalResidual<FADT>::scatter_lhs(
 
         // loop over the second residual index
         for (int j = 0; j < m_num_residuals; ++j) {
-          Array2D<LO> const cols = disc->get_element_lids(ent, j);
-          colIndices.clear();
-          values.clear();
+          Array2D<LO> const& cols = disc->elem_lids(ent, j);
+          m_col_indices.clear();
+          m_col_values.clear();
           for (int j_node = 0; j_node < m_num_nodes; ++j_node) {
             for (int j_eq = 0; j_eq < m_num_eqs[j]; ++j_eq) {
               int const j_idx = dx_idx(j, j_node, j_eq);
               LO const col = cols[j_node][j_eq];
               double const dx = dtotal(i_idx, j_idx);
-              colIndices.push_back(col);
-              values.push_back(dx);
+              m_col_indices.push_back(col);
+              m_col_values.push_back(dx);
             }
           }
-          dR_dx[i][j]->sumIntoLocalValues(row, colIndices, values);
+          dR_dx[i][j]->sumIntoLocalValues(row, m_col_indices, m_col_values);
         }
 
       }
@@ -592,6 +588,8 @@ void GlobalResidual<T>::after_elems() {
   m_R_nodal.resize(0);
   m_x_prev_nodal.resize(0);
   m_dx_offsets.resize(0);
+  m_col_indices.resize(0);
+  m_col_values.resize(0);
   m_x.resize(0);
   m_x_prev.resize(0);
   m_grad_x.resize(0);
