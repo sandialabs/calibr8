@@ -13,6 +13,29 @@ from calibr8.util.parameter_transforms import (
 )
 
 
+def standard_parser():
+    parser = \
+        argparse.ArgumentParser(description="calibrate with a python optimizer")
+    parser.add_argument("input_files", type=str,
+        nargs="+", help="inverse input yaml file(s)")
+    parser.add_argument("-n", "--num_procs", type=int, default=1,
+        help="number of MPI ranks")
+    # will be read in
+    parser.add_argument("-pi", "--text_parameters_initial_values_file",
+        type=str,
+        help="text file that contains additional parameters initial values")
+    parser.add_argument("-ps", "--text_parameters_scales_file", type=str,
+        help="text file that contains additional parameters scales")
+    # will be written
+    parser.add_argument("-po", "--text_parameters_opt_values_filename",
+        type=str,
+        help="name for text file that contains text parameters values")
+    parser.add_argument("--use_srun", action="store_true",
+        help="flag to indicate whether to use srun instead of mpirun")
+
+    return parser
+
+
 class IndentDumper(yaml.Dumper):
     def increase_indent(self, flow=False, indentless=False):
         return super(IndentDumper, self).increase_indent(flow, False)

@@ -7,6 +7,7 @@ import yaml
 from scipy.optimize import minimize
 
 from calibr8.util.driver_support import (
+    evaluate_objective_and_gradient,
     OptimizationIterator
 )
 
@@ -15,30 +16,18 @@ from calibr8.util.input_file_io import (
     get_opt_options,
     setup_opt_parameters,
     setup_text_parameters,
+    standard_parser,
     write_output_file
 )
 
 
 def main():
-    parser = \
-        argparse.ArgumentParser(description="calibrate with a python optimizer")
-    parser.add_argument("input_files", type=str,
-        nargs="+", help="inverse input yaml file(s)")
-    parser.add_argument("-n", "--num_procs", type=int, default=1,
-        help="number of MPI ranks")
+    parser = standard_parser()
     parser.add_argument("-o", "--output_file", type=str,
         default="calibrated_params.txt",
         help="output file that contains the calibrated parameters")
-    # will be read in
-    parser.add_argument("-pi", "--text_parameters_initial_values_file",
-        type=str,
-        help="text file that contains additional parameters initial values")
-    parser.add_argument("-ps", "--text_parameters_scales_file", type=str,
-        help="text file that contains additional parameters scales")
-    # will be written
-    parser.add_argument("-po", "--text_parameters_opt_values_filename",
-        type=str,
-        help="name for text file that contains text parameters values")
+    parser.add_argument("--run_objective_only", action="store_true",
+        help="flag to indicate whether to run objective only (no optimization)")
 
     args = parser.parse_args()
 
@@ -47,6 +36,8 @@ def main():
     # optional arguments that have defaults
     num_procs = args.num_procs
     output_file = args.output_file
+    use_srun = args.use_srun
+    run_objective_only = args.run_objective_only
 
     # optional arguments that do not have defaults
     text_parameters_initial_values_file = \
@@ -81,25 +72,28 @@ def main():
 
     objective_args = (
         opt_param_scales, opt_param_names, opt_param_block_indices,
-        input_yamls, num_procs,
+        input_yamls, num_procs, use_srun,
         num_text_params, text_parameters_opt_values_filename
     )
-    opt_iterator = OptimizationIterator(objective_args)
 
-    res = minimize(
-        fun=opt_iterator.objective_fun_and_grad,
-        x0=opt_init_params,
-        method="L-BFGS-B",
-        jac=True,
-        bounds=opt_bounds,
-        options=l_bfgs_b_opts,
-        callback=opt_iterator.callback
-    )
+    if run_objective_only:
+        evaluate_objective_and_gradient(opt_init_params, *objective_args)
+    else:
+        opt_iterator = OptimizationIterator(objective_args)
+        res = minimize(
+            fun=opt_iterator.objective_fun_and_grad,
+            x0=opt_init_params,
+            method="L-BFGS-B",
+            jac=True,
+            bounds=opt_bounds,
+            options=l_bfgs_b_opts,
+            callback=opt_iterator.callback
+        )
 
-    with open("minimize_results.pkl", "wb") as file:
-        pickle.dump(res, file)
+        with open("minimize_results.pkl", "wb") as file:
+            pickle.dump(res, file)
 
-    write_output_file(res.x, opt_param_scales, opt_param_names,
-        output_file)
+        write_output_file(res.x, opt_param_scales, opt_param_names,
+            output_file)
 
-    cleanup_files()
+        cleanup_files()

@@ -17,6 +17,7 @@ from calibr8.util.input_file_io import (
     get_opt_options,
     setup_opt_parameters,
     setup_text_parameters,
+    standard_parser,
     write_output_file
 )
 
@@ -34,24 +35,7 @@ def print_header(ref_dir_deriv):
 
 
 def main():
-    parser = \
-        argparse.ArgumentParser(description="calibrate with a python optimizer")
-    parser.add_argument("input_files", type=str,
-        nargs="+", help="inverse input yaml file(s)")
-    parser.add_argument("-n", "--num_procs", type=int, default=1,
-        help="number of MPI ranks")
-    parser.add_argument("-s", "--seed", type=int, default=22,
-        help="seed for random direction RNG")
-    # will be read in
-    parser.add_argument("-pi", "--text_parameters_initial_values_file",
-        type=str,
-        help="text file that contains additional parameters initial values")
-    parser.add_argument("-ps", "--text_parameters_scales_file", type=str,
-        help="text file that contains additional parameters scales")
-    # will be written
-    parser.add_argument("-po", "--text_parameters_opt_values_filename",
-        type=str,
-        help="name for text file that contains text parameters values")
+    parser = standard_parser()
 
     args = parser.parse_args()
 
@@ -91,7 +75,7 @@ def main():
 
     objective_args = (
         opt_param_scales, opt_param_names, opt_param_block_indices,
-        input_yamls, num_procs,
+        input_yamls, num_procs, use_srun,
         num_text_params, text_parameters_opt_values_filename
     )
 

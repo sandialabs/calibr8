@@ -16,8 +16,15 @@ from calibr8.util.parameter_transforms import (
 )
 
 
-def get_run_command(num_procs, evaluate_gradient=True, problem_idx=None):
-    cmd = ["mpiexec", "-n", f"{num_procs}", "objective"]
+def get_run_command(
+    num_procs, use_srun, evaluate_gradient=True, problem_idx=None
+):
+    if use_srun:
+        cmd = ["srun", "--exact"]
+    else:
+        cmd = ["mpirun"]
+
+    cmd += ["-n", f"{num_procs}", "objective"]
 
     if problem_idx is None:
         problem_str = ""
@@ -39,7 +46,7 @@ def get_run_command(num_procs, evaluate_gradient=True, problem_idx=None):
 
 def run_objective_binaries(params,
     scales, param_names, block_indices,
-    input_yamls, num_procs,
+    input_yamls, num_procs, use_srun,
     num_text_params, text_params_filename,
     evaluate_gradient
 ):
@@ -70,7 +77,9 @@ def run_objective_binaries(params,
                 Dumper=IndentDumper
             )
 
-        run_commands.append(get_run_command(num_procs, evaluate_gradient, idx))
+        run_commands.append(get_run_command(
+            num_procs, use_srun, evaluate_gradient, idx
+        ))
 
     with ProcessPoolExecutor() as executor:
         executor.map(subprocess.run, run_commands)
@@ -79,12 +88,12 @@ def run_objective_binaries(params,
 def evaluate_objective_and_gradient(
     params,
     scales, param_names, block_indices,
-    input_yamls, num_procs,
+    input_yamls, num_procs, use_srun,
     num_text_params, text_params_filename,
 ):
     run_objective_binaries(params,
         scales, param_names, block_indices,
-        input_yamls, num_procs,
+        input_yamls, num_procs, use_srun,
         num_text_params, text_params_filename,
         evaluate_gradient=True
     )
@@ -113,13 +122,13 @@ def evaluate_objective_and_gradient(
 def evaluate_objective_or_gradient(
     params,
     scales, param_names, block_indices,
-    input_yamls, num_procs,
+    input_yamls, num_procs, use_srun,
     num_text_params, text_params_filename,
     evaluate_gradient
 ):
     run_objective_binaries(params,
         scales, param_names, block_indices,
-        input_yamls, num_procs,
+        input_yamls, num_procs, use_srun,
         num_text_params, text_params_filename,
         evaluate_gradient
     )
@@ -172,7 +181,7 @@ class OptimizationIterator():
     def evaluate_objective_and_gradient(self,
         params,
         scales, param_names, block_indices,
-        input_yamls, num_procs,
+        input_yamls, num_procs, use_srun,
         num_text_params, text_params_filename,
     ):
         self._num_calls += 1
@@ -180,7 +189,7 @@ class OptimizationIterator():
         obj, grad = evaluate_objective_and_gradient(
             params,
             scales, param_names, block_indices,
-            input_yamls, num_procs,
+            input_yamls, num_procs, use_srun,
             num_text_params, text_params_filename,
         )
 
