@@ -79,7 +79,7 @@ void solve(
 
   linearSolverBuilder->setPreconditioningStrategyFactory(
       Teuchos::abstractFactoryStd<PreconditionerBase, Ifpack2Impl>(), "Ifpack2");
-  Stratimikos::enableMueLu<LO, GO, NodeT>(*linearSolverBuilder, "MueLu");
+  Stratimikos::enableMueLu<double, LO, GO, NodeT>(*linearSolverBuilder, "MueLu");
 
   Teuchos::RCP<Teko::RequestHandler> requestHandler_;
   Teko::addTekoToStratimikosBuilder(*linearSolverBuilder, requestHandler_);
