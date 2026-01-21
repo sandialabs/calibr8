@@ -16,6 +16,11 @@ from calibr8.util.parameter_transforms import (
 )
 
 
+def subprocess_with_output(command, output_file):
+    with open(output_file, "w") as file:
+        subprocess.run(command, stdout=file, stderr=file)
+
+
 def get_run_command(
     num_procs, use_srun, evaluate_gradient=True, problem_idx=None
 ):
@@ -60,6 +65,7 @@ def run_objective_binaries(params,
         np.savetxt(text_params_filename, unscaled_params[-num_text_params:])
 
     run_commands = []
+    run_output_files = []
 
     for idx, input_yaml in enumerate(input_yamls):
 
@@ -70,8 +76,9 @@ def run_objective_binaries(params,
                 block_indices[:num_input_file_params]
             )
 
-        run_file = f"run_{idx}.yaml"
-        with open(run_file, "w") as file:
+        run_input_file = f"run_{idx}.yaml"
+        run_output_file = f"run_{idx}.out"
+        with open(run_input_file, "w") as file:
             yaml.dump(input_yaml, file,
                 default_flow_style=False, sort_keys=False,
                 Dumper=IndentDumper
@@ -80,9 +87,10 @@ def run_objective_binaries(params,
         run_commands.append(get_run_command(
             num_procs, use_srun, evaluate_gradient, idx
         ))
+        run_output_files.append(run_output_file)
 
     with ProcessPoolExecutor() as executor:
-        executor.map(subprocess.run, run_commands)
+        executor.map(subprocess_with_output, run_commands, run_output_files)
 
 
 def evaluate_objective_and_gradient(
