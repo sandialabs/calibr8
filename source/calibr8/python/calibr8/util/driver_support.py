@@ -17,8 +17,12 @@ from calibr8.util.parameter_transforms import (
 
 
 def subprocess_with_output(command, output_file):
-    with open(output_file, "w") as file:
-        subprocess.run(command, stdout=file, stderr=file)
+    try:
+        with open(output_file, "w") as file:
+            subprocess.run(command, stdout=file, stderr=file, check=True)
+        return 0
+    except subprocess.CalledProcessError:
+        return 1
 
 
 def get_run_command(
@@ -55,8 +59,9 @@ def run_objective_binaries(params,
     num_text_params, text_params_filename,
     evaluate_gradient
 ):
-    unscaled_params = transform_parameters(params, scales,
-        transform_from_canonical=True)
+    unscaled_params = transform_parameters(
+        params, scales, transform_from_canonical=True
+    )
 
     num_params = len(params)
     num_input_file_params = num_params - num_text_params
@@ -90,7 +95,15 @@ def run_objective_binaries(params,
         run_output_files.append(run_output_file)
 
     with ProcessPoolExecutor() as executor:
-        executor.map(subprocess_with_output, run_commands, run_output_files)
+        results = executor.map(
+            subprocess_with_output, run_commands, run_output_files
+        )
+
+    if np.sum(results) == 0:
+        return True
+    else:
+        print("Simulation failure!")
+        return False
 
 
 def evaluate_objective_and_gradient(
@@ -98,33 +111,37 @@ def evaluate_objective_and_gradient(
     scales, param_names, block_indices,
     input_yamls, num_procs, use_srun,
     num_text_params, text_params_filename,
+    obj_prev=None, grad_prev=None
 ):
-    run_objective_binaries(params,
+    success = run_objective_binaries(params,
         scales, param_names, block_indices,
         input_yamls, num_procs, use_srun,
         num_text_params, text_params_filename,
         evaluate_gradient=True
     )
 
-    obj = 0.
+    if success:
+        obj = 0.
 
-    unscaled_params = transform_parameters(params, scales,
-        transform_from_canonical=True)
-    unscaled_grad = np.zeros(len(unscaled_params))
+        unscaled_params = transform_parameters(params, scales,
+            transform_from_canonical=True)
+        unscaled_grad = np.zeros(len(unscaled_params))
 
-    for idx in range(len(input_yamls)):
-        obj_file = f"objective_value_{idx}.txt"
-        obj += np.loadtxt(obj_file)
+        for idx in range(len(input_yamls)):
+            obj_file = f"objective_value_{idx}.txt"
+            obj += np.loadtxt(obj_file)
 
-        unscaled_grad_file = f"objective_gradient_{idx}.txt"
-        unscaled_grad += np.loadtxt(unscaled_grad_file)
+            unscaled_grad_file = f"objective_gradient_{idx}.txt"
+            unscaled_grad += np.loadtxt(unscaled_grad_file)
 
-    grad = grad_transform(
-        unscaled_grad,
-        unscaled_params, scales
-    )
+        grad = grad_transform(
+            unscaled_grad,
+            unscaled_params, scales
+        )
 
-    return obj, grad
+        return obj, grad
+    else:
+        return obj_prev, grad_prev
 
 
 def evaluate_objective_or_gradient(
@@ -185,6 +202,9 @@ class OptimizationIterator():
         self.history["gradient"] = []
         self.history["num_calls"] = []
 
+        self._obj_prev = None
+        self._grad_prev = None
+
 
     def evaluate_objective_and_gradient(self,
         params,
@@ -199,7 +219,10 @@ class OptimizationIterator():
             scales, param_names, block_indices,
             input_yamls, num_procs, use_srun,
             num_text_params, text_params_filename,
+            self._obj_prev, self._grad_prev
         )
+        self._obj_prev = obj.copy()
+        self._grad_prev = grad.copy()
 
         unscaled_params = transform_parameters(params, scales,
             transform_from_canonical=True
