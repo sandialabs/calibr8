@@ -266,6 +266,8 @@ def write_output_file(opt_params, opt_param_scales, param_names,
             file.write(f"{name}: {value:.12e}\n")
 
 
-def cleanup_files():
-    files = "run*.yaml objective_value*.txt objective_gradient*.txt"
+def cleanup_files(evaluate_gradient=True):
+    files = "run*.yaml objective_value*.txt"
+    if evaluate_gradient:
+        files += " objective_gradient*.txt"
     subprocess.run(f"rm {files}", shell=True)

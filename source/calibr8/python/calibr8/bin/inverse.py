@@ -7,7 +7,7 @@ import yaml
 from scipy.optimize import minimize
 
 from calibr8.util.driver_support import (
-    evaluate_objective_and_gradient,
+    evaluate_objective_or_gradient,
     OptimizationIterator
 )
 
@@ -77,8 +77,13 @@ def main():
     )
 
     if run_objective_only:
-        evaluate_objective_and_gradient(opt_init_params, *objective_args)
+        evaluate_gradient = False
+        evaluate_objective_or_gradient(
+            opt_init_params, *objective_args, evaluate_gradient
+        )
+        cleanup_files(evaluate_gradient)
     else:
+        evaluate_gradient = True
         opt_iterator = OptimizationIterator(objective_args)
         res = minimize(
             fun=opt_iterator.objective_fun_and_grad,
@@ -96,4 +101,4 @@ def main():
         write_output_file(res.x, opt_param_scales, opt_param_names,
             output_file)
 
-        cleanup_files()
+        cleanup_files(evaluate_gradient)

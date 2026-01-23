@@ -5,6 +5,7 @@
 #include "control.hpp"
 #include "defines.hpp"
 #include "evaluations.hpp"
+#include "global_residual.hpp"
 #include "local_residual.hpp"
 #include "macros.hpp"
 #include "primal.hpp"
@@ -39,6 +40,35 @@ static ParameterList get_valid_virtual_fields_params()
   return p;
 }
 
+static bool should_write_pvd(RCP<ParameterList> params) {
+  ParameterList problem_params = params->sublist("problem", true);
+  return problem_params.get<bool>("write pvd", false);
+}
+
+static void mkdir(const char* path) {
+  mode_t const mode = S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH;
+  int err;
+  errno = 0;
+  err = mkdir(path, mode);
+  if (err != 0 && errno != EEXIST) {
+    fail("could not create directory \"%s\"\n", path);
+  }
+}
+
+static Array1D<std::string> get_names(
+    RCP<GlobalResidual<double>> global,
+    RCP<LocalResidual<double>> local)
+{
+  Array1D<std::string> names;
+  for (int i = 0; i < global->num_residuals(); ++i) {
+    names.push_back(global->resid_name(i));
+  }
+  for (int i = 0; i < local->num_residuals(); ++i) {
+    names.push_back(local->resid_name(i));
+  }
+  return names;
+}
+
 class Objective
 {
   public:
@@ -59,7 +89,80 @@ class Objective
     bool m_evaluate_gradient;
     double m_objective_value = 0.;
     std::vector<double> m_objective_gradient;
+    std::string base_name();
+    bool m_write_pvd = false;
+    void write_fields_at_step(int step);
+    void write_pvd();
 };
+
+std::string Objective::base_name() {
+  ParameterList problem_params = m_params->sublist("problem", true);
+  std::string const name = problem_params.get<std::string>("name");
+  return name;
+}
+
+void Objective::write_fields_at_step(int step) {
+  std::string out_dir = base_name() + "_viz";
+  mkdir(out_dir.c_str());
+  std::string const out_name = base_name() + "_viz/out_" + std::to_string(step);
+  RCP<GlobalResidual<double>> global = m_state[0]->residuals->global;
+  int const model_form = m_state[0]->model_form;
+  RCP<LocalResidual<double>> local = m_state[0]->residuals->local[model_form];
+  apf::Mesh* mesh = m_state[0]->disc->apf_mesh();
+  Array1D<std::string> names = get_names(global, local);
+  for (std::string const& name : names) {
+    std::string const name_step = name + "_" + std::to_string(step);
+    apf::Field* f = mesh->findField(name_step.c_str());
+    apf::renameField(f, name.c_str());
+  }
+  // some mechanics specific stuff below
+  apf::Field* sigma = eval_cauchy(m_state[0], step);
+  names.push_back("sigma");
+  std::string const meas_name = "measured";
+  {
+    std::string const name_step = meas_name + "_" + std::to_string(step);
+    apf::Field* f = mesh->findField(name_step.c_str());
+    apf::renameField(f, meas_name.c_str());
+    names.push_back(meas_name);
+  }
+  apf::writeVtkFiles(out_name.c_str(), mesh, names);
+  names.pop_back();
+  apf::destroyField(sigma);
+  {
+    std::string const name_step = meas_name + "_" + std::to_string(step);
+    apf::Field* f = mesh->findField(meas_name.c_str());
+    apf::renameField(f, name_step.c_str());
+    names.pop_back();
+  }
+
+  for (std::string const& name : names) {
+    std::string const name_step = name + "_" + std::to_string(step);
+    apf::Field* f = mesh->findField(name.c_str());
+    apf::renameField(f, name_step.c_str());
+  }
+}
+
+void Objective::write_pvd() {
+  if (PCU_Comm_Self()) return;
+  std::string const pvd_name = base_name() + "_viz/out.pvd";
+  int const nsteps = m_state[0]->disc->num_time_steps();
+  double t = 0;
+  std::fstream pvdf;
+  pvdf.open(pvd_name, std::ios::out);
+  pvdf << "<VTKFile type=\"Collection\" version=\"0.1\">" << std::endl;
+  pvdf << "  <Collection>" << std::endl;
+  for (int step = 1; step <= nsteps; ++step) {
+    t = m_state[0]->disc->time(step);
+    std::string const out_name = "out_" + std::to_string(step);
+    std::string const vtu = out_name + "/" + out_name;
+    pvdf << "    <DataSet timestep=\"" << t << "\" group=\"\" ";
+    pvdf << "part=\"0\" file=\"" << vtu;
+    pvdf << ".pvtu\"/>" << std::endl;
+  }
+  pvdf << "  </Collection>" << std::endl;
+  pvdf << "</VTKFile>" << std::endl;
+  pvdf.close();
+}
 
 Objective::Objective(RCP<ParameterList> params, bool evaluate_gradient)
 {
@@ -88,6 +191,7 @@ Objective::Objective(RCP<ParameterList> params, bool evaluate_gradient)
     m_state[0] = rcp(new State(*m_params));
     m_primal[0] = rcp(new Primal(m_params, m_state[0], m_state[0]->disc));
     m_prob_params[0] = m_params;
+    m_write_pvd = should_write_pvd(m_params);
   }
   setup_opt_params(m_params->sublist("inverse", true));
 }
@@ -199,10 +303,12 @@ void PDECO_Objective::evaluate()
     for (int step = 1; step <= nsteps; ++step) {
       m_primal[prob]->solve_at_step(step);
       J_prob += eval_qoi(m_state[prob], m_state[prob]->disc, step);
+      if (m_write_pvd) write_fields_at_step(step);
     }
     J_prob = PCU_Add_Double(J_prob);
     m_objective_value += J_prob;
   }
+  if (m_write_pvd) write_pvd();
   if (m_evaluate_gradient) {
     for (int prob = 0; prob < m_num_problems; ++prob) {
       Array1D<double> grad_at_step(m_num_opt_params);
