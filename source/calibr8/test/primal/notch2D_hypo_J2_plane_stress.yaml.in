@@ -14,8 +14,8 @@ notch2D hypo J2 plane stress:
     global residual:
       type: 'mechanics_plane_stress'
       nonlinear max iters: 30
-      nonlinear absolute tol: 1.e-12
-      nonlinear relative tol: 1.e-12
+      nonlinear absolute tol: 1.e-8
+      nonlinear relative tol: 1.e-8
       print convergence: true
     local residual:
       type: 'hypo_hill_plane_stress'
@@ -60,7 +60,7 @@ notch2D hypo J2 plane stress:
         Solver Type: "Block GMRES"
         Solver Types:
           Block GMRES:
-            Convergence Tolerance: 1.e-12
+            Convergence Tolerance: 1.e-6
             Output Frequency: 10
             Output Style: 1
             Verbosity: 33

@@ -14,6 +14,7 @@ notch2D small J2:
     global residual:
       type: 'mechanics'
       nonlinear max iters: 15
+      # tight tolerances help make the FD piece of the FD check pass
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
       print convergence: false
@@ -64,7 +65,7 @@ notch2D small J2:
         Solver Type: "Block GMRES"
         Solver Types:
           Block GMRES:
-            Convergence Tolerance: 1.e-12
+            Convergence Tolerance: 1.e-6
             Output Frequency: 10
             Output Style: 1
             Verbosity: 33

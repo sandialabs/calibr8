@@ -34,6 +34,7 @@ class Adjoint {
     RCP<ParameterList> m_params;
     RCP<State> m_state;
     RCP<Disc> m_disc;
+    ParameterList m_params_adjoint_lin_alg;
 
     Array3D<EVector> global_history; // (elem_set_idx, elem, int pt)
     Array3D<EVector> local_history;  // (elem_set_idx, elem, int pt)

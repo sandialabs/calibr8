@@ -87,6 +87,23 @@ void solve(
   RCP<ParameterList> params_ptr = rcp(&params, false);
   linearSolverBuilder->setParameterList(params_ptr);
 
+  // assumes that the first AMG block is for the equilibrium residual
+  // -- we already make this assumption for residual indices for bcs
+  bool setRotations = false;
+  auto coords = disc->coords();
+  Teuchos::ParameterList& tekoList = params_ptr->sublist("Preconditioner Types").sublist("Teko").sublist("Inverse Factory Library");
+  for (auto it = tekoList.begin(); it != tekoList.end(); ++it) {
+    const std::string blockName = tekoList.name(it);
+    Teuchos::ParameterList& blockList = tekoList.sublist(blockName);
+    if (blockList.get<std::string>("Type", "") == "MueLu") {
+      blockList.set("Coordinates", coords);
+      if (!setRotations) {
+        blockList.set("nullspace: calculate rotations", true);
+        setRotations = true;
+      }
+    }
+  }
+
   Teuchos::RCP<Thyra::LinearOpWithSolveFactoryBase<double> > lowsFactory
     = linearSolverBuilder->createLinearSolveStrategy("");
 

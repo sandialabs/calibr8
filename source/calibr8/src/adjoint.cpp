@@ -33,7 +33,20 @@ Adjoint::Adjoint(RCP<ParameterList> params, RCP<State> state, RCP<Disc> disc) {
   m_params = params;
   m_state = state;
   m_disc = disc;
-  (void)params;
+
+  ParameterList& lin_alg = m_params->sublist("linear algebra", true);
+  ParameterList& resids = m_params->sublist("residuals", true);
+  ParameterList& global = resids.sublist("global residual", true);
+
+  double const belos_tol = 0.1 * global.get<double>("nonlinear relative tol");
+
+  m_params_adjoint_lin_alg = lin_alg;
+  m_params_adjoint_lin_alg
+    .sublist("Linear Solver Types")
+    .sublist("Belos")
+    .sublist("Solver Types")
+    .sublist("Block GMRES")
+    .set("Convergence Tolerance", belos_tol);
 }
 
 void Adjoint::initialize_history_vectors() {
@@ -67,7 +80,6 @@ void Adjoint::solve_at_step(int step) {
   Array1D<RCP<VectorT>>& dx = m_state->la->x[OWNED];
   Array1D<RCP<VectorT>>& rhs = m_state->la->b[OWNED];
   ParameterList& dbcs = m_params->sublist("dirichlet bcs", true);
-  ParameterList& lin_alg = m_params->sublist("linear algebra", true);
   ParameterList& resids = m_params->sublist("residuals", true);
   ParameterList& global = resids.sublist("global residual", true);
   ParameterList& problem_params = m_params->sublist("problem", true);
@@ -130,7 +142,7 @@ void Adjoint::solve_at_step(int step) {
     }
 
     // solve the linear system
-    calibr8::solve(lin_alg, m_disc, dR_dxT, dx, rhs);
+    calibr8::solve(m_params_adjoint_lin_alg, m_disc, dR_dxT, dx, rhs);
 
     // add the increment to the current solution fields
     m_disc->add_to_soln(eta, dx);

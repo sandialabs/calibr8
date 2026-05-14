@@ -234,9 +234,9 @@ T compute_barlat_sp_normal_multiplier(
   T const diff_1 = sp_eigvals(index, index) - dp_eigvals(1, 1);
   T const diff_2 = sp_eigvals(index, index) - dp_eigvals(2, 2);
 
-  T const factor_0 = diff_0 * std::pow(std::abs(diff_0), a - 2);
-  T const factor_1 = diff_1 * std::pow(std::abs(diff_1), a - 2);
-  T const factor_2 = diff_2 * std::pow(std::abs(diff_2), a - 2);
+  T const factor_0 = diff_0 * std::exp(std::log(std::abs(diff_0)) * (a - 2.));
+  T const factor_1 = diff_1 * std::exp(std::log(std::abs(diff_1)) * (a - 2.));
+  T const factor_2 = diff_2 * std::exp(std::log(std::abs(diff_2)) * (a - 2.));
 
   return 0.25 * (factor_0 + factor_1 + factor_2);
 }
@@ -266,9 +266,9 @@ T compute_barlat_dp_normal_multiplier(
   T const diff_1 = sp_eigvals(1, 1) - dp_eigvals(index, index);
   T const diff_2 = sp_eigvals(2, 2) - dp_eigvals(index, index);
 
-  T const factor_0 = -diff_0 * std::pow(std::abs(diff_0), a - 2);
-  T const factor_1 = -diff_1 * std::pow(std::abs(diff_1), a - 2);
-  T const factor_2 = -diff_2 * std::pow(std::abs(diff_2), a - 2);
+  T const factor_0 = -diff_0 * std::exp(std::log(std::abs(diff_0)) * (a - 2.));
+  T const factor_1 = -diff_1 * std::exp(std::log(std::abs(diff_1)) * (a - 2.));
+  T const factor_2 = -diff_2 * std::exp(std::log(std::abs(diff_2)) * (a - 2.));
 
   return 0.25 * (factor_0 + factor_1 + factor_2);
 }
@@ -325,8 +325,8 @@ void evaluate_barlat_phi_and_normal(
 {
   double const sqrt_32 = std::sqrt(3. / 2.);
   Tensor<T> const dev_cauchy = minitensor::dev(cauchy);
-  T const norm_dev_cauchy = minitensor::norm(dev_cauchy);
-  T const vm_phi = sqrt_32 * norm_dev_cauchy;
+  double const norm_dev_cauchy = val(minitensor::norm(dev_cauchy));
+  double const vm_phi = sqrt_32 * norm_dev_cauchy;
 
   Tensor<T> sp_eigvecs(3);
   Tensor<T> sp_eigvals(3);
@@ -342,17 +342,27 @@ void evaluate_barlat_phi_and_normal(
   Tensor<T> const vms_sp_eigvals = sp_eigvals / vm_phi;
   Tensor<T> const vms_dp_eigvals = dp_eigvals / vm_phi;
 
-  phi = vm_phi * std::pow(0.25
-      * (std::pow(std::abs(vms_sp_eigvals(0, 0) - vms_dp_eigvals(0, 0)), a)
-      + std::pow(std::abs(vms_sp_eigvals(0, 0) - vms_dp_eigvals(1, 1)), a)
-      + std::pow(std::abs(vms_sp_eigvals(0, 0) - vms_dp_eigvals(2, 2)), a)
-      + std::pow(std::abs(vms_sp_eigvals(1, 1) - vms_dp_eigvals(0, 0)), a)
-      + std::pow(std::abs(vms_sp_eigvals(1, 1) - vms_dp_eigvals(1, 1)), a)
-      + std::pow(std::abs(vms_sp_eigvals(1, 1) - vms_dp_eigvals(2, 2)), a)
-      + std::pow(std::abs(vms_sp_eigvals(2, 2) - vms_dp_eigvals(0, 0)), a)
-      + std::pow(std::abs(vms_sp_eigvals(2, 2) - vms_dp_eigvals(1, 1)), a)
-      + std::pow(std::abs(vms_sp_eigvals(2, 2) - vms_dp_eigvals(2, 2)), a)
-      ) , 1. / a);
+  T const s0 = vms_sp_eigvals(0, 0);
+  T const s1 = vms_sp_eigvals(1, 1);
+  T const s2 = vms_sp_eigvals(2, 2);
+
+  T const d0 = vms_dp_eigvals(0, 0);
+  T const d1 = vms_dp_eigvals(1, 1);
+  T const d2 = vms_dp_eigvals(2, 2);
+
+  T const t00 = std::exp(a * std::log(std::abs(s0 - d0)));
+  T const t01 = std::exp(a * std::log(std::abs(s0 - d1)));
+  T const t02 = std::exp(a * std::log(std::abs(s0 - d2)));
+  T const t10 = std::exp(a * std::log(std::abs(s1 - d0)));
+  T const t11 = std::exp(a * std::log(std::abs(s1 - d1)));
+  T const t12 = std::exp(a * std::log(std::abs(s1 - d2)));
+  T const t20 = std::exp(a * std::log(std::abs(s2 - d0)));
+  T const t21 = std::exp(a * std::log(std::abs(s2 - d1)));
+  T const t22 = std::exp(a * std::log(std::abs(s2 - d2)));
+
+  T const sum = 0.25 * (t00 + t01 + t02 + t10 + t11 + t12 + t20 + t21 + t22);
+
+  phi = vm_phi * std::exp((1.0 / a) * std::log(sum));
 
   // bs -> barlat scaled
   Tensor<T> const bs_sp_eigvals = sp_eigvals / phi;
