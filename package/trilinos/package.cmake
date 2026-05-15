@@ -29,7 +29,7 @@ set(TRILINOS_SEACAS_OPTIONS
 
 capp_package(
   GIT_URL https://github.com/trilinos/Trilinos.git
-  COMMIT 7c8afbd28691f64cff071e579701bfe4ec65b837
+  COMMIT 33f212989972c8a9ee2a215a78791f515e387f1c
   OPTIONS
   "-DTrilinos_DISABLE_ENABLED_FORWARD_DEP_PACKAGES=ON"
   "-DBUILD_SHARED_LIBS=${CALIBR8_BUILD_SHARED_LIBS}"
@@ -96,6 +96,7 @@ capp_package(
   "-DZlib_INCLUDE_DIRS=${CAPP_INSTALL_ROOT}/zlib-ng/include"
   "-DZlib_LIBRARY_DIRS=${CAPP_INSTALL_ROOT}/zlib-ng/lib"
   "-DTrilinos_ENABLE_Gtest=OFF"
+  "-DTPL_ENABLE_gtest=OFF"
   "-DTPL_ENABLE_Netcdf=ON"
   "-DNetcdf_LIBRARY_NAMES=${NETCDF_LIBRARIES}"
   "-DTPL_Netcdf_PARALLEL=OFF"
