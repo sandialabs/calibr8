@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <list>
 #include <fstream>
 #include <gmi_mesh.h>
@@ -401,13 +402,60 @@ void Disc::compute_graphs() {
   resize(m_graphs[OWNED], m_num_residuals, m_num_residuals);
   resize(m_graphs[GHOST], m_num_residuals, m_num_residuals);
   for (int i = 0; i < m_num_residuals; ++i) {
-    for (int j = 0; j < m_num_residuals; ++j) { 
+    for (int j = 0; j < m_num_residuals; ++j) {
       compute_ghost_graph(i, j);
       compute_owned_graph(i, j);
     }
   }
   apf::destroyGlobalNumbering(m_global_nmbr);
   m_global_nmbr = 0;
+}
+
+void Disc::compute_scatter_offsets() {
+  resize(m_scatter_offsets, m_num_residuals, m_num_residuals);
+  size_t const num_elems = m_elem_map.size();
+  for (int i = 0; i < m_num_residuals; ++i) {
+    int const num_i_eqs = m_num_eqs[i];
+    int const dofs_i = num_i_eqs * m_num_gv_nodes;
+    for (int j = 0; j < m_num_residuals; ++j) {
+      int const num_j_eqs = m_num_eqs[j];
+      int const dofs_j = num_j_eqs * m_num_gv_nodes;
+      int const stride = dofs_i * dofs_j;
+      auto const local_graph = m_graphs[GHOST][i][j]->getLocalGraphHost();
+      auto const* row_map = local_graph.row_map.data();
+      auto const* entries = local_graph.entries.data();
+      m_scatter_offsets[i][j].assign(num_elems * stride, LO(-1));
+      LO* offsets_base = m_scatter_offsets[i][j].data();
+      apf::MeshEntity* elem;
+      apf::MeshIterator* elems = m_mesh->begin(m_num_dims);
+      while ((elem = m_mesh->iterate(elems))) {
+        LO const e = m_elem_map[elem];
+        Array2D<LO> const& rows = m_elem_lids[e][i];
+        Array2D<LO> const& cols = m_elem_lids[e][j];
+        LO* offsets = offsets_base + e * stride;
+        for (int i_node = 0; i_node < m_num_gv_nodes; ++i_node) {
+          for (int i_eq = 0; i_eq < num_i_eqs; ++i_eq) {
+            int const i_idx_blk = i_node * num_i_eqs + i_eq;
+            LO const row = rows[i_node][i_eq];
+            auto const* row_begin = entries + row_map[row];
+            auto const* row_end = entries + row_map[row + 1];
+            int const row_off = i_idx_blk * dofs_j;
+            for (int j_node = 0; j_node < m_num_gv_nodes; ++j_node) {
+              for (int j_eq = 0; j_eq < num_j_eqs; ++j_eq) {
+                int const j_idx_blk = j_node * num_j_eqs + j_eq;
+                LO const col = cols[j_node][j_eq];
+                auto const it = std::lower_bound(row_begin, row_end, col);
+                DEBUG_ASSERT(it != row_end);
+                DEBUG_ASSERT(*it == col);
+                offsets[row_off + j_idx_blk] = static_cast<LO>(it - entries);
+              }
+            }
+          }
+        }
+      }
+      m_mesh->end(elems);
+    }
+  }
 }
 
 void Disc::compute_elem_lids() {
@@ -524,6 +572,7 @@ void Disc::build_data(int num_residuals, Array1D<int> const& num_eqs) {
   compute_importers();
   compute_graphs();
   compute_elem_lids();
+  compute_scatter_offsets();
   compute_elem_sets();
   compute_side_sets();
   if (!m_is_null_model) {
@@ -556,6 +605,7 @@ void Disc::destroy_data() {
   resize(m_maps[GHOST], 0);
   resize(m_graphs[OWNED], 0, 0);
   resize(m_graphs[GHOST], 0, 0);
+  resize(m_scatter_offsets, 0, 0);
   m_node_map = Teuchos::null;
   m_owned_nmbr = nullptr;
   m_ghost_nmbr = nullptr;

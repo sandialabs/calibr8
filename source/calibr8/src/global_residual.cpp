@@ -140,8 +140,6 @@ void GlobalResidual<T>::before_elems(
     m_num_dofs += m_num_eqs[i] * m_num_nodes;
   }
 
-  m_col_indices.reserve(m_num_dofs);
-  m_col_values.reserve(m_num_dofs);
 }
 
 template <typename T>
@@ -518,45 +516,66 @@ void GlobalResidual<T>::assign_rhs(
 }
 
 template <>
+void GlobalResidual<double>::before_lhs_assembly(Array2D<RCP<MatrixT>>&) {}
+
+template <>
+void GlobalResidual<DFADT>::before_lhs_assembly(Array2D<RCP<MatrixT>>&) {}
+
+template <>
+void GlobalResidual<FADT>::before_lhs_assembly(
+    Array2D<RCP<MatrixT>>& LHS) {
+  resize(m_lhs_values, m_num_residuals, m_num_residuals);
+  for (int i = 0; i < m_num_residuals; ++i) {
+    for (int j = 0; j < m_num_residuals; ++j) {
+      m_lhs_values[i][j] = LHS[i][j]->getLocalMatrixHost().values.data();
+    }
+  }
+}
+
+template <>
+void GlobalResidual<double>::after_lhs_assembly() {}
+
+template <>
+void GlobalResidual<DFADT>::after_lhs_assembly() {}
+
+template <>
+void GlobalResidual<FADT>::after_lhs_assembly() {
+  resize(m_lhs_values, 0, 0);
+}
+
+template <>
 void GlobalResidual<double>::scatter_lhs(
     RCP<Disc>,
-    EMatrix const&,
-    Array2D<RCP<MatrixT>>&) {}
+    EMatrix const&) {}
 
 template <>
 void GlobalResidual<FADT>::scatter_lhs(
     RCP<Disc> disc,
-    EMatrix const& dtotal,
-    Array2D<RCP<MatrixT>>& dR_dx) {
+    EMatrix const& dtotal) {
 
-  // get the mesh entity associated with the 'mesh element'
   apf::MeshEntity* ent = apf::getMeshEntity(m_mesh_elem);
 
-  // loop over the first residual index
   for (int i = 0; i < m_num_residuals; ++i) {
-    Array2D<LO> const& rows = disc->elem_lids(ent, i);
-    for (int i_node = 0; i_node < m_num_nodes; ++i_node) {
-      for (int i_eq = 0; i_eq < m_num_eqs[i]; ++i_eq) {
-        int const i_idx = dx_idx(i, i_node, i_eq);
-        LO const row = rows[i_node][i_eq];
+    int const num_i_eqs = m_num_eqs[i];
+    for (int j = 0; j < m_num_residuals; ++j) {
+      int const num_j_eqs = m_num_eqs[j];
+      int const dofs_j = m_num_nodes * num_j_eqs;
+      double* vals = m_lhs_values[i][j];
+      LO const* offsets = disc->scatter_offsets(ent, i, j);
 
-        // loop over the second residual index
-        for (int j = 0; j < m_num_residuals; ++j) {
-          Array2D<LO> const& cols = disc->elem_lids(ent, j);
-          m_col_indices.clear();
-          m_col_values.clear();
+      for (int i_node = 0; i_node < m_num_nodes; ++i_node) {
+        for (int i_eq = 0; i_eq < num_i_eqs; ++i_eq) {
+          int const i_idx = dx_idx(i, i_node, i_eq);
+          int const i_idx_block = i_node * num_i_eqs + i_eq;
+          int const row_offset = i_idx_block * dofs_j;
           for (int j_node = 0; j_node < m_num_nodes; ++j_node) {
-            for (int j_eq = 0; j_eq < m_num_eqs[j]; ++j_eq) {
+            for (int j_eq = 0; j_eq < num_j_eqs; ++j_eq) {
               int const j_idx = dx_idx(j, j_node, j_eq);
-              LO const col = cols[j_node][j_eq];
-              double const dx = dtotal(i_idx, j_idx);
-              m_col_indices.push_back(col);
-              m_col_values.push_back(dx);
+              int const j_idx_block = j_node * num_j_eqs + j_eq;
+              vals[offsets[row_offset + j_idx_block]] += dtotal(i_idx, j_idx);
             }
           }
-          dR_dx[i][j]->sumIntoLocalValues(row, m_col_indices, m_col_values);
         }
-
       }
     }
   }
@@ -565,8 +584,7 @@ void GlobalResidual<FADT>::scatter_lhs(
 template <>
 void GlobalResidual<DFADT>::scatter_lhs(
     RCP<Disc>,
-    EMatrix const&,
-    Array2D<RCP<MatrixT>>&) {}
+    EMatrix const&) {}
 
 template <typename T>
 void GlobalResidual<T>::unset_elem() {
@@ -588,8 +606,6 @@ void GlobalResidual<T>::after_elems() {
   m_R_nodal.resize(0);
   m_x_prev_nodal.resize(0);
   m_dx_offsets.resize(0);
-  m_col_indices.resize(0);
-  m_col_values.resize(0);
   m_x.resize(0);
   m_x_prev.resize(0);
   m_grad_x.resize(0);

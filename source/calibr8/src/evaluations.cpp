@@ -37,6 +37,7 @@ int eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
 
   // perform initializations of the residual objects
   global->before_elems(disc);
+  global->before_lhs_assembly(LHS);
 
   // variable telling us the current number of derivatives
   int nderivs = -1;
@@ -126,7 +127,7 @@ int eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
           global->evaluate(local, iota, w, dv, ip_set);
           EMatrix const dtotal = global->eigen_jacobian(nderivs);
           EMatrix const elem_resid = global->eigen_residual();
-          global->scatter_lhs(disc, dtotal, LHS);
+          global->scatter_lhs(disc, dtotal);
           global->scatter_rhs(disc, elem_resid, RHS);
           global->unseed_wrt_x();
 
@@ -144,6 +145,7 @@ int eval_forward_jacobian(RCP<State> state, RCP<Disc> disc, int step) {
   }
 
   // perform clean-ups of the residual objects
+  global->after_lhs_assembly();
   local->after_elems();
   global->after_elems();
 
@@ -380,6 +382,7 @@ void eval_adjoint_jacobian(
   // perform initializations of the residual objects
   global->before_elems(disc);
   qoi->before_elems(disc, step);
+  global->before_lhs_assembly(LHS);
 
   // variable telling us the current number of derivatives
   int nderivs = -1;
@@ -459,7 +462,7 @@ void eval_adjoint_jacobian(
             global->evaluate(local, iota, w, dv, ip_set);
             EMatrix const dtotal = global->eigen_jacobian(nderivs);
             EMatrix const dtotalT = dtotal.transpose();
-            global->scatter_lhs(disc, dtotalT, LHS);
+            global->scatter_lhs(disc, dtotalT);
             local->unseed_wrt_xi();
 
             // evaluate the QoI derivatives to obtain dJ_dx
@@ -494,7 +497,7 @@ void eval_adjoint_jacobian(
             global->evaluate(local, iota, w, dv, ip_set);
             EMatrix const dtotal = global->eigen_jacobian(nderivs);
             EMatrix const dtotalT = dtotal.transpose();
-            global->scatter_lhs(disc, dtotalT, LHS);
+            global->scatter_lhs(disc, dtotalT);
 
           }
 
@@ -515,6 +518,7 @@ void eval_adjoint_jacobian(
   qoi->modify_state(state);
 
   // perform clean-ups of the residual objects
+  global->after_lhs_assembly();
   local->after_elems();
   global->after_elems();
   qoi->after_elems();

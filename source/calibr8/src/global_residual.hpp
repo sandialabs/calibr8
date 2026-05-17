@@ -156,16 +156,19 @@ class GlobalResidual {
         EVector const& rhs,
         Array1D<RCP<VectorT>>& RHS);
 
+    //! \brief Cache writable pointers into the LHS matrices value arrays
+    void before_lhs_assembly(Array2D<RCP<MatrixT>>& LHS);
+
+    //! \brief Release the cached LHS pointers
+    void after_lhs_assembly();
+
     //! \brief Scatter the residual into the global Jacobian matrix
     //! \param disc The discretization object
     //! \param dtotal The total element-level derivative
     //! \param LHS The global LHS matrices
-    //! \details Only performs an operation if this class has been templated
-    //! on FADT.
     void scatter_lhs(
         RCP<Disc> disc,
-        EMatrix const& dtotal,
-        Array2D<RCP<MatrixT>>& LHS);
+        EMatrix const& dtotal);
 
     //! \brief Reset element-specific data after processing an element
     void unset_elem();
@@ -310,8 +313,7 @@ class GlobalResidual {
 
     Array1D<int> m_dx_offsets;
 
-    Teuchos::Array<LO> m_col_indices;
-    Teuchos::Array<double> m_col_values;
+    Array2D<double*> m_lhs_values;
 
     apf::Mesh* m_mesh = nullptr;
     apf::FieldShape* m_shape = nullptr;

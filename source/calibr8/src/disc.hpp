@@ -210,6 +210,19 @@ class Disc {
     inline Array2D<LO>& elem_lids(apf::MeshEntity* elem, int i)
     { return m_elem_lids[m_elem_map[elem]][i]; }
 
+    //! \brief Get the precomputed scatter offsets for an element / block.
+    //! \details Returns a pointer to a flat array of length
+    //! (num_eqs[i] * num_gv_nodes) * (num_eqs[j] * num_gv_nodes), giving
+    //! the offset into the GHOST matrix's values[] array for each
+    //! (i_node, i_eq, j_node, j_eq) entry of the element block
+    //! Indexed as offsets[i_idx_blk * dofs_j + j_idx_blk] with
+    //! i_idx_blk = i_node * num_eqs[i] + i_eq
+    inline LO const* scatter_offsets(apf::MeshEntity* elem, int i, int j) {
+      int const stride = (m_num_eqs[i] * m_num_gv_nodes) *
+                         (m_num_eqs[j] * m_num_gv_nodes);
+      return m_scatter_offsets[i][j].data() + m_elem_map[elem] * stride;
+    }
+
     //! \brief Get the local ID associated with a PDE residual
     //! \param n The node object
     //! \param i The residual index of interest
@@ -451,6 +464,7 @@ class Disc {
     Array1D<size_t> compute_nentries(int i, int j);
     void compute_ghost_graph(int i, int j);
     void compute_owned_graph(int i, int j);
+    void compute_scatter_offsets();
 
     Array1D<Fields> m_primal_fine;
     Array1D<Fields> m_adjoint_fine;
@@ -460,6 +474,12 @@ class Disc {
 
     std::unordered_map<apf::MeshEntity*, LO> m_elem_map;
     Array2D<Array2D<LO>> m_elem_lids;
+
+    // Per-element flat array of vals[] offsets, one per (i_block, j_block).
+    // Indexed as m_scatter_offsets[i][j][elem_idx * stride + flat_dof_pair].
+    // Built once in compute_scatter_offsets() and consumed by
+    // GlobalResidual<FADT>::scatter_lhs
+    Array2D<Array1D<LO>> m_scatter_offsets;
 };
 
 }
