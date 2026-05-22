@@ -155,6 +155,19 @@ double LinearAlg::norm_x() {
   return std::sqrt(norm);
 }
 
+void LinearAlg::apply_A(
+    Array1D<RCP<VectorT>> const& in,
+    Array1D<RCP<VectorT>>& out) const {
+  int const ngr = A[OWNED].size();
+  for (int i = 0; i < ngr; ++i) {
+    for (int j = 0; j < ngr; ++j) {
+      // out[i] = sum_j A[i][j] * in[j]: first block sets (beta=0), rest add.
+      double const beta = (j == 0) ? 0. : 1.;
+      A[OWNED][i][j]->apply(*in[j], *out[i], Teuchos::NO_TRANS, 1., beta);
+    }
+  }
+}
+
 
 
 }

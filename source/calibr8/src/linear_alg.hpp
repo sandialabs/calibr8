@@ -72,6 +72,15 @@ class LinearAlg {
     //! \brief Get the total norm of the blocked vector x
     double norm_x();
 
+    //! \brief Apply the owned block operator: out[i] = sum_j A[OWNED][i][j] * in[j]
+    //! \param in The block input (one VectorT per residual block)
+    //! \param out The block result, filled in place; must be pre-sized like b[OWNED]
+    //! \details Forms the line-search slope R . (A dx). Requires A fill-complete;
+    //! does not allocate.
+    void apply_A(
+        Array1D<RCP<VectorT>> const& in,
+        Array1D<RCP<VectorT>>& out) const;
+
 };
 
 }

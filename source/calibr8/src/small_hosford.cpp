@@ -3,6 +3,7 @@
 #include "defines.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
+#include "line_search.hpp"
 #include "material_params.hpp"
 #include "small_hosford.hpp"
 
@@ -157,7 +158,7 @@ int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
   // newton iteration until convergence
 
   int iter = 1;
-  double R_norm_0 = 1.;
+  double C_norm_0 = 1.;
   bool converged = false;
 
   while ((iter <= m_max_iters) && (!converged)) {
@@ -168,10 +169,10 @@ int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
       this->evaluate(global, true, path);
     }
 
-    double const R_norm = this->norm_residual();
-    if (iter == 1) R_norm_0 = R_norm;
-    double const R_norm_rel = R_norm / R_norm_0;
-    if ((R_norm_rel < m_rel_tol) || (R_norm < m_abs_tol)) {
+    double const C_norm = this->norm_residual();
+    if (iter == 1) C_norm_0 = C_norm;
+    double const C_norm_rel = C_norm / C_norm_0;
+    if ((C_norm_rel < m_rel_tol) || (C_norm < m_abs_tol)) {
       converged = true;
       break;
     }
@@ -184,48 +185,37 @@ int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
     this->add_to_scalar_xi(1, dxi);
 
     {
-      this->evaluate(global, true, path);
+      double const C_0 = C_norm;
+      double const psi_0 = 0.5 * C_0 * C_0;
+      double const dpsi_0 = -2. * psi_0;
 
-      double const R_0 = R_norm;
-      double const psi_0 = 0.5 * R_0 * R_0;
-      double const psi_0_deriv = -2. * psi_0;
+      LineSearchParams ls_params;
+      ls_params.c1 = m_ls_beta;
+      ls_params.backtrack_min = m_ls_eta;
+      ls_params.max_evals = m_ls_max_evals;
+      ls_params.print = m_ls_print;
+      ls_params.tag = "(local) ";
 
-      int j = 1;
-      double alpha_prev = 1.;
-      double alpha_j = 1.;
-      double alpha_diff = alpha_j - alpha_prev;
-      double R_j = this->norm_residual();
-      double psi_j = 0.5 * R_j * R_j;
-
-      while (psi_j >= ((1. - 2. * m_ls_beta * alpha_j) * psi_0)) {
-
-        alpha_prev = alpha_j;
-        alpha_j  = std::max(m_ls_eta * alpha_j,
-            -(std::pow(alpha_j, 2) * psi_0_deriv) /
-             (2. * (psi_j - psi_0 - alpha_j * psi_0_deriv)));
-
-        if (m_ls_print) {
-          print(" > (local) residual increase -- line search alpha_%d = %.2e",
-              j, alpha_j);
-        }
-
-        if (j == m_ls_max_evals) {
-          print(" > (local) Reached max line search evals");
-          break;
-        }
-
-        ++j;
-
-        alpha_diff = alpha_j - alpha_prev;
+      double alpha_applied = 1.;   // the full Newton step was applied above
+      auto eval = [&](double alpha, double& phi, double& slope) -> bool {
+        double const alpha_diff = alpha - alpha_applied;
+        alpha_applied = alpha;
         this->add_to_sym_tensor_xi(0, alpha_diff * dxi);
         this->add_to_scalar_xi(1, alpha_diff * dxi);
-
         path = this->evaluate(global, true, path);
+        double const C_alpha = this->norm_residual();
+        phi = 0.5 * C_alpha * C_alpha;
+        EVector const C = this->eigen_residual();
+        EMatrix const J = this->eigen_jacobian(this->m_num_dofs);
+        slope = C.dot(J * dxi);          // phi'(alpha) = C . (J dxi)
+        return true;
+      };
 
-        R_j = this->norm_residual();
-        psi_j = 0.5 * R_j * R_j;
-
-      }
+      double const alpha = line_search(ls_params, psi_0, dpsi_0, eval);
+      // Move the local state to the accepted step.
+      double const alpha_diff = alpha - alpha_applied;
+      this->add_to_sym_tensor_xi(0, alpha_diff * dxi);
+      this->add_to_scalar_xi(1, alpha_diff * dxi);
     }
 
     iter++;

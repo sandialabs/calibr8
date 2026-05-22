@@ -2,6 +2,7 @@
 #include "control.hpp"
 #include "dbcs.hpp"
 #include "evaluations.hpp"
+#include "line_search.hpp"
 #include "linear_solve.hpp"
 #include "local_residual.hpp"
 #include "nested.hpp"
@@ -43,8 +44,7 @@ void Primal::solve_at_step(int step) {
   double const abs_tol = global.get<double>("nonlinear absolute tol");
   double const rel_tol = global.get<double>("nonlinear relative tol");
   bool const do_print = global.get<bool>("print convergence");
-  int const max_line_search_evals = global.get<int>("max line search evals", 5);
-  double const eta = global.get<double>("line search eta", 0.5);
+  int const max_line_search_evals = global.get<int>("max line search evals", 10);
   double const t = m_state->disc->time(step);
 
   // print the step information
@@ -60,6 +60,29 @@ void Primal::solve_at_step(int step) {
     m_disc->initialize_primal_fine(m_state->residuals, step, model_form);
     x = m_disc->primal_fine(step).global;
   }
+
+  // Scratch for the line-search slope R . (A . dx), reused across iterations.
+  int const num_resids = R.size();
+  Array1D<RCP<VectorT>> Adx;
+  resize(Adx, num_resids);
+  for (int i = 0; i < num_resids; ++i)
+    Adx[i] = rcp(new VectorT(m_disc->map(OWNED, i)));
+
+  // The local constitutive state is re-solved at every residual evaluation, so a
+  // line search probing several steps would mutate it and make the merit a
+  // non-fixed function of alpha. Snapshot it before each search and restore it
+  // before every trial. Create the snapshot fields once here.
+  Array1D<apf::Field*>& local_state =
+      (m_disc->type() == VERIFICATION)
+      ? m_disc->primal_fine(step).local[m_state->model_form]
+      : m_disc->primal(step).local[m_state->model_form];
+  int const num_local_fields = local_state.size();
+  Array1D<apf::Field*> saved_local_state;
+  resize(saved_local_state, num_local_fields);
+  for (int i = 0; i < num_local_fields; ++i)
+    saved_local_state[i] = apf::createField(m_disc->apf_mesh(),
+        ("primal_ls_saved_local_" + std::to_string(i)).c_str(),
+        apf::getValueType(local_state[i]), apf::getShape(local_state[i]));
 
   // Newton's method below
   int iter = 1;
@@ -110,75 +133,60 @@ void Primal::solve_at_step(int step) {
     m_disc->add_to_soln(x, dx);
 
     {
-      // backtracking line search parameters
-      double const beta = 1.0e-4;
-
-      // check the current residual value
-      // this is not optimized in any sense
-      m_state->la->resume_fill_A();
-      m_state->la->zero_A();
-      m_state->la->zero_b();
-      eval_forward_jacobian(m_state, m_disc, step);
-      apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
-      m_state->la->gather_A();
-      m_state->la->gather_b();
-      apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t, step);
-
+      // Backtracking Armijo line search (line_search.hpp). Merit phi = 1/2||R||^2,
+      // base slope phi'(0) = -||R_0||^2, trial slope phi'(alpha) = R(alpha).(A dx).
       double const R_0 = abs_resid_norm;
       double const psi_0 = 0.5 * R_0 * R_0;
-      double const psi_0_deriv = -2. * psi_0;
+      double const dpsi_0 = -2. * psi_0;
 
-      int j = 1;
-      double alpha_prev = 1.;
-      double alpha_j = 1.;
-      double R_j = m_state->la->norm_b();
-      double psi_j = 0.5 * R_j * R_j;
+      // Snapshot the local state; each trial restores it first so the local
+      // solves warm-start identically and phi(alpha) is a fixed function.
+      for (int i = 0; i < num_local_fields; ++i)
+        apf::copyData(saved_local_state[i], local_state[i]);
 
-      while (psi_j >= ((1. - 2. * beta * alpha_j) * psi_0)) {
+      LineSearchParams ls_params;
+      ls_params.c1 = 1.0e-4;
+      ls_params.max_evals = max_line_search_evals;
+      ls_params.print = do_print;
 
-        alpha_prev = alpha_j;
-        alpha_j  = std::max(eta * alpha_j,
-            -(std::pow(alpha_j, 2) * psi_0_deriv) /
-             (2. * (psi_j - psi_0 - alpha_j * psi_0_deriv)));
-
-        if (do_print) {
-          print(" > residual increase -- line search alpha_%d = %.2e",
-              j, alpha_j);
-        }
-
-        if (j == max_line_search_evals) {
-          print(" > Reached max line search evals");
-          break;
-        }
-
-        ++j;
-
-        m_disc->add_to_soln(x, dx, alpha_j - alpha_prev);
-
+      double alpha_applied = 1.;   // the full Newton step was applied above
+      auto eval = [&](double alpha, double& phi, double& slope) -> bool {
+        for (int i = 0; i < num_local_fields; ++i)
+          apf::copyData(local_state[i], saved_local_state[i]);
+        m_disc->add_to_soln(x, dx, alpha - alpha_applied);
+        alpha_applied = alpha;
         m_state->la->resume_fill_A();
         m_state->la->zero_A();
         m_state->la->zero_b();
-
         int status = eval_forward_jacobian(m_state, m_disc, step);
         status = PCU_Add_Int(status);
-        if (status == 0) {
-          apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
-          m_state->la->gather_A();
-          m_state->la->gather_b();
-          apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t, step);
+        if (status != 0) return false;   // failed assembly: the search contracts
+        apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
+        m_state->la->gather_A();
+        m_state->la->gather_b();
+        apply_primal_dbcs(dbcs, m_disc, dR_dx, R, x, t, step);
+        m_state->la->complete_fill_A();   // apply_A needs a fill-complete A
+        double const R_alpha = m_state->la->norm_b();
+        phi = 0.5 * R_alpha * R_alpha;
+        m_state->la->apply_A(dx, Adx);    // Adx = A(alpha) . dx
+        double slope_sum = 0.;
+        for (int i = 0; i < num_resids; ++i) slope_sum += R[i]->dot(*Adx[i]);
+        slope = slope_sum;                // phi'(alpha) = R(alpha) . (A dx)
+        return true;
+      };
 
-          R_j = m_state->la->norm_b();
-          psi_j = 0.5 * R_j * R_j;
-        } else {
-          psi_j = psi_0;
-        }
-
-      }
+      double const alpha = line_search(ls_params, psi_0, dpsi_0, eval);
+      // Move the solution to the accepted step (increment only; the next Newton
+      // iteration reassembles from the updated solution).
+      m_disc->add_to_soln(x, dx, alpha - alpha_applied);
     }
 
     iter++;
 
   }
+
+  for (int i = 0; i < num_local_fields; ++i)
+    apf::destroyField(saved_local_state[i]);
 
   // no hope
   if ((iter > max_iters) && (!converged)) {
