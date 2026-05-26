@@ -99,7 +99,7 @@ Tensor<T> compute_hill_normal(Tensor<T> const& TC,
 }
 
 template <typename T>
-Vector<T> collect_barlat_params(
+minitensor::Vector<T, 9> collect_barlat_params(
     T const& p_01,
     T const& p_02,
     T const& p_10,
@@ -110,7 +110,7 @@ Vector<T> collect_barlat_params(
     T const& p_44,
     T const& p_55)
 {
-  Vector<T> barlat_params = minitensor::Vector<T>(9);
+  minitensor::Vector<T, 9> barlat_params;
 
   barlat_params(0) = p_01;
   barlat_params(1) = p_02;
@@ -126,9 +126,9 @@ Vector<T> collect_barlat_params(
 }
 
 template <typename T>
-Vector<T> flatten_stress(Tensor<T> const& stress) {
+minitensor::Vector<T, 6> flatten_stress(minitensor::Tensor<T, 3> const& stress) {
 
-  Vector<T> flat_stress = minitensor::Vector<T>(6);
+  minitensor::Vector<T, 6> flat_stress;
 
   flat_stress(0) = stress(0, 0);
   flat_stress(1) = stress(1, 1);
@@ -141,9 +141,9 @@ Vector<T> flatten_stress(Tensor<T> const& stress) {
 }
 
 template <typename T>
-Tensor<T> unflatten_stress(Vector<T> const& flat_stress) {
+minitensor::Tensor<T, 3> unflatten_stress(minitensor::Vector<T, 6> const& flat_stress) {
 
-  Tensor<T> stress = minitensor::zero<T>(3);
+  minitensor::Tensor<T, 3> stress;
 
   stress(0, 0) = flat_stress(0);
   stress(0, 1) = flat_stress(3);
@@ -159,10 +159,10 @@ Tensor<T> unflatten_stress(Vector<T> const& flat_stress) {
 }
 
 template <typename T>
-Tensor<T> unflatten_barlat_params(
-    Vector<T> const& flat_barlat_params)
+minitensor::Tensor<T, 6> unflatten_barlat_params(
+    minitensor::Vector<T, 9> const& flat_barlat_params)
 {
-  Tensor<T> L = minitensor::zero<T>(6);
+  minitensor::Tensor<T, 6> L(minitensor::Filler::ZEROS);
 
   T p_01 = flat_barlat_params(0);
   T p_02 = flat_barlat_params(1);
@@ -195,38 +195,38 @@ Tensor<T> unflatten_barlat_params(
 
 template <typename T>
 void compute_barlat_eigen_decomp(
-    Tensor<T> const& cauchy,
-    Vector<T> const& flat_barlat_params,
-    Tensor<T>& eigvecs,
-    Tensor<T>& eigvals)
+    minitensor::Tensor<T, 3> const& cauchy,
+    minitensor::Vector<T, 9> const& flat_barlat_params,
+    minitensor::Tensor<T, 3>& eigvecs,
+    minitensor::Tensor<T, 3>& eigvals)
 {
   // take cauchy from Cartesian 3x3 to to Voigt 6x1
-  Vector<T> const flat_cauchy = flatten_stress(cauchy);
+  minitensor::Vector<T, 6> const flat_cauchy = flatten_stress(cauchy);
   // L is a 6x6 matrix in Voigt notation
-  Tensor<T> const L = unflatten_barlat_params(flat_barlat_params);
+  minitensor::Tensor<T, 6> const L = unflatten_barlat_params(flat_barlat_params);
   // flat_s is a 6x1 vector in Voigt notation
-  Vector<T> const flat_s = L * flat_cauchy;
+  minitensor::Vector<T, 6> const flat_s = L * flat_cauchy;
   // take flat_s from Voigt 6x1 to standard Cartesian 3x3
-  Tensor<T> const s = unflatten_stress(flat_s);
+  minitensor::Tensor<T, 3> const s = unflatten_stress(flat_s);
 
-  std::pair<Tensor<T>, Tensor<T>> const s_eigen_decomp = eig_spd_cos(s);
+  std::pair<minitensor::Tensor<T, 3>, minitensor::Tensor<T, 3>> const s_eigen_decomp = eig_spd_cos(s);
   eigvecs = s_eigen_decomp.first;
   eigvals = s_eigen_decomp.second;
 }
 
 template <typename T>
-Tensor<T> compute_dyad_from_eigvec(
-    Tensor<T> const& eigvecs,
+minitensor::Tensor<T, 3> compute_dyad_from_eigvec(
+    minitensor::Tensor<T, 3> const& eigvecs,
     int index)
 {
-  Vector<T> const eigvec = minitensor::col(eigvecs, index);
+  minitensor::Vector<T, 3> const eigvec = minitensor::col(eigvecs, index);
   return minitensor::dyad(eigvec, eigvec);
 }
 
 template <typename T>
 T compute_barlat_sp_normal_multiplier(
-    Tensor<T> const& sp_eigvals,
-    Tensor<T> const& dp_eigvals,
+    minitensor::Tensor<T, 3> const& sp_eigvals,
+    minitensor::Tensor<T, 3> const& dp_eigvals,
     T const& a,
     int index)
 {
@@ -242,14 +242,14 @@ T compute_barlat_sp_normal_multiplier(
 }
 
 template <typename T>
-Tensor<T> compute_barlat_sp_normal_component(
-    Tensor<T> const& eigvecs,
-    Tensor<T> const& sp_eigvals,
-    Tensor<T> const& dp_eigvals,
+minitensor::Tensor<T, 3> compute_barlat_sp_normal_component(
+    minitensor::Tensor<T, 3> const& eigvecs,
+    minitensor::Tensor<T, 3> const& sp_eigvals,
+    minitensor::Tensor<T, 3> const& dp_eigvals,
     T const& a,
     int index)
 {
-  Tensor<T> const sp_normal_component =
+  minitensor::Tensor<T, 3> const sp_normal_component =
       compute_barlat_sp_normal_multiplier(sp_eigvals, dp_eigvals, a, index)
       * compute_dyad_from_eigvec(eigvecs, index);
   return sp_normal_component;
@@ -257,8 +257,8 @@ Tensor<T> compute_barlat_sp_normal_component(
 
 template <typename T>
 T compute_barlat_dp_normal_multiplier(
-    Tensor<T> const& sp_eigvals,
-    Tensor<T> const& dp_eigvals,
+    minitensor::Tensor<T, 3> const& sp_eigvals,
+    minitensor::Tensor<T, 3> const& dp_eigvals,
     T const& a,
     int index)
 {
@@ -274,65 +274,64 @@ T compute_barlat_dp_normal_multiplier(
 }
 
 template <typename T>
-Tensor<T> compute_barlat_dp_normal_component(
-    Tensor<T> const& eigvecs,
-    Tensor<T> const& sp_eigvals,
-    Tensor<T> const& dp_eigvals,
+minitensor::Tensor<T, 3> compute_barlat_dp_normal_component(
+    minitensor::Tensor<T, 3> const& eigvecs,
+    minitensor::Tensor<T, 3> const& sp_eigvals,
+    minitensor::Tensor<T, 3> const& dp_eigvals,
     T const& a,
     int index)
 {
-  Tensor<T> const dp_normal_component =
+  minitensor::Tensor<T, 3> const dp_normal_component =
       compute_barlat_dp_normal_multiplier(sp_eigvals, dp_eigvals, a, index)
       * compute_dyad_from_eigvec(eigvecs, index);
   return dp_normal_component;
 }
 
 template <typename T>
-Tensor<T> compute_barlat_normal(
-    Tensor<T> const& sp_eigvecs,
-    Tensor<T> const& dp_eigvecs,
-    Tensor<T> const& sp_eigvals,
-    Tensor<T> const& dp_eigvals,
-    Vector<T> const& flat_sp_barlat_params,
-    Vector<T> const& flat_dp_barlat_params,
+minitensor::Tensor<T, 3> compute_barlat_normal(
+    minitensor::Tensor<T, 3> const& sp_eigvecs,
+    minitensor::Tensor<T, 3> const& dp_eigvecs,
+    minitensor::Tensor<T, 3> const& sp_eigvals,
+    minitensor::Tensor<T, 3> const& dp_eigvals,
+    minitensor::Vector<T, 9> const& flat_sp_barlat_params,
+    minitensor::Vector<T, 9> const& flat_dp_barlat_params,
     T const& a)
 {
-  Tensor<T> const L_sp = unflatten_barlat_params(flat_sp_barlat_params);
-  Tensor<T> const dphi_d_sp = unflatten_stress(L_sp * flatten_stress(
-      compute_barlat_sp_normal_component(sp_eigvecs, sp_eigvals, dp_eigvals, a, 0)
-      + compute_barlat_sp_normal_component(sp_eigvecs, sp_eigvals, dp_eigvals, a, 1)
-      + compute_barlat_sp_normal_component(sp_eigvecs, sp_eigvals, dp_eigvals, a, 2)
-  ));
+  minitensor::Tensor<T, 3> sp_normal = minitensor::zero<T, 3>();
+  minitensor::Tensor<T, 3> dp_normal = minitensor::zero<T, 3>();
+  for (int i = 0; i < 3; ++i) {
+    sp_normal += compute_barlat_sp_normal_component(sp_eigvecs, sp_eigvals, dp_eigvals, a, i);
+    dp_normal += compute_barlat_dp_normal_component(dp_eigvecs, sp_eigvals, dp_eigvals, a, i);
+  }
 
-  Tensor<T> const L_dp = unflatten_barlat_params(flat_dp_barlat_params);
-  Tensor<T> const dphi_d_dp = unflatten_stress(L_dp * flatten_stress(
-      compute_barlat_dp_normal_component(dp_eigvecs, sp_eigvals, dp_eigvals, a, 0)
-      + compute_barlat_dp_normal_component(dp_eigvecs, sp_eigvals, dp_eigvals, a, 1)
-      + compute_barlat_dp_normal_component(dp_eigvecs, sp_eigvals, dp_eigvals, a, 2)
-  ));
+  minitensor::Tensor<T, 6> const L_sp = unflatten_barlat_params(flat_sp_barlat_params);
+  minitensor::Tensor<T, 6> const L_dp = unflatten_barlat_params(flat_dp_barlat_params);
 
-  return dphi_d_sp + dphi_d_dp;
+  minitensor::Vector<T, 6> const flat_dphi =
+      L_sp * flatten_stress(sp_normal) + L_dp * flatten_stress(dp_normal);
+
+  return unflatten_stress(flat_dphi);
 }
 
 template <typename T>
 struct BarlatEigenDecomp {
-  Tensor<T> sp_eigvecs;
-  Tensor<T> sp_eigvals;
-  Tensor<T> dp_eigvecs;
-  Tensor<T> dp_eigvals;
+  minitensor::Tensor<T, 3> sp_eigvecs;
+  minitensor::Tensor<T, 3> sp_eigvals;
+  minitensor::Tensor<T, 3> dp_eigvecs;
+  minitensor::Tensor<T, 3> dp_eigvals;
 };
 
 template <typename T>
 void evaluate_barlat_phi(
-    Tensor<T> const& cauchy,
-    Vector<T> const& flat_sp_barlat_params,
-    Vector<T> const& flat_dp_barlat_params,
+    minitensor::Tensor<T, 3> const& cauchy,
+    minitensor::Vector<T, 9> const& flat_sp_barlat_params,
+    minitensor::Vector<T, 9> const& flat_dp_barlat_params,
     T const& a,
     T& phi,
     BarlatEigenDecomp<T>& decomp)
 {
   double const sqrt_32 = std::sqrt(3. / 2.);
-  Tensor<T> const dev_cauchy = minitensor::dev(cauchy);
+  minitensor::Tensor<T, 3> const dev_cauchy = minitensor::dev(cauchy);
   double const norm_dev_cauchy = val(minitensor::norm(dev_cauchy));
   double const vm_phi = sqrt_32 * norm_dev_cauchy;
 
@@ -342,8 +341,8 @@ void evaluate_barlat_phi(
       decomp.dp_eigvecs, decomp.dp_eigvals);
 
   // vms -> von-mises scaled
-  Tensor<T> const vms_sp_eigvals = decomp.sp_eigvals / vm_phi;
-  Tensor<T> const vms_dp_eigvals = decomp.dp_eigvals / vm_phi;
+  minitensor::Tensor<T, 3> const vms_sp_eigvals = decomp.sp_eigvals / vm_phi;
+  minitensor::Tensor<T, 3> const vms_dp_eigvals = decomp.dp_eigvals / vm_phi;
 
   T const s0 = vms_sp_eigvals(0, 0);
   T const s1 = vms_sp_eigvals(1, 1);
@@ -369,16 +368,16 @@ void evaluate_barlat_phi(
 }
 
 template <typename T>
-Tensor<T> evaluate_barlat_normal(
+minitensor::Tensor<T, 3> evaluate_barlat_normal(
     BarlatEigenDecomp<T> const& decomp,
     T const& phi,
-    Vector<T> const& flat_sp_barlat_params,
-    Vector<T> const& flat_dp_barlat_params,
+    minitensor::Vector<T, 9> const& flat_sp_barlat_params,
+    minitensor::Vector<T, 9> const& flat_dp_barlat_params,
     T const& a)
 {
   // bs -> barlat scaled
-  Tensor<T> const bs_sp_eigvals = decomp.sp_eigvals / phi;
-  Tensor<T> const bs_dp_eigvals = decomp.dp_eigvals / phi;
+  minitensor::Tensor<T, 3> const bs_sp_eigvals = decomp.sp_eigvals / phi;
+  minitensor::Tensor<T, 3> const bs_dp_eigvals = decomp.dp_eigvals / phi;
 
   return compute_barlat_normal(
       decomp.sp_eigvecs, decomp.dp_eigvecs,

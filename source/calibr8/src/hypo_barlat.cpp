@@ -8,6 +8,7 @@
 #include "line_search.hpp"
 #include "macros.hpp"
 #include "material_params.hpp"
+#include "static_tensor.hpp"
 #include "yield_functions.hpp"
 
 namespace calibr8 {
@@ -407,7 +408,6 @@ int HypoBarlat<T>::evaluate(
     int path_in) {
 
   int path = ELASTIC;
-  int const ndims = this->m_num_dims;
 
   T const E = this->m_params[0];
   T const nu = this->m_params[1];
@@ -430,7 +430,7 @@ int HypoBarlat<T>::evaluate(
   T const sp_44 = this->m_params[14];
   T const sp_55 = this->m_params[15];
 
-  Vector<T> const sp_barlat_params = collect_barlat_params(
+  minitensor::Vector<T, 9> const sp_barlat_params = collect_barlat_params(
       sp_01, sp_02, sp_10, sp_12, sp_20, sp_21, sp_33, sp_44, sp_55
   );
 
@@ -444,14 +444,14 @@ int HypoBarlat<T>::evaluate(
   T const dp_44 = this->m_params[23];
   T const dp_55 = this->m_params[24];
 
-  Vector<T> const dp_barlat_params = collect_barlat_params(
+  minitensor::Vector<T, 9> const dp_barlat_params = collect_barlat_params(
       dp_01, dp_02, dp_10, dp_12, dp_20, dp_21, dp_33, dp_44, dp_55
   );
 
-  Tensor<T> const TC_old = this->sym_tensor_xi_prev(0);
+  minitensor::Tensor<T, 3> const TC_old = to_static<3>(this->sym_tensor_xi_prev(0));
   T const alpha_old = this->scalar_xi_prev(1);
 
-  Tensor<T> const TC = this->sym_tensor_xi(0);
+  minitensor::Tensor<T, 3> const TC = to_static<3>(this->sym_tensor_xi(0));
   T const alpha = this->scalar_xi(1);
 
   T phi = 0.;
@@ -463,11 +463,11 @@ int HypoBarlat<T>::evaluate(
   T const flow_stress = Y + K * alpha + S * (1. - std::exp(-D * alpha));
   T const f = (phi - flow_stress) / scale_factor;
 
-  Tensor<T> R_TC;
+  minitensor::Tensor<T, 3> R_TC;
   T R_alpha;
 
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const d = eval_d(global);
+  minitensor::Tensor<T, 3> const I = minitensor::eye<T, 3>();
+  minitensor::Tensor<T, 3> const d = to_static<3>(eval_d(global));
   R_TC = (TC - TC_old - lambda * trace(d) * I - 2. * mu * d) / scale_factor;
 
 
@@ -475,7 +475,7 @@ int HypoBarlat<T>::evaluate(
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
       T const dgam = alpha - alpha_old;
-      Tensor<T> const n =
+      minitensor::Tensor<T, 3> const n =
           evaluate_barlat_normal(decomp, phi, sp_barlat_params, dp_barlat_params, a);
       // scale_factor in R_TC removes the (2. * mu) multiplier
       R_TC += dgam * n;
@@ -495,7 +495,7 @@ int HypoBarlat<T>::evaluate(
     // plastic step
     if (path == PLASTIC) {
       T const dgam = alpha - alpha_old;
-      Tensor<T> const n =
+      minitensor::Tensor<T, 3> const n =
           evaluate_barlat_normal(decomp, phi, sp_barlat_params, dp_barlat_params, a);
       // scale_factor in R_TC removes the (2. * mu) multiplier
       R_TC += dgam * n;
@@ -507,7 +507,7 @@ int HypoBarlat<T>::evaluate(
     }
   }
 
-  this->set_sym_tensor_R(0, R_TC);
+  this->set_sym_tensor_R(0, to_dynamic(R_TC));
   this->set_scalar_R(1, R_alpha);
 
   return path;
