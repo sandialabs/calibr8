@@ -315,32 +315,35 @@ Tensor<T> compute_barlat_normal(
 }
 
 template <typename T>
-void evaluate_barlat_phi_and_normal(
+struct BarlatEigenDecomp {
+  Tensor<T> sp_eigvecs;
+  Tensor<T> sp_eigvals;
+  Tensor<T> dp_eigvecs;
+  Tensor<T> dp_eigvals;
+};
+
+template <typename T>
+void evaluate_barlat_phi(
     Tensor<T> const& cauchy,
     Vector<T> const& flat_sp_barlat_params,
     Vector<T> const& flat_dp_barlat_params,
     T const& a,
     T& phi,
-    Tensor<T>& normal)
+    BarlatEigenDecomp<T>& decomp)
 {
   double const sqrt_32 = std::sqrt(3. / 2.);
   Tensor<T> const dev_cauchy = minitensor::dev(cauchy);
   double const norm_dev_cauchy = val(minitensor::norm(dev_cauchy));
   double const vm_phi = sqrt_32 * norm_dev_cauchy;
 
-  Tensor<T> sp_eigvecs(3);
-  Tensor<T> sp_eigvals(3);
   compute_barlat_eigen_decomp(cauchy, flat_sp_barlat_params,
-      sp_eigvecs, sp_eigvals);
-
-  Tensor<T> dp_eigvecs(3);
-  Tensor<T> dp_eigvals(3);
+      decomp.sp_eigvecs, decomp.sp_eigvals);
   compute_barlat_eigen_decomp(cauchy, flat_dp_barlat_params,
-      dp_eigvecs, dp_eigvals);
+      decomp.dp_eigvecs, decomp.dp_eigvals);
 
   // vms -> von-mises scaled
-  Tensor<T> const vms_sp_eigvals = sp_eigvals / vm_phi;
-  Tensor<T> const vms_dp_eigvals = dp_eigvals / vm_phi;
+  Tensor<T> const vms_sp_eigvals = decomp.sp_eigvals / vm_phi;
+  Tensor<T> const vms_dp_eigvals = decomp.dp_eigvals / vm_phi;
 
   T const s0 = vms_sp_eigvals(0, 0);
   T const s1 = vms_sp_eigvals(1, 1);
@@ -363,13 +366,22 @@ void evaluate_barlat_phi_and_normal(
   T const sum = 0.25 * (t00 + t01 + t02 + t10 + t11 + t12 + t20 + t21 + t22);
 
   phi = vm_phi * std::exp((1.0 / a) * std::log(sum));
+}
 
+template <typename T>
+Tensor<T> evaluate_barlat_normal(
+    BarlatEigenDecomp<T> const& decomp,
+    T const& phi,
+    Vector<T> const& flat_sp_barlat_params,
+    Vector<T> const& flat_dp_barlat_params,
+    T const& a)
+{
   // bs -> barlat scaled
-  Tensor<T> const bs_sp_eigvals = sp_eigvals / phi;
-  Tensor<T> const bs_dp_eigvals = dp_eigvals / phi;
+  Tensor<T> const bs_sp_eigvals = decomp.sp_eigvals / phi;
+  Tensor<T> const bs_dp_eigvals = decomp.dp_eigvals / phi;
 
-  normal = compute_barlat_normal(
-      sp_eigvecs, dp_eigvecs,
+  return compute_barlat_normal(
+      decomp.sp_eigvecs, decomp.dp_eigvecs,
       bs_sp_eigvals, bs_dp_eigvals,
       flat_sp_barlat_params, flat_dp_barlat_params, a
   );

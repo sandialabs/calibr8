@@ -88,6 +88,9 @@ class HypoBarlat : public LocalResidual<T> {
     // lab to material cylindrical coordinate system transformation matrix
     Tensor<T> m_Q = minitensor::eye<T>(3);
 
+    Tensor<T> m_d;
+    bool m_kinematics_cached = false;
+
     enum {ELASTIC = 0, PLASTIC = 1};
 
 };

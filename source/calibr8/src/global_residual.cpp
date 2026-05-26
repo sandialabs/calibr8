@@ -328,6 +328,7 @@ void GlobalResidual<T>::interpolate(apf::Vector3 const& iota) {
   m_pt_global_coords(2) = x[2];
 
   compute_kinematics();
+  m_R_valid = false;
 }
 
 template <typename T>
@@ -372,6 +373,7 @@ void GlobalResidual<T>::interpolate_with_error(apf::Vector3 const& iota) {
   }
 
   compute_kinematics();
+  m_R_valid = false;
 }
 
 template <typename T>

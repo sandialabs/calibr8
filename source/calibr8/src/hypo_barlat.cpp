@@ -4,6 +4,7 @@
 #include "fad.hpp"
 #include "global_residual.hpp"
 #include "hypo_barlat.hpp"
+#include "hypo_kinematics.hpp"
 #include "line_search.hpp"
 #include "macros.hpp"
 #include "material_params.hpp"
@@ -267,19 +268,11 @@ void HypoBarlat<T>::compute_Q(RCP<GlobalResidual<T>> global) {
 
 template <typename T>
 Tensor<T> HypoBarlat<T>::eval_d(RCP<GlobalResidual<T>> global) {
-  int const ndims = global->num_dims();
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
-  Tensor<T> const F = grad_u + I;
-  Tensor<T> const F_prev = grad_u_prev + I;
-  Tensor<T> const Finv = inverse(F);
-  Tensor<T> const R = minitensor::polar_rotation(F);
-  Tensor<T> const L = (F - F_prev) * Finv;
-  Tensor<T> const D = 0.5 * (L + transpose(L));
+  if (m_kinematics_cached) return m_d;
   compute_Q(global);
-  Tensor<T> const d = m_Q * transpose(R) * D * R * transpose(m_Q);
-  return d;
+  Tensor<T> const d_unrotated = compute_unrotated_rate_of_deformation(
+      global->F(), global->F_prev(), global->R());
+  return m_Q * d_unrotated * transpose(m_Q);
 }
 
 
@@ -292,6 +285,9 @@ template <>
 int HypoBarlat<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
+
+  m_d = eval_d(global);
+  m_kinematics_cached = true;
 
   // pick an initial guess for the local variables
   {
@@ -389,6 +385,8 @@ int HypoBarlat<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   }
 
+  m_kinematics_cached = false;
+
   if ((iter > m_max_iters) && (!converged)) {
     // std::cout << "HypoBarlat:solve_nonlinear failed in "  << iter << " iterations\n";
     return -1;
@@ -457,10 +455,8 @@ int HypoBarlat<T>::evaluate(
   T const alpha = this->scalar_xi(1);
 
   T phi = 0.;
-  Tensor<T> n = zero<T>(3);
-  evaluate_barlat_phi_and_normal(
-      TC, sp_barlat_params, dp_barlat_params, a, phi, n
-  );
+  BarlatEigenDecomp<T> decomp;
+  evaluate_barlat_phi(TC, sp_barlat_params, dp_barlat_params, a, phi, decomp);
 
   T const scale_factor = 2. * mu;
 
@@ -479,6 +475,8 @@ int HypoBarlat<T>::evaluate(
     // plastic step
     if (f > m_abs_tol || std::abs(f) < m_abs_tol) {
       T const dgam = alpha - alpha_old;
+      Tensor<T> const n =
+          evaluate_barlat_normal(decomp, phi, sp_barlat_params, dp_barlat_params, a);
       // scale_factor in R_TC removes the (2. * mu) multiplier
       R_TC += dgam * n;
       R_alpha = f;
@@ -497,6 +495,8 @@ int HypoBarlat<T>::evaluate(
     // plastic step
     if (path == PLASTIC) {
       T const dgam = alpha - alpha_old;
+      Tensor<T> const n =
+          evaluate_barlat_normal(decomp, phi, sp_barlat_params, dp_barlat_params, a);
       // scale_factor in R_TC removes the (2. * mu) multiplier
       R_TC += dgam * n;
       R_alpha = f;
@@ -516,12 +516,8 @@ int HypoBarlat<T>::evaluate(
 
 template <typename T>
 Tensor<T> HypoBarlat<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
-  int const ndims = this->m_num_dims;
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const F = grad_u + I;
   Tensor<T> const TC = this->sym_tensor_xi(0);
-  Tensor<T> const R = minitensor::polar_rotation(F);
+  Tensor<T> const& R = global->R();
   compute_Q(global);
   Tensor<T> const RC = R * transpose(m_Q) * TC * m_Q * transpose(R);
   return RC;

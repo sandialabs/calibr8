@@ -299,6 +299,11 @@ class GlobalResidual {
     Tensor<T> const& cof_F() const { return m_cof_F; }
     T const& det_F() const { return m_det_F; }
 
+    Tensor<T> const& R() const {
+      if (!m_R_valid) { m_R = minitensor::polar_rotation(m_F); m_R_valid = true; }
+      return m_R;
+    }
+
   private:
 
     int dx_idx(int i, int node, int eq) const;
@@ -327,6 +332,8 @@ class GlobalResidual {
     Tensor<T> m_F_prev;
     Tensor<T> m_cof_F;
     T m_det_F;
+    mutable Tensor<T> m_R;
+    mutable bool m_R_valid = false;
 
     apf::Mesh* m_mesh = nullptr;
     apf::FieldShape* m_shape = nullptr;
