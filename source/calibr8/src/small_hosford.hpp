@@ -3,6 +3,7 @@
 //! \file small_hosford.hpp
 //! \brief The interface for the small strain Hosford local plasticity residuals
 
+#include "line_search.hpp"
 #include "local_residual.hpp"
 
 namespace calibr8 {
@@ -70,10 +71,7 @@ class SmallHosford : public LocalResidual<T> {
     int m_max_iters;
     double m_abs_tol;
     double m_rel_tol;
-    double m_ls_beta;
-    double m_ls_eta;
-    int m_ls_max_evals;
-    bool m_ls_print;
+    LineSearchParams m_ls_params;
 
     enum {ELASTIC = 0, PLASTIC = 1};
 

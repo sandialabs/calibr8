@@ -3,7 +3,6 @@
 #include "defines.hpp"
 #include "fad.hpp"
 #include "global_residual.hpp"
-#include "line_search.hpp"
 #include "material_params.hpp"
 #include "small_hosford.hpp"
 
@@ -24,10 +23,7 @@ static ParameterList get_valid_local_residual_params() {
   p.set<int>("nonlinear max iters", 0);
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
-  p.set<double>("line search beta", 1.0e-4);
-  p.set<double>("line search eta", 0.5);
-  p.set<int>("line search max evals", 10);
-  p.set<bool>("line search print", false);
+  p.sublist("line search");
   p.sublist("materials");
   return p;
 }
@@ -68,10 +64,8 @@ SmallHosford<T>::SmallHosford(ParameterList const& inputs, int ndims) {
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
   m_rel_tol = inputs.get<double>("nonlinear relative tol");
-  m_ls_beta = inputs.get<double>("line search beta");
-  m_ls_eta = inputs.get<double>("line search eta");
-  m_ls_max_evals = inputs.get<int>("line search max evals");
-  m_ls_print = inputs.get<bool>("line search print");
+  m_ls_params = read_line_search_params(this->m_params_list.sublist("line search"));
+  m_ls_params.tag = "(local) ";
 
 }
 
@@ -189,13 +183,6 @@ int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
       double const psi_0 = 0.5 * C_0 * C_0;
       double const dpsi_0 = -2. * psi_0;
 
-      LineSearchParams ls_params;
-      ls_params.c1 = m_ls_beta;
-      ls_params.backtrack_min = m_ls_eta;
-      ls_params.max_evals = m_ls_max_evals;
-      ls_params.print = m_ls_print;
-      ls_params.tag = "(local) ";
-
       double alpha_applied = 1.;   // the full Newton step was applied above
       auto eval = [&](double alpha, double& phi, double& slope) -> bool {
         double const alpha_diff = alpha - alpha_applied;
@@ -211,7 +198,7 @@ int SmallHosford<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
         return true;
       };
 
-      double const alpha = line_search(ls_params, psi_0, dpsi_0, eval);
+      double const alpha = line_search(m_ls_params, psi_0, dpsi_0, eval);
       // Move the local state to the accepted step.
       double const alpha_diff = alpha - alpha_applied;
       this->add_to_sym_tensor_xi(0, alpha_diff * dxi);

@@ -44,7 +44,6 @@ void Primal::solve_at_step(int step) {
   double const abs_tol = global.get<double>("nonlinear absolute tol");
   double const rel_tol = global.get<double>("nonlinear relative tol");
   bool const do_print = global.get<bool>("print convergence");
-  int const max_line_search_evals = global.get<int>("max line search evals", 10);
   double const t = m_state->disc->time(step);
 
   // print the step information
@@ -144,10 +143,7 @@ void Primal::solve_at_step(int step) {
       for (int i = 0; i < num_local_fields; ++i)
         apf::copyData(saved_local_state[i], local_state[i]);
 
-      LineSearchParams ls_params;
-      ls_params.c1 = 1.0e-4;
-      ls_params.max_evals = max_line_search_evals;
-      ls_params.print = do_print;
+      LineSearchParams ls_params = read_line_search_params(global.sublist("line search"));
 
       double alpha_applied = 1.;   // the full Newton step was applied above
       auto eval = [&](double alpha, double& phi, double& slope) -> bool {

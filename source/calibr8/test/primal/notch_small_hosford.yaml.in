@@ -22,10 +22,12 @@ notch small hosford:
       nonlinear max iters: 500
       nonlinear absolute tol: 1.e-12
       nonlinear relative tol: 1.e-12
-      line search beta: 1e-4
-      line search eta: 0.5
-      line search max evals: 100
-      line search print: false
+      line search:
+        sufficient decrease: 1e-4
+        min backtrack factor: 0.5
+        max backtrack factor: 0.9
+        max evals: 100
+        print: false
       materials:
         body:
           E: 1000.

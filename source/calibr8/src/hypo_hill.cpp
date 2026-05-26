@@ -4,13 +4,13 @@
 #include "fad.hpp"
 #include "global_residual.hpp"
 #include "hypo_hill.hpp"
+#include "hypo_kinematics.hpp"
 #include "material_params.hpp"
 #include "yield_functions.hpp"
 
 namespace calibr8 {
 
 using minitensor::dev;
-using minitensor::inverse;
 using minitensor::trace;
 using minitensor::transpose;
 
@@ -139,19 +139,10 @@ void HypoHill<T>::init_variables_impl() {
 }
 
 template <typename T>
-Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
-  int const ndims = global->num_dims();
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
-  Tensor<T> const F = grad_u + I;
-  Tensor<T> const F_prev = grad_u_prev + I;
-  Tensor<T> const Finv = inverse(F);
-  Tensor<T> const R = minitensor::polar_rotation(F);
-  Tensor<T> const L = (F - F_prev) * Finv;
-  Tensor<T> const D = 0.5 * (L + transpose(L));
-  Tensor<T> const d = transpose(R) * D * R;
-  return d;
+Tensor<T> HypoHill<T>::eval_d(RCP<GlobalResidual<T>> global) {
+  if (m_kinematics_cached) return m_d;
+  return compute_unrotated_rate_of_deformation(
+      global->F(), global->F_prev(), global->R());
 }
 
 
@@ -164,6 +155,9 @@ template <>
 int HypoHill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   int path;
+
+  m_d = eval_d(global);
+  m_kinematics_cached = true;
 
   // pick an initial guess for the local variables
   {
@@ -214,9 +208,11 @@ int HypoHill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   if ((iter > m_max_iters) && (!converged)) {
     // std::cout << "HypoHill:solve_nonlinear failed in "  << iter << " iterations\n";
+    m_kinematics_cached = false;
     return -1;
   }
 
+  m_kinematics_cached = false;
   return path;
 
 }
@@ -311,12 +307,8 @@ int HypoHill<T>::evaluate(
 
 template <typename T>
 Tensor<T> HypoHill<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
-  int const ndims = this->m_num_dims;
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const F = grad_u + I;
   Tensor<T> const TC = this->sym_tensor_xi(0);
-  Tensor<T> const R = minitensor::polar_rotation(F);
+  Tensor<T> const& R = global->R();
   Tensor<T> const RC = R * TC * transpose(R);
   return RC;
 }

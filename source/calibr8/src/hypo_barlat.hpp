@@ -3,6 +3,7 @@
 //! \file hypo_barlat.hpp
 //! \brief The interface for hypoelastic Barlat local plasticity residuals
 
+#include "line_search.hpp"
 #include "local_residual.hpp"
 
 namespace calibr8 {
@@ -77,10 +78,7 @@ class HypoBarlat : public LocalResidual<T> {
     int m_max_iters;
     double m_abs_tol;
     double m_rel_tol;
-    double m_ls_beta;
-    double m_ls_eta;
-    int m_ls_max_evals;
-    bool m_ls_print;
+    LineSearchParams m_ls_params;
 
     bool m_compute_cylindrical_transform = false;
     // lab to material cartesian coordinate system transformation matrix

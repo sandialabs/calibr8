@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <Teuchos_ParameterList.hpp>
 #include "control.hpp"
 
 namespace calibr8 {
@@ -28,6 +29,22 @@ struct LineSearchParams {
   bool print = false;         //!< print convergence information
   char const* tag = "";       //!< prefix for printed messages ("(local) " locally)
 };
+
+//! \brief Build LineSearchParams from a "line search" deck sublist.
+//! \details All entries are optional; defaults match the struct above:
+//! "sufficient decrease" (c1, 1e-4), "min backtrack factor" (backtrack_min,
+//! 0.5), "max backtrack factor" (backtrack_max, 0.9), "max evals" (10),
+//! "print" (false). The caller sets \c tag. Shared so the global (primal) and
+//! local (constitutive) solves parse one schema in one place.
+inline LineSearchParams read_line_search_params(Teuchos::ParameterList& p) {
+  LineSearchParams ls;
+  ls.c1            = p.get<double>("sufficient decrease", 1.0e-4);
+  ls.backtrack_min = p.get<double>("min backtrack factor", 0.5);
+  ls.backtrack_max = p.get<double>("max backtrack factor", 0.9);
+  ls.max_evals     = p.get<int>("max evals", 10);
+  ls.print         = p.get<bool>("print", false);
+  return ls;
+}
 
 namespace line_search_detail {
 
@@ -84,7 +101,7 @@ double line_search(
     last_eval_alpha = alpha;
 
     if (phi <= phi_0 + alpha * armijo_slope) {
-      if (p.print)
+      if (p.print && n > 1)
         print(" > %sline search: alpha = %.3e (%d evals)", p.tag, alpha, n);
       return alpha;
     }
