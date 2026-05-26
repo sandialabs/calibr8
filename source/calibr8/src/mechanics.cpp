@@ -58,6 +58,48 @@ template <typename T>
 Mechanics<T>::~Mechanics() {
 }
 
+template <typename T>
+void Mechanics<T>::compute_kinematics() {
+  int const ndims = this->m_num_dims;
+  int const momentum_idx = 0;
+
+  if (this->m_F.get_dimension() != ndims) {
+    this->m_F = Tensor<T>(ndims);
+    this->m_F_prev = Tensor<T>(ndims);
+    this->m_cof_F = Tensor<T>(ndims);
+  }
+
+  for (int k = 0; k < ndims; ++k) {
+    for (int l = 0; l < ndims; ++l) {
+      this->m_F(k, l) = this->m_grad_x[momentum_idx][k][l];
+      this->m_F_prev(k, l) = this->m_grad_x_prev[momentum_idx][k][l];
+    }
+    this->m_F(k, k) += T(1.0);
+    this->m_F_prev(k, k) += T(1.0);
+  }
+
+  this->m_det_F = det(this->m_F);
+
+  Tensor<T> const& F = this->m_F;
+  Tensor<T>& C = this->m_cof_F;
+  if (ndims == 3) {
+    C(0,0) =  F(1,1)*F(2,2) - F(1,2)*F(2,1);
+    C(0,1) = -F(1,0)*F(2,2) + F(1,2)*F(2,0);
+    C(0,2) =  F(1,0)*F(2,1) - F(1,1)*F(2,0);
+    C(1,0) = -F(0,1)*F(2,2) + F(0,2)*F(2,1);
+    C(1,1) =  F(0,0)*F(2,2) - F(0,2)*F(2,0);
+    C(1,2) = -F(0,0)*F(2,1) + F(0,1)*F(2,0);
+    C(2,0) =  F(0,1)*F(1,2) - F(0,2)*F(1,1);
+    C(2,1) = -F(0,0)*F(1,2) + F(0,2)*F(1,0);
+    C(2,2) =  F(0,0)*F(1,1) - F(0,1)*F(1,0);
+  } else {
+    C(0,0) =  F(1,1);
+    C(0,1) = -F(1,0);
+    C(1,0) = -F(0,1);
+    C(1,1) =  F(0,0);
+  }
+}
+
 static double get_size(apf::Mesh* mesh, apf::MeshElement* me) {
   double h = 0.;
   apf::Downward edges;
@@ -83,21 +125,12 @@ void Mechanics<T>::evaluate_displacement(
   int const nnodes = this->m_num_nodes;
   int const momentum_idx = 0;
 
-  // gather variables from this residual quantities
-  Tensor<T> const grad_u = this->grad_vector_x(momentum_idx);
-
-  // compute kinematic quantities
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const F = grad_u + I;
-  Tensor<T> const F_inv = inverse(F);
-  Tensor<T> const F_invT = transpose(F_inv);
-  T J = det(F);
-
   // compute stress measures
   RCP<GlobalResidual<T>> global = rcp(this, false);
   Tensor<T> stress = local->cauchy(global);
 
-  if (local->is_finite_deformation()) stress = J * stress * F_invT;
+  // PK1 = J*sigma*F^{-T} = sigma*cof(F)
+  if (local->is_finite_deformation()) stress = stress * this->cof_F();
 
   // compute the balance of linear momentum residual
   for (int n = 0; n < nnodes; ++n) {
@@ -122,7 +155,6 @@ void Mechanics<T>::evaluate_mixed(
   // gather information from this class
   int const ndims = this->m_num_dims;
   int const nnodes = this->m_num_nodes;
-  int const momentum_idx = 0;
   int const pressure_idx = 1;
 
   // gather material properties
@@ -138,14 +170,8 @@ void Mechanics<T>::evaluate_mixed(
 
     // gather variables from this residual quantities
     Vector<T> const grad_p = this->grad_scalar_x(pressure_idx);
-    Tensor<T> const grad_u = this->grad_vector_x(momentum_idx);
 
-    // compute kinematic quantities
     Tensor<T> const I = minitensor::eye<T>(ndims);
-    Tensor<T> const F = grad_u + I;
-    Tensor<T> const F_inv = inverse(F);
-    Tensor<T> const F_invT = transpose(F_inv);
-    T J = det(F);
 
     // compute the constant part of the pressure residual
     RCP<GlobalResidual<T>> global = rcp(this, false);
@@ -171,8 +197,8 @@ void Mechanics<T>::evaluate_mixed(
     T const tau = m_stabilization_multiplier * 0.5 * h * h / mu;
     Tensor<T> stab_matrix = tau * I;
     if (local->is_finite_deformation()) {
-      Tensor<T> const C_inv = inverse(transpose(F) * F);
-      stab_matrix = J * stab_matrix * C_inv;
+      Tensor<T> const& cof_F = this->cof_F();
+      stab_matrix = stab_matrix * (transpose(cof_F) * cof_F) / this->det_F();
     }
 
     for (int n = 0; n < nnodes; ++n) {

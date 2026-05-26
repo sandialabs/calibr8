@@ -40,6 +40,8 @@ class Mechanics : public GlobalResidual<T> {
         double dv,
         int ip_set);
 
+    void compute_kinematics();
+
     double m_stabilization_multiplier = 1.;
 
   private:

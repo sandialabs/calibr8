@@ -292,6 +292,13 @@ class GlobalResidual {
     double delta_t() const {return m_delta_t;}
     Eigen::Vector3d pt_global_coords() const {return m_pt_global_coords;}
 
+    virtual void compute_kinematics() {}
+
+    Tensor<T> const& F() const { return m_F; }
+    Tensor<T> const& F_prev() const { return m_F_prev; }
+    Tensor<T> const& cof_F() const { return m_cof_F; }
+    T const& det_F() const { return m_det_F; }
+
   private:
 
     int dx_idx(int i, int node, int eq) const;
@@ -314,6 +321,12 @@ class GlobalResidual {
     Array1D<int> m_dx_offsets;
 
     Array2D<double*> m_lhs_values;
+
+    // Per-IP kinematics cache, populated by Mechanics::compute_kinematics
+    Tensor<T> m_F;
+    Tensor<T> m_F_prev;
+    Tensor<T> m_cof_F;
+    T m_det_F;
 
     apf::Mesh* m_mesh = nullptr;
     apf::FieldShape* m_shape = nullptr;
