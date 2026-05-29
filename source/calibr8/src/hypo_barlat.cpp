@@ -1,3 +1,5 @@
+#include <fstream>
+#include <sstream>
 #include <Eigen/Dense>
 #include "control.hpp"
 #include "defines.hpp"
@@ -32,6 +34,7 @@ static ParameterList get_valid_local_residual_params() {
   p.sublist("materials");
   p.sublist("line search");
   p.sublist("cylindrical coordinate system points");
+  p.set<std::string>("MLEP file", "");
   return p;
 }
 
@@ -92,10 +95,49 @@ void HypoBarlat<T>::compute_cartesian_lab_to_mat_rotation() {
   auto const cylindrical_cs_z_dir = (cylindrical_cs_point_on_z_axis - cylindrical_cs_origin).normalized();
   auto const cylindrical_cs_y_dir = cylindrical_cs_z_dir.cross(cylindrical_cs_x_dir);
 
+  m_cyl_origin = cylindrical_cs_origin;
   m_cartesian_lab_to_mat_rotation <<
       cylindrical_cs_x_dir[0], cylindrical_cs_x_dir[1], cylindrical_cs_x_dir[2],
       cylindrical_cs_y_dir[0], cylindrical_cs_y_dir[1], cylindrical_cs_y_dir[2],
       cylindrical_cs_z_dir[0], cylindrical_cs_z_dir[1], cylindrical_cs_z_dir[2];
+}
+
+template <typename T>
+void HypoBarlat<T>::read_mlep_data(std::string const& filename) {
+  std::ifstream file(filename);
+  std::string line;
+
+  while (std::getline(file, line)) {
+    std::istringstream lineStream(line);
+    std::string xStr, yStr;
+
+    std::getline(lineStream, xStr, ',');
+    std::getline(lineStream, yStr, ',');
+
+    m_mlep_x.push_back(std::stod(xStr));
+    m_mlep_y.push_back(std::stod(yStr));
+  }
+}
+
+template <typename T>
+T HypoBarlat<T>::evaluate_mlep_hardening(T const& alpha) {
+  double const alpha_val = val(alpha);
+  T H = 0.;
+  if (alpha_val <= m_mlep_x.front()) {
+    H = m_mlep_y.front();
+  }
+  if (alpha_val >= m_mlep_x.back()) {
+    H = m_mlep_y.back();
+  }
+
+  for (size_t i = 0; i < m_mlep_x.size() - 1; ++i) {
+    if (alpha_val >= m_mlep_x[i] && alpha_val <= m_mlep_x[i + 1]) {
+      T const t = (alpha - m_mlep_x[i]) / (m_mlep_x[i + 1] - m_mlep_x[i]);
+      H = m_mlep_y[i] + t * (m_mlep_y[i + 1] - m_mlep_y[i]);
+    }
+  }
+
+  return H;
 }
 
 
@@ -130,6 +172,11 @@ HypoBarlat<T>::HypoBarlat(ParameterList const& inputs, int ndims) {
 
   if (inputs.isSublist("cylindrical coordinate system points")) {
     compute_cartesian_lab_to_mat_rotation();
+  }
+  if (inputs.isParameter("MLEP file")) {
+    auto const mlep_file = inputs.get<std::string>("MLEP file");
+    read_mlep_data(mlep_file);
+    m_use_mlep = true;
   }
 }
 
@@ -235,29 +282,36 @@ void HypoBarlat<T>::init_variables_impl() {
 template <typename T>
 void HypoBarlat<T>::compute_Q(RCP<GlobalResidual<T>> global) {
   if (m_compute_cylindrical_transform) {
-    auto const& pt_global_coords = global->pt_global_coords();
-    auto const cartesian_mat_coords = m_cartesian_lab_to_mat_rotation * pt_global_coords;
 
-    double x = cartesian_mat_coords(0);
-    double y = cartesian_mat_coords(1);
-    double rho = std::sqrt(x*x + y*y);
-    double theta = std::atan2(y, x);
+    // Global coordinates of current material point
+    auto const& x_global = global->pt_global_coords();   // Eigen::Vector3d-like
 
+    // --- KEY FIX: translate so cylindrical origin is treated correctly ---
+    // cylindrical coordinates must be computed from (x - origin), not from x
+    auto const x_rel = x_global - m_cyl_origin;
+
+    // Rotate into the local Cartesian frame aligned with the cylindrical system
+    auto const x_loc = m_cartesian_lab_to_mat_rotation * x_rel;
+
+    double const x = x_loc(0);
+    double const y = x_loc(1);
+    // double const rho = std::sqrt(x*x + y*y);  // only needed if you use it later
+    double const theta = std::atan2(y, x);
+
+    // Rows of rotation matrix are the local basis vectors expressed in lab coords
     auto const& e_x = m_cartesian_lab_to_mat_rotation.row(0);
     auto const& e_y = m_cartesian_lab_to_mat_rotation.row(1);
-    auto const e_rho = std::cos(theta) * e_x + std::sin(theta) * e_y;
-    auto const e_theta = -std::sin(theta) * e_x + std::cos(theta) * e_y;
-    auto const& e_zeta = m_cartesian_lab_to_mat_rotation.row(2);
+    auto const& e_z = m_cartesian_lab_to_mat_rotation.row(2);
 
-    m_Q(0, 0) = e_rho(0);
-    m_Q(0, 1) = e_rho(1);
-    m_Q(0, 2) = e_rho(2);
-    m_Q(1, 0) = e_theta(0);
-    m_Q(1, 1) = e_theta(1);
-    m_Q(1, 2) = e_theta(2);
-    m_Q(2, 0) = e_zeta(0);
-    m_Q(2, 1) = e_zeta(1);
-    m_Q(2, 2) = e_zeta(2);
+    // Cylindrical basis at this point, expressed in lab coordinates
+    auto const e_rho   = std::cos(theta) * e_x + std::sin(theta) * e_y;
+    auto const e_theta = -std::sin(theta) * e_x + std::cos(theta) * e_y;
+    auto const& e_zeta = e_z;
+
+    // Assemble Q: lab -> material (cylindrical) rotation
+    m_Q(0, 0) = e_rho(0);   m_Q(0, 1) = e_rho(1);   m_Q(0, 2) = e_rho(2);
+    m_Q(1, 0) = e_theta(0); m_Q(1, 1) = e_theta(1); m_Q(1, 2) = e_theta(2);
+    m_Q(2, 0) = e_zeta(0);  m_Q(2, 1) = e_zeta(1);  m_Q(2, 2) = e_zeta(2);
   }
 }
 
@@ -269,7 +323,6 @@ Tensor<T> HypoBarlat<T>::eval_d(RCP<GlobalResidual<T>> global) {
       global->F(), global->F_prev(), global->R());
   return m_Q * d_unrotated * transpose(m_Q);
 }
-
 
 template <>
 int HypoBarlat<double>::solve_nonlinear(RCP<GlobalResidual<double>>) {
@@ -447,7 +500,12 @@ int HypoBarlat<T>::evaluate(
 
   T const scale_factor = 2. * mu;
 
-  T const flow_stress = Y + K * alpha + S * (1. - std::exp(-D * alpha));
+  T flow_stress;
+  if (m_use_mlep) {
+    flow_stress = evaluate_mlep_hardening(alpha);
+  } else {
+    flow_stress = Y + K * alpha + S * (1. - std::exp(-D * alpha));
+  }
   T const f = (phi - flow_stress) / scale_factor;
 
   minitensor::Tensor<T, 3> R_TC;

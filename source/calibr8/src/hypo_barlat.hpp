@@ -83,11 +83,18 @@ class HypoBarlat : public LocalResidual<T> {
     bool m_compute_cylindrical_transform = false;
     // lab to material cartesian coordinate system transformation matrix
     Eigen::Matrix3d m_cartesian_lab_to_mat_rotation = Eigen::Matrix3d::Identity(3, 3);
+    Eigen::Vector3d m_cyl_origin;
     // lab to material cylindrical coordinate system transformation matrix
     Tensor<T> m_Q = minitensor::eye<T>(3);
 
     Tensor<T> m_d;
     bool m_kinematics_cached = false;
+
+    bool m_use_mlep = false;
+    Array1D<double> m_mlep_x;
+    Array1D<double> m_mlep_y;
+    void read_mlep_data(std::string const& filename);
+    T evaluate_mlep_hardening(T const& alpha);
 
     enum {ELASTIC = 0, PLASTIC = 1};
 
