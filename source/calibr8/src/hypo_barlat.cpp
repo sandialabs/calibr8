@@ -283,35 +283,38 @@ template <typename T>
 void HypoBarlat<T>::compute_Q(RCP<GlobalResidual<T>> global) {
   if (m_compute_cylindrical_transform) {
 
-    // Global coordinates of current material point
-    auto const& x_global = global->pt_global_coords();   // Eigen::Vector3d-like
+    // global coordinates of current material point
+    auto const& x_global = global->pt_global_coords();
 
-    // --- KEY FIX: translate so cylindrical origin is treated correctly ---
-    // cylindrical coordinates must be computed from (x - origin), not from x
+    // cylindrical coordinates must be computed from (x - origin)
     auto const x_rel = x_global - m_cyl_origin;
 
-    // Rotate into the local Cartesian frame aligned with the cylindrical system
-    auto const x_loc = m_cartesian_lab_to_mat_rotation * x_rel;
-
-    double const x = x_loc(0);
-    double const y = x_loc(1);
-    // double const rho = std::sqrt(x*x + y*y);  // only needed if you use it later
+    // rotate into the local Cartesian frame aligned with the cylindrical system
+    auto const x_local = m_cartesian_lab_to_mat_rotation * x_rel;
+    double const x = x_local(0);
+    double const y = x_local(1);
     double const theta = std::atan2(y, x);
 
-    // Rows of rotation matrix are the local basis vectors expressed in lab coords
+    // rows of rotation matrix are the local basis vectors expressed in lab coords
     auto const& e_x = m_cartesian_lab_to_mat_rotation.row(0);
     auto const& e_y = m_cartesian_lab_to_mat_rotation.row(1);
     auto const& e_z = m_cartesian_lab_to_mat_rotation.row(2);
 
-    // Cylindrical basis at this point, expressed in lab coordinates
+    // cylindrical basis at this point, expressed in lab coordinates
     auto const e_rho   = std::cos(theta) * e_x + std::sin(theta) * e_y;
     auto const e_theta = -std::sin(theta) * e_x + std::cos(theta) * e_y;
     auto const& e_zeta = e_z;
 
-    // Assemble Q: lab -> material (cylindrical) rotation
-    m_Q(0, 0) = e_rho(0);   m_Q(0, 1) = e_rho(1);   m_Q(0, 2) = e_rho(2);
-    m_Q(1, 0) = e_theta(0); m_Q(1, 1) = e_theta(1); m_Q(1, 2) = e_theta(2);
-    m_Q(2, 0) = e_zeta(0);  m_Q(2, 1) = e_zeta(1);  m_Q(2, 2) = e_zeta(2);
+    // assemble Q: lab -> material (cylindrical) rotation
+    m_Q(0, 0) = e_rho(0);
+    m_Q(0, 1) = e_rho(1);
+    m_Q(0, 2) = e_rho(2);
+    m_Q(1, 0) = e_theta(0);
+    m_Q(1, 1) = e_theta(1);
+    m_Q(1, 2) = e_theta(2);
+    m_Q(2, 0) = e_zeta(0);
+    m_Q(2, 1) = e_zeta(1);
+    m_Q(2, 2) = e_zeta(2);
   }
 }
 
