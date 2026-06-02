@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <Teuchos_ParameterList.hpp>
 #include "control.hpp"
 
@@ -25,7 +26,7 @@ struct LineSearchParams {
   double c1 = 1.0e-4;         //!< sufficient-decrease (Armijo) constant
   double backtrack_min = 0.5; //!< next step >= backtrack_min * current step
   double backtrack_max = 0.9; //!< next step <= backtrack_max * current step
-  int max_evals = 10;         //!< maximum merit-function evaluations
+  int max_evals = 4;          //!< maximum merit-function evaluations
   bool print = false;         //!< print convergence information
   char const* tag = "";       //!< prefix for printed messages ("(local) " locally)
 };
@@ -33,7 +34,7 @@ struct LineSearchParams {
 //! \brief Build LineSearchParams from a "line search" deck sublist.
 //! \details All entries are optional; defaults match the struct above:
 //! "sufficient decrease" (c1, 1e-4), "min backtrack factor" (backtrack_min,
-//! 0.5), "max backtrack factor" (backtrack_max, 0.9), "max evals" (10),
+//! 0.5), "max backtrack factor" (backtrack_max, 0.9), "max evals" (4),
 //! "print" (false). The caller sets \c tag. Shared so the global (primal) and
 //! local (constitutive) solves parse one schema in one place.
 inline LineSearchParams read_line_search_params(Teuchos::ParameterList& p) {
@@ -41,7 +42,7 @@ inline LineSearchParams read_line_search_params(Teuchos::ParameterList& p) {
   ls.c1            = p.get<double>("sufficient decrease", 1.0e-4);
   ls.backtrack_min = p.get<double>("min backtrack factor", 0.5);
   ls.backtrack_max = p.get<double>("max backtrack factor", 0.9);
-  ls.max_evals     = p.get<int>("max evals", 10);
+  ls.max_evals     = p.get<int>("max evals", 4);
   ls.print         = p.get<bool>("print", false);
   return ls;
 }
@@ -75,34 +76,45 @@ inline double cubic_min(
 //! slope = phi'(alpha), and return false if the residual evaluation failed (the
 //! search then contracts the step). The problem is left at the last evaluated
 //! step; the caller moves it to the returned step.
+//! \param assembled Optional output: set false when every trial in the budget
+//! failed its evaluation (nothing assembled), true otherwise. Callers should
+//! treat a false result as a failed step.
 //! \returns The accepted step (the first satisfying sufficient decrease), or the
-//! most contracted step tried if none did within max_evals.
+//! lowest-merit step that assembled if none did within max_evals.
 template <class Evaluator>
 double line_search(
     LineSearchParams const& p,
     double phi_0,
     double dphi_0,
-    Evaluator&& eval) {
+    Evaluator&& eval,
+    bool* assembled = nullptr) {
 
   using line_search_detail::cubic_min;
   double const armijo_slope = p.c1 * dphi_0;
 
-  double alpha = 1.;            // start at the full Newton step
-  double last_eval_alpha = 1.;  // most contracted step actually evaluated
+  double alpha = 1.;          // start at the full Newton step
+  double best_alpha = 1.;     // lowest-merit step that assembled so far
+  double best_phi = std::numeric_limits<double>::max();
+  bool assembled_any = false;
 
   for (int n = 1; n <= p.max_evals; ++n) {
 
     double phi, slope;
     if (!eval(alpha, phi, slope)) {
-      // Failed residual evaluation: contract and retry.
+      // Failed evaluation (e.g. a diverged local solve): halve and retry.
       alpha *= 0.5;
       continue;
     }
-    last_eval_alpha = alpha;
+    assembled_any = true;
+    if (phi < best_phi) {
+      best_phi = phi;
+      best_alpha = alpha;
+    }
 
     if (phi <= phi_0 + alpha * armijo_slope) {
       if (p.print && n > 1)
         print(" > %sline search: alpha = %.3e (%d evals)", p.tag, alpha, n);
+      if (assembled) *assembled = true;
       return alpha;
     }
 
@@ -113,9 +125,13 @@ double line_search(
                      p.backtrack_max * alpha);
   }
 
-  if (p.print)
-    print(" > %sline search: reached max evals, alpha = %.3e", p.tag, last_eval_alpha);
-  return last_eval_alpha;
+  // No trial met sufficient decrease within the budget: fall back to the
+  // lowest-merit step that assembled, and report whether anything assembled.
+  if (assembled) *assembled = assembled_any;
+  if (p.print && assembled_any) {
+    print(" > %sline search: reached max evals, alpha = %.3e", p.tag, best_alpha);
+  }
+  return best_alpha;
 }
 
 }

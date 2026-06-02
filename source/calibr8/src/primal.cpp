@@ -96,7 +96,12 @@ void Primal::solve_at_step(int step) {
     // evaluate the Jacobian and residual without BCs
     m_state->la->resume_fill_A();                 // let Tpetra know we're filling dR_dx
     m_state->la->zero_all();                      // zero all linear algebra containers
-    eval_forward_jacobian(m_state, m_disc, step); // fill in dR_dx accordingly
+    int base_status = eval_forward_jacobian(m_state, m_disc, step); // fill in dR_dx
+    base_status = PCU_Add_Int(base_status);
+    if (base_status != 0) {
+      fail("primal step %d, Newton iter %d: local solve failed at the base point "
+           "(load increment likely too large)", step, iter);
+    }
 
     // apply traction boundary conditions
     apply_primal_tbcs(tbcs, m_disc, R_ghost, t);
@@ -171,7 +176,13 @@ void Primal::solve_at_step(int step) {
         return true;
       };
 
-      double const alpha = line_search(ls_params, psi_0, dpsi_0, eval);
+      bool assembled = false;
+      double const alpha = line_search(ls_params, psi_0, dpsi_0, eval, &assembled);
+      if (!assembled) {
+        fail("primal step %d, Newton iter %d: line search could not assemble at "
+             "any trial step (local solve diverged; load increment likely too large)",
+             step, iter);
+      }
       // Move the solution to the accepted step (increment only; the next Newton
       // iteration reassembles from the updated solution).
       m_disc->add_to_soln(x, dx, alpha - alpha_applied);

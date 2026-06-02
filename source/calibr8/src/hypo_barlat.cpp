@@ -91,15 +91,21 @@ void HypoBarlat<T>::compute_cartesian_lab_to_mat_rotation() {
   Eigen::Vector3d const cylindrical_cs_point_on_x_axis = Eigen::Vector3d::Map(
       input_cylindrical_cs_point_on_x_axis.data(), 3
   );
+
   auto const cylindrical_cs_x_dir = (cylindrical_cs_point_on_x_axis - cylindrical_cs_origin).normalized();
   auto const cylindrical_cs_z_dir = (cylindrical_cs_point_on_z_axis - cylindrical_cs_origin).normalized();
+  double const xz_dot = cylindrical_cs_x_dir.dot(cylindrical_cs_z_dir);
+  if (std::abs(xz_dot) > 1.0e-12)
+    fail("cylindrical coordinate system: 'point on x axis' and 'point on z axis' "
+         "must give orthogonal directions from 'origin', but x.z = %.3e", xz_dot);
   auto const cylindrical_cs_y_dir = cylindrical_cs_z_dir.cross(cylindrical_cs_x_dir);
 
-  m_cyl_origin = cylindrical_cs_origin;
   m_cartesian_lab_to_mat_rotation <<
       cylindrical_cs_x_dir[0], cylindrical_cs_x_dir[1], cylindrical_cs_x_dir[2],
       cylindrical_cs_y_dir[0], cylindrical_cs_y_dir[1], cylindrical_cs_y_dir[2],
       cylindrical_cs_z_dir[0], cylindrical_cs_z_dir[1], cylindrical_cs_z_dir[2];
+
+  m_cyl_origin = cylindrical_cs_origin;
 }
 
 template <typename T>
