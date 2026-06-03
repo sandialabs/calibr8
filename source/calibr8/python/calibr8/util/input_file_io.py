@@ -20,6 +20,10 @@ def standard_parser():
         nargs="+", help="inverse input yaml file(s)")
     parser.add_argument("-n", "--num_procs", type=int, default=1,
         help="number of MPI ranks")
+    parser.add_argument(
+        "--seed", type=int, default=44,
+        help="RNG seed for reproducible randomized checks (default: 44)"
+    )
     # will be read in
     parser.add_argument("-pi", "--text_parameters_initial_values_file",
         type=str,
