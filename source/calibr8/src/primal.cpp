@@ -150,7 +150,8 @@ void Primal::solve_at_step(int step) {
 
       LineSearchParams ls_params = read_line_search_params(global.sublist("line search"));
 
-      double alpha_applied = 1.;   // the full Newton step was applied above
+      double alpha_applied = 1.;      // the full Newton step was applied above
+      double best_trial_phi = psi_0;  // lowest merit any trial reached (floored at base)
       auto eval = [&](double alpha, double& phi, double& slope) -> bool {
         for (int i = 0; i < num_local_fields; ++i)
           apf::copyData(local_state[i], saved_local_state[i]);
@@ -169,6 +170,7 @@ void Primal::solve_at_step(int step) {
         m_state->la->complete_fill_A();   // apply_A needs a fill-complete A
         double const R_alpha = m_state->la->norm_b();
         phi = 0.5 * R_alpha * R_alpha;
+        if (phi < best_trial_phi) best_trial_phi = phi;
         m_state->la->apply_A(dx, Adx);    // Adx = A(alpha) . dx
         double slope_sum = 0.;
         for (int i = 0; i < num_resids; ++i) slope_sum += R[i]->dot(*Adx[i]);
@@ -183,8 +185,12 @@ void Primal::solve_at_step(int step) {
              "any trial step (local solve diverged; load increment likely too large)",
              step, iter);
       }
-      // Move the solution to the accepted step (increment only; the next Newton
-      // iteration reassembles from the updated solution).
+      if (best_trial_phi >= psi_0) {
+        print("primal step %d, Newton iter %d: line search could not reduce ||R|| in "
+              "%d evals; increase 'max evals' or reduce the load increment",
+              step, iter, ls_params.max_evals);
+      }
+      // Move the solution to the best step found
       m_disc->add_to_soln(x, dx, alpha - alpha_applied);
     }
 

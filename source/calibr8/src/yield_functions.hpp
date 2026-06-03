@@ -234,9 +234,9 @@ T compute_barlat_sp_normal_multiplier(
   T const diff_1 = sp_eigvals(index, index) - dp_eigvals(1, 1);
   T const diff_2 = sp_eigvals(index, index) - dp_eigvals(2, 2);
 
-  T const factor_0 = diff_0 * std::exp(std::log(std::abs(diff_0)) * (a - 2.));
-  T const factor_1 = diff_1 * std::exp(std::log(std::abs(diff_1)) * (a - 2.));
-  T const factor_2 = diff_2 * std::exp(std::log(std::abs(diff_2)) * (a - 2.));
+  T const factor_0 = diff_0 * std::pow(std::abs(diff_0), a - 2.);
+  T const factor_1 = diff_1 * std::pow(std::abs(diff_1), a - 2.);
+  T const factor_2 = diff_2 * std::pow(std::abs(diff_2), a - 2.);
 
   return 0.25 * (factor_0 + factor_1 + factor_2);
 }
@@ -266,9 +266,9 @@ T compute_barlat_dp_normal_multiplier(
   T const diff_1 = sp_eigvals(1, 1) - dp_eigvals(index, index);
   T const diff_2 = sp_eigvals(2, 2) - dp_eigvals(index, index);
 
-  T const factor_0 = -diff_0 * std::exp(std::log(std::abs(diff_0)) * (a - 2.));
-  T const factor_1 = -diff_1 * std::exp(std::log(std::abs(diff_1)) * (a - 2.));
-  T const factor_2 = -diff_2 * std::exp(std::log(std::abs(diff_2)) * (a - 2.));
+  T const factor_0 = -diff_0 * std::pow(std::abs(diff_0), a - 2.);
+  T const factor_1 = -diff_1 * std::pow(std::abs(diff_1), a - 2.);
+  T const factor_2 = -diff_2 * std::pow(std::abs(diff_2), a - 2.);
 
   return 0.25 * (factor_0 + factor_1 + factor_2);
 }
@@ -352,15 +352,15 @@ void evaluate_barlat_phi(
   T const d1 = vms_dp_eigvals(1, 1);
   T const d2 = vms_dp_eigvals(2, 2);
 
-  T const t00 = std::exp(a * std::log(std::abs(s0 - d0)));
-  T const t01 = std::exp(a * std::log(std::abs(s0 - d1)));
-  T const t02 = std::exp(a * std::log(std::abs(s0 - d2)));
-  T const t10 = std::exp(a * std::log(std::abs(s1 - d0)));
-  T const t11 = std::exp(a * std::log(std::abs(s1 - d1)));
-  T const t12 = std::exp(a * std::log(std::abs(s1 - d2)));
-  T const t20 = std::exp(a * std::log(std::abs(s2 - d0)));
-  T const t21 = std::exp(a * std::log(std::abs(s2 - d1)));
-  T const t22 = std::exp(a * std::log(std::abs(s2 - d2)));
+  T const t00 = std::pow(std::abs(s0 - d0), a);
+  T const t01 = std::pow(std::abs(s0 - d1), a);
+  T const t02 = std::pow(std::abs(s0 - d2), a);
+  T const t10 = std::pow(std::abs(s1 - d0), a);
+  T const t11 = std::pow(std::abs(s1 - d1), a);
+  T const t12 = std::pow(std::abs(s1 - d2), a);
+  T const t20 = std::pow(std::abs(s2 - d0), a);
+  T const t21 = std::pow(std::abs(s2 - d1), a);
+  T const t22 = std::pow(std::abs(s2 - d2), a);
 
   T const sum = 0.25 * (t00 + t01 + t02 + t10 + t11 + t12 + t20 + t21 + t22);
 
