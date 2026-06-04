@@ -114,14 +114,8 @@ def evaluate_objective_and_gradient(
     scales, param_names, block_indices,
     input_yamls, num_procs, use_srun,
     num_text_params, text_params_filename,
-    failure_penalty=1.0e30
+    failure_penalty=1.0e12
 ):
-    """
-    Evaluate true objective and gradient by running the external FE objective.
-
-    Returns (obj, grad, success_flag). If the FE run fails, returns
-    (failure_penalty, None, False).
-    """
     success = run_objective_binaries(
         params,
         scales, param_names, block_indices,
@@ -151,7 +145,7 @@ def evaluate_objective_and_gradient(
         unscaled_params, scales
     )
 
-    return float(obj), grad, True
+    return float(obj), np.asarray(grad, dtype=float), True
 
 
 def evaluate_objective_or_gradient(
@@ -161,9 +155,6 @@ def evaluate_objective_or_gradient(
     num_text_params, text_params_filename,
     evaluate_gradient
 ):
-    """
-    Backwards-compatible helper for --run_objective_only mode.
-    """
     run_objective_binaries(
         params,
         scales, param_names, block_indices,
@@ -196,30 +187,35 @@ def evaluate_objective_or_gradient(
 
 class OptimizationIterator:
     """
-    Wraps objective+gradient evaluation for SciPy L-BFGS-B and logs all calls.
+    Objective/gradient wrapper for SciPy optimizers.
 
-    On FE failure: returns a large penalty objective and a *normalized fake
-    gradient* (magnitude based on the median of recent successful gradient norms),
-    pointing away from the failing point back toward the last successful point.
-
-    Stores full gradient vectors at *accepted* iterates (when known) in:
-      history["accepted_grad"] (canonical space)
+    failure_mode options:
+      - "penalty_inward": on failure, return a finite penalty objective and a
+        small inward-pointing fake gradient
+      - "repeat_last": on failure, return the previous successful objective and
+        gradient; if no previous successful eval exists, fall back to penalty_inward
     """
     def __init__(
         self,
         objective_args,
-        failure_penalty=1.0e30,
+        failure_penalty=1.0e12,
+        failure_mode="penalty_inward",
         x_match_tol=1.0e-14,
         grad_norm_window=25,
         fake_grad_fallback_norm=1.0,
+        fake_grad_scale=1.0e-3,
+        fake_grad_cap=1.0,
         eps=1.0e-12
     ):
         self.objective_args = objective_args
         self.failure_penalty = float(failure_penalty)
+        self.failure_mode = str(failure_mode)
         self.x_match_tol = float(x_match_tol)
 
         self.grad_norm_window = int(grad_norm_window)
         self.fake_grad_fallback_norm = float(fake_grad_fallback_norm)
+        self.fake_grad_scale = float(fake_grad_scale)
+        self.fake_grad_cap = float(fake_grad_cap)
         self.eps = float(eps)
 
         self._last_x = None
@@ -228,6 +224,8 @@ class OptimizationIterator:
         self._last_success = False
 
         self._last_success_x = None
+        self._last_success_obj = None
+        self._last_success_grad = None
         self._successful_grad_norms = []
 
         self.reset_history()
@@ -241,7 +239,7 @@ class OptimizationIterator:
             "accepted_x_canonical": [],
             "accepted_x_unscaled": [],
             "accepted_obj": [],
-            "accepted_grad": [],          # <-- full gradient vectors at accepted iters
+            "accepted_grad": [],
             "accepted_grad_norm": [],
             "accepted_obj_is_known": [],
             "call_history": []
@@ -262,12 +260,11 @@ class OptimizationIterator:
             return self.fake_grad_fallback_norm
         return float(np.median(self._successful_grad_norms))
 
-    def _make_fake_grad(self, x):
-        g0 = self._robust_target_grad_norm()
-
+    def _make_inward_fake_grad(self, x):
         x = np.asarray(x, dtype=float)
+
         if self._last_success_x is None:
-            direction = x.copy()
+            direction = np.ones_like(x, dtype=float)
         else:
             direction = x - np.asarray(self._last_success_x, dtype=float)
 
@@ -276,26 +273,50 @@ class OptimizationIterator:
             direction = np.ones_like(x, dtype=float)
             nrm = float(np.linalg.norm(direction))
 
-        return (g0 / (nrm + self.eps)) * direction
+        target = self._robust_target_grad_norm()
+        fake_norm = min(self.fake_grad_scale * target, self.fake_grad_cap)
+        fake_norm = max(fake_norm, self.eps)
+
+        return (fake_norm / (nrm + self.eps)) * direction
+
+    def _handle_failure(self, x):
+        if self.failure_mode == "repeat_last":
+            if self._last_success_obj is not None and self._last_success_grad is not None:
+                return (
+                    float(self._last_success_obj),
+                    np.asarray(self._last_success_grad, dtype=float).copy(),
+                    False,
+                    "repeat_last"
+                )
+
+        grad = self._make_inward_fake_grad(x)
+        return float(self.failure_penalty), grad, False, "penalty_inward"
 
     def _objective_fun_and_grad(self, x):
         x = np.array(x, copy=True)
 
-        obj, grad, success = evaluate_objective_and_gradient(
+        obj_true, grad_true, success = evaluate_objective_and_gradient(
             x, *self.objective_args,
             failure_penalty=self.failure_penalty
         )
 
         if success:
-            grad = np.array(grad, copy=True)
+            obj = float(obj_true)
+            grad = np.array(grad_true, copy=True)
             grad_norm = float(np.linalg.norm(grad))
+            failure_response = None
+
             if np.isfinite(grad_norm):
                 self._successful_grad_norms.append(grad_norm)
                 if len(self._successful_grad_norms) > self.grad_norm_window:
                     self._successful_grad_norms.pop(0)
+
             self._last_success_x = x.copy()
+            self._last_success_obj = float(obj)
+            self._last_success_grad = grad.copy()
         else:
-            grad = self._make_fake_grad(x)
+            obj, grad, _, failure_response = self._handle_failure(x)
+            grad = np.asarray(grad, dtype=float)
             grad_norm = float(np.linalg.norm(grad))
 
         self._last_x = x.copy()
@@ -306,8 +327,10 @@ class OptimizationIterator:
         self.history["call_history"].append({
             "x_canonical": self._last_x.copy(),
             "objective": self._last_obj,
+            "grad": self._last_grad.copy(),
             "grad_norm": grad_norm,
-            "success": self._last_success
+            "success": self._last_success,
+            "failure_response": failure_response
         })
 
         return obj, grad
@@ -318,10 +341,6 @@ class OptimizationIterator:
         return np.allclose(xk, self._last_x, atol=self.x_match_tol, rtol=0.0)
 
     def callback(self, xk, res=None):
-        """
-        Called by SciPy once per accepted iteration. We avoid extra FE runs, so
-        we only log f and grad if the accepted xk matches the last evaluation point.
-        """
         xk = np.array(xk, copy=True)
 
         self.history["accepted_x_canonical"].append(xk.copy())
@@ -347,20 +366,10 @@ class OptimizationIterator:
         self.history["accepted_grad_norm"].append(grad_norm)
         self.history["accepted_obj_is_known"].append(known)
 
-        # Convenience: overwrite per-run history
         with open("optimization_history.pkl", "wb") as file:
             pickle.dump(self.history, file)
 
     def callback_trust_constr(self, xk, res=None):
-        """
-        Callback specialized for trust-constr.
-
-        - Always logs accepted xk.
-        - Logs accepted objective from res.fun (authoritative for trust-constr).
-        - Logs gradient only if the last evaluation point matches xk (rare but possible),
-          otherwise stores NaNs for grad but does NOT NaN the objective.
-        """
-
         xk = np.array(xk, copy=True)
 
         self.history["accepted_x_canonical"].append(xk.copy())
@@ -370,7 +379,6 @@ class OptimizationIterator:
             )
         )
 
-        # Objective: prefer res.fun for trust-constr
         obj = np.nan
         if res is not None and np.isfinite(getattr(res, "fun", np.nan)):
             obj = float(res.fun)
@@ -381,7 +389,6 @@ class OptimizationIterator:
         else:
             obj_known = False
 
-        # Gradient: only known if last evaluation matches xk (unless you add a cache)
         if self._x_matches_last(xk) and (self._last_grad is not None) and np.all(np.isfinite(self._last_grad)):
             grad = self._last_grad.copy()
             grad_known = True
@@ -394,11 +401,8 @@ class OptimizationIterator:
         self.history["accepted_obj"].append(obj)
         self.history["accepted_grad"].append(grad)
         self.history["accepted_grad_norm"].append(grad_norm)
-
-        # Replace your old boolean with something that reflects what is actually known:
         self.history["accepted_obj_is_known"].append(bool(obj_known))
 
-        # Optional: store trust-constr diagnostics from res if present
         tc = {
             "nit": int(getattr(res, "nit", -1)) if res is not None else -1,
             "optimality": float(getattr(res, "optimality", np.nan)) if res is not None else np.nan,

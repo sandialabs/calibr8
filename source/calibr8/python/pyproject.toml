@@ -1,16 +1,12 @@
 [build-system]
-requires = [
-    "setuptools",
-    "wheel",
-    "numpy",
-    "scipy",
-]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "calibr8"
 version = "1.0.0"
 description = "Python tools for Calibr8"
-requires-python = ">=3.8"
+requires-python = ">=3.10,<3.14"
 authors = [
     {name = "Tom Seidl", email = "dtseidl@sandia.gov"},
     {name = "Brian Granzow", email = "bngranz@sandia.gov"},
@@ -18,9 +14,17 @@ authors = [
 classifiers = ["Programming Language :: Python :: 3"]
 
 dependencies = [
-  "pycompadre"
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "pyyaml",
 ]
 
+[project.urls]
+Homepage = "https://github.com/sandialabs/calibr8"
 [project.scripts]
 python_inverse = "calibr8.bin.inverse:main"
 python_gradient_fd_check = "calibr8.bin.gradient_fd_check:main"
+
+[tool.setuptools.packages.find]
+include = ["calibr8*"]
