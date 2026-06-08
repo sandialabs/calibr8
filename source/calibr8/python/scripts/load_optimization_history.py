@@ -3,14 +3,6 @@ import numpy as np
 import pickle
 
 
-def _count_failures(call_history):
-    if not call_history:
-        return 0, 0
-    n_call = len(call_history)
-    n_fail = sum(1 for c in call_history if not c.get("success", True))
-    return int(n_fail), int(n_call)
-
-
 def _first_success(call_history):
     if not call_history:
         return None
@@ -18,13 +10,6 @@ def _first_success(call_history):
         if c.get("success", False):
             return c
     return None
-
-
-def _as_float(x):
-    try:
-        return float(x)
-    except Exception:
-        return np.nan
 
 
 # ------------------------------------------------------------------
@@ -136,77 +121,3 @@ if minimize_results is not None:
     print("  njev   :", getattr(minimize_results, "njev", None))
 else:
     print("\nminimize_results.pkl not found (skipping).")
-
-# ------------------------------------------------------------------
-# Optional adaptive-history file from adaptive_lbfgsb
-# ------------------------------------------------------------------
-adaptive_file = "adaptive_history.pkl"
-adaptive_history = None
-adaptive_restarts = []
-adaptive_best_overall = None
-
-if os.path.exists(adaptive_file):
-    adaptive_history = pickle.load(open(adaptive_file, "rb"))
-    adaptive_restarts = adaptive_history.get("restarts", [])
-    adaptive_best_overall = adaptive_history.get("best_overall", None)
-    adaptive_initial_center = adaptive_history.get("initial_center", None)
-
-    print(f"\n--- Adaptive history from {adaptive_file} ---")
-    print("Optimizer:", adaptive_history.get("optimizer", "adaptive_lbfgsb"))
-    print("Completed restarts recorded:", len(adaptive_restarts))
-
-    if adaptive_initial_center is not None:
-        print(f"Initial center f: {_as_float(adaptive_initial_center.get('f', np.nan)):.6e}")
-
-    if adaptive_best_overall is not None:
-        print(f"Best overall f: {_as_float(adaptive_best_overall.get('f', np.nan)):.6e}")
-
-    print("\nPer-restart summary (first 40):")
-    header = (
-        "r  acc burst calls fails fail%   "
-        "Delta[min,max,mean]      "
-        "f_start       f_trial       ared         rho       bind%   step"
-    )
-    print(header)
-
-    for i, r in enumerate(adaptive_restarts[:40]):
-        accepted = bool(r.get("accepted", False))
-        burst = int(r.get("burst_maxiter_used", -1))
-
-        ch = r.get("call_history", None)
-        if ch is None:
-            ch = r.get("history", {}).get("call_history", [])
-
-        nf, nc = _count_failures(ch)
-        fpct = 100.0 * (nf / max(nc, 1))
-
-        D = r.get("Delta_start", None)
-        if D is None:
-            Dmin = Dmax = Dmean = np.nan
-        else:
-            D = np.asarray(D, dtype=float).ravel()
-            Dmin = float(np.min(D))
-            Dmax = float(np.max(D))
-            Dmean = float(np.mean(D))
-
-        bind = r.get("binding_mask", None)
-        if bind is None:
-            bind_pct = np.nan
-        else:
-            bind = np.asarray(bind, dtype=bool).ravel()
-            bind_pct = 100.0 * float(np.mean(bind))
-
-        f_start = _as_float(r.get("fc_start", np.nan))
-        f_trial = _as_float(r.get("f_trial", np.nan))
-        ared = _as_float(r.get("ared", np.nan))
-        rho = _as_float(r.get("rho", np.nan))
-        step = _as_float(r.get("step_norm", np.nan))
-
-        print(
-            f"{i:2d} {str(accepted):>4s} {burst:5d} {nc:5d} {nf:5d} {fpct:5.1f}  "
-            f"[{Dmin:6.2e},{Dmax:6.2e},{Dmean:6.2e}]  "
-            f"{f_start:11.4e} {f_trial:11.4e} {ared:11.4e} {rho:9.3e} "
-            f"{bind_pct:6.1f} {step:8.2e}"
-        )
-else:
-    print(f"\n{adaptive_file} not found (skipping adaptive summary).")

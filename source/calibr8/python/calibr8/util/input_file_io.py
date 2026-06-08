@@ -168,16 +168,6 @@ def get_opt_options(entire_yaml_input_file):
     return num_iterations, gradient_tol, max_ls_evals, barrier_tol
 
 
-def get_adaptive_options(entire_yaml_input_file):
-    # trust-region size for adaptive L-BFGS-B; optional, defaults match the
-    # adaptive_lbfgsb signature
-    inverse_block = _deck_body(entire_yaml_input_file)["inverse"]
-    return {
-        "Delta0": float(inverse_block.get("adaptive Delta0", 0.2)),
-        "Delta_max": float(inverse_block.get("adaptive Delta max", 1.0)),
-    }
-
-
 def convert_none_or_float(string):
     if string == "None":
         return None

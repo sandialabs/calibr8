@@ -4,8 +4,6 @@ import yaml
 
 from scipy.optimize import minimize
 
-from calibr8.util.adaptive_lbfgsb import adaptive_lbfgsb
-
 from calibr8.util.driver_support import (
     evaluate_objective_or_gradient,
     OptimizationIterator
@@ -13,7 +11,6 @@ from calibr8.util.driver_support import (
 
 from calibr8.util.input_file_io import (
     cleanup_files,
-    get_adaptive_options,
     get_opt_options,
     setup_opt_parameters,
     setup_text_parameters,
@@ -29,14 +26,12 @@ def main():
         help="output file that contains the calibrated parameters")
     parser.add_argument("--run_objective_only", action="store_true",
         help="flag to indicate whether to run objective only (no optimization)")
-    parser.add_argument("--adaptive", action="store_true",
-        help="use adaptive restart trust-box L-BFGS-B loop")
     parser.add_argument("--trust_region", action="store_true",
         help="run the trust region optimizer")
     parser.add_argument("--failure_mode", type=str,
         default="penalty_inward",
         choices=["penalty_inward", "repeat_last"],
-        help="simple failure handling mode for standard/adaptive L-BFGS-B")
+        help="simple failure handling mode for L-BFGS-B")
     args = parser.parse_args()
 
     input_files = args.input_files
@@ -122,37 +117,6 @@ def main():
         }
         res = run_scipy("trust-constr", tr_opts)
         finalize(res.x)
-    elif args.adaptive:
-        adaptive_opts = get_adaptive_options(input_yamls[0])
-        overall = adaptive_lbfgsb(
-            x0=opt_init_params,
-            global_bounds=opt_bounds,
-            objective_args=objective_args,
-            lbfgsb_options=l_bfgs_b_opts,
-            history_pkl="adaptive_history.pkl",
-            failure_mode=failure_mode,
-            failure_penalty=1.0e12,
-            Delta0=adaptive_opts["Delta0"],
-            Delta_min=1.0e-4,
-            Delta_max=adaptive_opts["Delta_max"],
-            shrink_fail=0.25,
-            shrink_bad=0.5,
-            grow_good=1.5,
-            bind_tol=1.0e-6,
-            grow_on_binding=True,
-            burst_init=5,
-            burst_min=3,
-            burst_max=20,
-            burst_grow=1.5,
-            burst_shrink=0.75,
-            rel_impr_tol=1.0e-5,
-            eta_accept=0.1,
-            eta_keep=0.25,
-            eta_grow=0.75,
-            pred_floor=1.0e-12,
-            max_restarts=50
-        )
-        finalize(overall["best_overall"]["x"])
     else:
         res = run_scipy("L-BFGS-B", l_bfgs_b_opts)
         finalize(res.x)
