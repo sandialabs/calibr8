@@ -1,2 +1,0 @@
-uv venv --python 3.13 --prompt calibr8
-uv pip install -e .

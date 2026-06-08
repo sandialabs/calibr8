@@ -42,7 +42,9 @@ def bounds_transform(value, bounds, transform_from_canonical):
 
 
 def first_deriv_transform(value, scale):
-    if isinstance(scale, float):
+    if scale is None:
+        return 1.0
+    elif isinstance(scale, float):
         return value
     else:
         return 0.5 * (scale[1] - scale[0])

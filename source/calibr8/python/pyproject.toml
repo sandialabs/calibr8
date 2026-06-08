@@ -20,6 +20,9 @@ dependencies = [
     "pyyaml",
 ]
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 [project.urls]
 Homepage = "https://github.com/sandialabs/calibr8"
 [project.scripts]

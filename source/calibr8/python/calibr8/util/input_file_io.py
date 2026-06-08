@@ -166,11 +166,13 @@ def get_opt_options(entire_yaml_input_file):
     yaml_input_file = entire_yaml_input_file[top_key]
     inverse_block = yaml_input_file["inverse"]
 
-    num_iterations = inverse_block["iteration limit"]
-    gradient_tol = float(inverse_block["gradient tolerance"])
-    max_ls_evals = inverse_block["max line search evals"]
+    # all inverse options are optional with defaults; barrier tol is trust-region only
+    num_iterations = inverse_block.get("iteration limit", 100)
+    gradient_tol = float(inverse_block.get("gradient tolerance", 1.0e-4))
+    max_ls_evals = inverse_block.get("max line search evals", 20)
+    barrier_tol = float(inverse_block.get("barrier tolerance", 1.0e-8))
 
-    return num_iterations, gradient_tol, max_ls_evals
+    return num_iterations, gradient_tol, max_ls_evals, barrier_tol
 
 
 def convert_none_or_float(string):

@@ -572,7 +572,7 @@ def main():
         opt_init_params, opt_bounds = \
         setup_opt_parameters(input_yamls[0], text_params_data)
 
-    num_iters, gradient_tol, max_ls_evals = get_opt_options(input_yamls[0])
+    num_iters, gradient_tol, max_ls_evals, barrier_tol = get_opt_options(input_yamls[0])
 
     l_bfgs_b_opts = {
         "maxiter": num_iters,
@@ -602,7 +602,7 @@ def main():
             "maxiter": num_iters,
             "gtol": gradient_tol,
             "verbose": 3,
-            "barrier_tolerance": gradient_tol,
+            "barrier_tol": barrier_tol,
         }
         opt_iterator = OptimizationIterator(
             objective_args,
