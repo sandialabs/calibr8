@@ -72,61 +72,54 @@ def get_yaml_input_file_contents_by_section(entire_yaml_input_file):
     return top_key, section_keys
 
 
-def get_local_residual_materials_blocks(entire_yaml_input_file):
+def _deck_body(entire_yaml_input_file):
     top_key = list(entire_yaml_input_file.keys())[0]
-    yaml_input_file = entire_yaml_input_file[top_key]
+    return entire_yaml_input_file[top_key]
+
+
+def _problem_blocks(yaml_input_file):
+    # Multi-problem decks list their problems under a "problems" block. A
+    # single-problem deck has residuals/inverse directly under the body, so the
+    # body itself is the one problem block; wrapping it lets callers iterate
+    # uniformly over either shape.
     if "problems" in yaml_input_file.keys():
-        problem_blocks = [
+        return [
             yaml_input_file["problems"][problem_key]
             for problem_key in yaml_input_file["problems"].keys()
         ]
-    else:
-        problem_blocks = [yaml_input_file]
+    return [yaml_input_file]
 
-    local_residual_params_blocks = []
-    for problem_block in problem_blocks:
-        local_residual_materials_block = \
-            problem_block["residuals"]["local residual"]["materials"]
-        local_residual_elem_set_names = list(local_residual_materials_block.keys())
-        local_residual_params_block = [
-            local_residual_materials_block[elem_set_name]
-            for elem_set_name in local_residual_elem_set_names
-        ]
-        local_residual_params_blocks.append(local_residual_params_block)
 
-    return local_residual_params_blocks
+def _local_residual_materials(problem_block):
+    return problem_block["residuals"]["local residual"]["materials"]
+
+
+def _materials_by_elem_set(materials_block):
+    return [materials_block[name] for name in materials_block.keys()]
+
+
+def get_local_residual_materials_blocks(entire_yaml_input_file):
+    yaml_input_file = _deck_body(entire_yaml_input_file)
+    return [
+        _materials_by_elem_set(_local_residual_materials(problem_block))
+        for problem_block in _problem_blocks(yaml_input_file)
+    ]
 
 
 def get_first_materials_and_inverse_blocks(entire_yaml_input_file):
-    top_key = list(entire_yaml_input_file.keys())[0]
-    yaml_input_file = entire_yaml_input_file[top_key]
-    if "problems" in yaml_input_file.keys():
-        first_problem_key = list(yaml_input_file["problems"].keys())[0]
-        first_problem_block = \
-            yaml_input_file["problems"][first_problem_key]
-        first_local_residual_materials_block = \
-            first_problem_block["residuals"]["local residual"]["materials"]
-    else:
-        first_local_residual_materials_block = \
-            yaml_input_file["residuals"]["local residual"]["materials"]
-    inverse_materials_block = \
-        yaml_input_file["inverse"]["materials"]
+    yaml_input_file = _deck_body(entire_yaml_input_file)
+    first_problem_block = _problem_blocks(yaml_input_file)[0]
+    first_local_residual_materials_block = \
+        _local_residual_materials(first_problem_block)
+    inverse_materials_block = yaml_input_file["inverse"]["materials"]
 
-    local_residual_elem_set_names = \
-        list(first_local_residual_materials_block.keys())
-    inverse_materials_elem_set_names = \
-        list(inverse_materials_block.keys())
-    assert local_residual_elem_set_names == inverse_materials_elem_set_names
-    first_local_residual_params_block = [
-        first_local_residual_materials_block[elem_set_name]
-        for elem_set_name in local_residual_elem_set_names
-    ]
-    inverse_params_block = [
-        inverse_materials_block[elem_set_name]
-        for elem_set_name in inverse_materials_elem_set_names
-    ]
+    assert list(first_local_residual_materials_block.keys()) \
+        == list(inverse_materials_block.keys())
 
-    return first_local_residual_params_block, inverse_params_block
+    return (
+        _materials_by_elem_set(first_local_residual_materials_block),
+        _materials_by_elem_set(inverse_materials_block),
+    )
 
 
 def get_opt_param_info(inverse_blocks):
