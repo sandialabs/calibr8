@@ -109,6 +109,24 @@ def run_objective_binaries(
         return False
 
 
+def _read_objective_sum(num_problems):
+    obj = 0.0
+    for idx in range(num_problems):
+        obj += np.loadtxt(f"objective_value_{idx}.txt")
+    return float(obj)
+
+
+def _read_gradient(params, scales, num_problems):
+    unscaled_params = transform_parameters(
+        params, scales, transform_from_canonical=True
+    )
+    unscaled_grad = np.zeros(len(unscaled_params))
+    for idx in range(num_problems):
+        unscaled_grad += np.loadtxt(f"objective_gradient_{idx}.txt")
+    grad = grad_transform(unscaled_grad, unscaled_params, scales)
+    return np.asarray(grad, dtype=float)
+
+
 def evaluate_objective_and_gradient(
     params,
     scales, param_names, block_indices,
@@ -127,25 +145,11 @@ def evaluate_objective_and_gradient(
     if not success:
         return float(failure_penalty), None, False
 
-    obj = 0.0
-    unscaled_params = transform_parameters(
-        params, scales, transform_from_canonical=True
-    )
-    unscaled_grad = np.zeros(len(unscaled_params))
+    num_problems = len(input_yamls)
+    obj = _read_objective_sum(num_problems)
+    grad = _read_gradient(params, scales, num_problems)
 
-    for idx in range(len(input_yamls)):
-        obj_file = f"objective_value_{idx}.txt"
-        obj += np.loadtxt(obj_file)
-
-        unscaled_grad_file = f"objective_gradient_{idx}.txt"
-        unscaled_grad += np.loadtxt(unscaled_grad_file)
-
-    grad = grad_transform(
-        unscaled_grad,
-        unscaled_params, scales
-    )
-
-    return float(obj), np.asarray(grad, dtype=float), True
+    return obj, grad, True
 
 
 def evaluate_objective_or_gradient(
@@ -163,26 +167,10 @@ def evaluate_objective_or_gradient(
         evaluate_gradient
     )
 
+    num_problems = len(input_yamls)
     if not evaluate_gradient:
-        obj = 0.0
-        for idx in range(len(input_yamls)):
-            obj_file = f"objective_value_{idx}.txt"
-            obj += np.loadtxt(obj_file)
-        return float(obj)
-
-    unscaled_params = transform_parameters(
-        params, scales, transform_from_canonical=True
-    )
-    unscaled_grad = np.zeros(len(unscaled_params))
-    for idx in range(len(input_yamls)):
-        unscaled_grad_file = f"objective_gradient_{idx}.txt"
-        unscaled_grad += np.loadtxt(unscaled_grad_file)
-
-    grad = grad_transform(
-        unscaled_grad,
-        unscaled_params, scales
-    )
-    return grad
+        return _read_objective_sum(num_problems)
+    return _read_gradient(params, scales, num_problems)
 
 
 class OptimizationIterator:
@@ -340,7 +328,7 @@ class OptimizationIterator:
             return False
         return np.allclose(xk, self._last_x, atol=self.x_match_tol, rtol=0.0)
 
-    def callback(self, xk, res=None):
+    def _record_accepted(self, xk, obj, grad, obj_is_known):
         xk = np.array(xk, copy=True)
 
         self.history["accepted_x_canonical"].append(xk.copy())
@@ -349,36 +337,30 @@ class OptimizationIterator:
                 xk, self.objective_args[0], transform_from_canonical=True
             )
         )
-
-        if self._x_matches_last(xk):
-            obj = float(self._last_obj)
-            grad = self._last_grad.copy()
-            grad_norm = float(np.linalg.norm(grad))
-            known = True
-        else:
-            obj = np.nan
-            grad = np.full_like(xk, np.nan, dtype=float)
-            grad_norm = np.nan
-            known = False
 
         self.history["accepted_obj"].append(obj)
         self.history["accepted_grad"].append(grad)
-        self.history["accepted_grad_norm"].append(grad_norm)
-        self.history["accepted_obj_is_known"].append(known)
+        self.history["accepted_grad_norm"].append(float(np.linalg.norm(grad)))
+        self.history["accepted_obj_is_known"].append(bool(obj_is_known))
 
+    def _dump_history(self):
         with open("optimization_history.pkl", "wb") as file:
             pickle.dump(self.history, file)
 
+    def callback(self, xk, res=None):
+        if self._x_matches_last(xk):
+            obj = float(self._last_obj)
+            grad = self._last_grad.copy()
+            known = True
+        else:
+            obj = np.nan
+            grad = np.full_like(np.asarray(xk, dtype=float), np.nan)
+            known = False
+
+        self._record_accepted(xk, obj, grad, known)
+        self._dump_history()
+
     def callback_trust_constr(self, xk, res=None):
-        xk = np.array(xk, copy=True)
-
-        self.history["accepted_x_canonical"].append(xk.copy())
-        self.history["accepted_x_unscaled"].append(
-            transform_parameters(
-                xk, self.objective_args[0], transform_from_canonical=True
-            )
-        )
-
         obj = np.nan
         if res is not None and np.isfinite(getattr(res, "fun", np.nan)):
             obj = float(res.fun)
@@ -391,17 +373,10 @@ class OptimizationIterator:
 
         if self._x_matches_last(xk) and (self._last_grad is not None) and np.all(np.isfinite(self._last_grad)):
             grad = self._last_grad.copy()
-            grad_known = True
         else:
-            grad = np.full_like(xk, np.nan, dtype=float)
-            grad_known = False
+            grad = np.full_like(np.asarray(xk, dtype=float), np.nan)
 
-        grad_norm = float(np.linalg.norm(grad)) if grad_known else np.nan
-
-        self.history["accepted_obj"].append(obj)
-        self.history["accepted_grad"].append(grad)
-        self.history["accepted_grad_norm"].append(grad_norm)
-        self.history["accepted_obj_is_known"].append(bool(obj_known))
+        self._record_accepted(xk, obj, grad, obj_known)
 
         tc = {
             "nit": int(getattr(res, "nit", -1)) if res is not None else -1,
@@ -409,6 +384,4 @@ class OptimizationIterator:
             "constr_violation": float(getattr(res, "constr_violation", np.nan)) if res is not None else np.nan,
         }
         self.history.setdefault("trust_constr", []).append(tc)
-
-        with open("optimization_history.pkl", "wb") as file:
-            pickle.dump(self.history, file)
+        self._dump_history()
