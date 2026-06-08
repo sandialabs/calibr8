@@ -162,10 +162,20 @@ def get_opt_options(entire_yaml_input_file):
     # all inverse options are optional with defaults; barrier tol is trust-region only
     num_iterations = inverse_block.get("iteration limit", 100)
     gradient_tol = float(inverse_block.get("gradient tolerance", 1.0e-4))
-    max_ls_evals = inverse_block.get("max line search evals", 20)
+    max_ls_evals = inverse_block.get("max line search evals", 5)
     barrier_tol = float(inverse_block.get("barrier tolerance", 1.0e-8))
 
     return num_iterations, gradient_tol, max_ls_evals, barrier_tol
+
+
+def get_adaptive_options(entire_yaml_input_file):
+    # trust-region size for adaptive L-BFGS-B; optional, defaults match the
+    # adaptive_lbfgsb signature
+    inverse_block = _deck_body(entire_yaml_input_file)["inverse"]
+    return {
+        "Delta0": float(inverse_block.get("adaptive Delta0", 0.2)),
+        "Delta_max": float(inverse_block.get("adaptive Delta max", 1.0)),
+    }
 
 
 def convert_none_or_float(string):

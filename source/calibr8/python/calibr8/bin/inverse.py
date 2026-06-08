@@ -13,6 +13,7 @@ from calibr8.util.driver_support import (
 
 from calibr8.util.input_file_io import (
     cleanup_files,
+    get_adaptive_options,
     get_opt_options,
     setup_opt_parameters,
     setup_text_parameters,
@@ -122,6 +123,7 @@ def main():
         res = run_scipy("trust-constr", tr_opts)
         finalize(res.x)
     elif args.adaptive:
+        adaptive_opts = get_adaptive_options(input_yamls[0])
         overall = adaptive_lbfgsb(
             x0=opt_init_params,
             global_bounds=opt_bounds,
@@ -130,9 +132,9 @@ def main():
             history_pkl="adaptive_history.pkl",
             failure_mode=failure_mode,
             failure_penalty=1.0e12,
-            Delta0=0.2,
+            Delta0=adaptive_opts["Delta0"],
             Delta_min=1.0e-4,
-            Delta_max=1.0,
+            Delta_max=adaptive_opts["Delta_max"],
             shrink_fail=0.25,
             shrink_bad=0.5,
             grow_good=1.5,
@@ -143,7 +145,7 @@ def main():
             burst_max=20,
             burst_grow=1.5,
             burst_shrink=0.75,
-            rel_impr_tol=1.0e-8,
+            rel_impr_tol=1.0e-5,
             eta_accept=0.1,
             eta_keep=0.25,
             eta_grow=0.75,

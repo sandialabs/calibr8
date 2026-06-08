@@ -156,7 +156,7 @@ def adaptive_lbfgsb(
     burst_max=20,
     burst_grow=1.5,
     burst_shrink=0.75,
-    rel_impr_tol=1.0e-8,
+    rel_impr_tol=1.0e-5,
     eta_accept=0.1,
     eta_keep=0.25,
     eta_grow=0.75,
@@ -379,6 +379,8 @@ def adaptive_lbfgsb(
         "best_overall": {"x": xc.copy(), "f": float(fc)}
     }
 
+    reject_streak = 0
+
     for r in range(max_restarts):
         local_bounds = make_trust_bounds(xc, Delta, global_bounds)
         Delta_prev = Delta.copy()
@@ -468,6 +470,7 @@ def adaptive_lbfgsb(
         overall["restarts"].append(restart_record)
 
         if accepted:
+            reject_streak = 0
             xc = xt.copy()
             fc = float(ft)
 
@@ -501,6 +504,7 @@ def adaptive_lbfgsb(
             elif failed:
                 cur_burst = max(int(np.floor(cur_burst * burst_shrink)), int(burst_min))
         else:
+            reject_streak += 1
             Delta = np.maximum(Delta * (shrink_fail if failed else shrink_bad), Delta_min_vec)
             cur_burst = max(int(np.floor(cur_burst * burst_shrink)), int(burst_min))
 
@@ -508,6 +512,12 @@ def adaptive_lbfgsb(
             pickle.dump(overall, f)
 
         delta_changed = np.any(np.abs(Delta - Delta_prev) > 0.0)
+
+        if accepted and (not improved):
+            break
+
+        if reject_streak >= 3:
+            break
 
         if np.all(Delta <= Delta_min_vec) and (not improved):
             break
