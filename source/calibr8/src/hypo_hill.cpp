@@ -5,6 +5,7 @@
 #include "global_residual.hpp"
 #include "hypo_hill.hpp"
 #include "hypo_kinematics.hpp"
+#include "macros.hpp"
 #include "material_params.hpp"
 #include "yield_functions.hpp"
 
@@ -21,6 +22,7 @@ static ParameterList get_valid_local_residual_params() {
   p.set<double>("nonlinear absolute tol", 0.);
   p.set<double>("nonlinear relative tol", 0.);
   p.sublist("materials");
+  p.sublist("cylindrical coordinate system points");
   return p;
 }
 
@@ -38,6 +40,82 @@ static ParameterList get_valid_material_params() {
   p.set<double>("S", 0.);
   p.set<double>("D", 0.);
   return p;
+}
+
+template <typename T>
+void HypoHill<T>::compute_cartesian_lab_to_mat_rotation() {
+  m_compute_cylindrical_transform = true;
+  ParameterList& inputs = this->m_params_list.sublist("cylindrical coordinate system points", true);
+  auto const input_cylindrical_cs_origin = inputs.get<Teuchos::Array<double>>("origin").toVector();
+  auto const input_cylindrical_cs_point_on_z_axis = inputs.get<Teuchos::Array<double>>("point on z axis").toVector();
+  auto const input_cylindrical_cs_point_on_x_axis = inputs.get<Teuchos::Array<double>>("point on x axis").toVector();
+  ALWAYS_ASSERT(input_cylindrical_cs_origin.size() == 3);
+  ALWAYS_ASSERT(input_cylindrical_cs_point_on_z_axis.size() == 3);
+  ALWAYS_ASSERT(input_cylindrical_cs_point_on_x_axis.size() == 3);
+
+  Eigen::Vector3d const cylindrical_cs_origin = Eigen::Vector3d::Map(
+      input_cylindrical_cs_origin.data(), 3
+  );
+  Eigen::Vector3d const cylindrical_cs_point_on_z_axis = Eigen::Vector3d::Map(
+      input_cylindrical_cs_point_on_z_axis.data(), 3
+  );
+  Eigen::Vector3d const cylindrical_cs_point_on_x_axis = Eigen::Vector3d::Map(
+      input_cylindrical_cs_point_on_x_axis.data(), 3
+  );
+
+  auto const cylindrical_cs_x_dir = (cylindrical_cs_point_on_x_axis - cylindrical_cs_origin).normalized();
+  auto const cylindrical_cs_z_dir = (cylindrical_cs_point_on_z_axis - cylindrical_cs_origin).normalized();
+  double const xz_dot = cylindrical_cs_x_dir.dot(cylindrical_cs_z_dir);
+  if (std::abs(xz_dot) > 1.0e-12)
+    fail("cylindrical coordinate system: 'point on x axis' and 'point on z axis' "
+         "must give orthogonal directions from 'origin', but x.z = %.3e", xz_dot);
+  auto const cylindrical_cs_y_dir = cylindrical_cs_z_dir.cross(cylindrical_cs_x_dir);
+
+  m_cartesian_lab_to_mat_rotation <<
+      cylindrical_cs_x_dir[0], cylindrical_cs_x_dir[1], cylindrical_cs_x_dir[2],
+      cylindrical_cs_y_dir[0], cylindrical_cs_y_dir[1], cylindrical_cs_y_dir[2],
+      cylindrical_cs_z_dir[0], cylindrical_cs_z_dir[1], cylindrical_cs_z_dir[2];
+
+  m_cyl_origin = cylindrical_cs_origin;
+}
+
+template <typename T>
+void HypoHill<T>::compute_Q(RCP<GlobalResidual<T>> global) {
+  if (m_compute_cylindrical_transform) {
+
+    // global coordinates of current material point
+    auto const& x_global = global->pt_global_coords();
+
+    // cylindrical coordinates must be computed from (x - origin)
+    auto const x_rel = x_global - m_cyl_origin;
+
+    // rotate into the local Cartesian frame aligned with the cylindrical system
+    auto const x_local = m_cartesian_lab_to_mat_rotation * x_rel;
+    double const x = x_local(0);
+    double const y = x_local(1);
+    double const theta = std::atan2(y, x);
+
+    // rows of rotation matrix are the local basis vectors expressed in lab coords
+    auto const& e_x = m_cartesian_lab_to_mat_rotation.row(0);
+    auto const& e_y = m_cartesian_lab_to_mat_rotation.row(1);
+    auto const& e_z = m_cartesian_lab_to_mat_rotation.row(2);
+
+    // cylindrical basis at this point, expressed in lab coordinates
+    auto const e_rho   = std::cos(theta) * e_x + std::sin(theta) * e_y;
+    auto const e_theta = -std::sin(theta) * e_x + std::cos(theta) * e_y;
+    auto const& e_zeta = e_z;
+
+    // assemble Q: lab -> material (cylindrical) rotation
+    m_Q(0, 0) = e_rho(0);
+    m_Q(0, 1) = e_rho(1);
+    m_Q(0, 2) = e_rho(2);
+    m_Q(1, 0) = e_theta(0);
+    m_Q(1, 1) = e_theta(1);
+    m_Q(1, 2) = e_theta(2);
+    m_Q(2, 0) = e_zeta(0);
+    m_Q(2, 1) = e_zeta(1);
+    m_Q(2, 2) = e_zeta(2);
+  }
 }
 
 template <typename T>
@@ -66,6 +144,10 @@ HypoHill<T>::HypoHill(ParameterList const& inputs, int ndims) {
   m_max_iters = inputs.get<int>("nonlinear max iters");
   m_abs_tol = inputs.get<double>("nonlinear absolute tol");
   m_rel_tol = inputs.get<double>("nonlinear relative tol");
+
+  if (inputs.isSublist("cylindrical coordinate system points")) {
+    compute_cartesian_lab_to_mat_rotation();
+  }
 
 }
 
@@ -141,8 +223,10 @@ void HypoHill<T>::init_variables_impl() {
 template <typename T>
 Tensor<T> HypoHill<T>::eval_d(RCP<GlobalResidual<T>> global) {
   if (m_kinematics_cached) return m_d;
-  return compute_unrotated_rate_of_deformation(
+  compute_Q(global);
+  Tensor<T> const d_unrotated = compute_unrotated_rate_of_deformation(
       global->F(), global->F_prev(), global->R());
+  return m_Q * d_unrotated * transpose(m_Q);
 }
 
 
@@ -185,7 +269,11 @@ int HypoHill<FADT>::solve_nonlinear(RCP<GlobalResidual<FADT>> global) {
 
   while ((iter <= m_max_iters) && (!converged)) {
 
-    path = this->evaluate(global);
+    if (iter == 1) {
+      path = this->evaluate(global);
+    } else {
+      this->evaluate(global, true, path);
+    }
 
     double const R_norm = this->norm_residual();
     if (iter == 1) R_norm_0 = R_norm;
@@ -309,7 +397,8 @@ template <typename T>
 Tensor<T> HypoHill<T>::rotated_cauchy(RCP<GlobalResidual<T>> global) {
   Tensor<T> const TC = this->sym_tensor_xi(0);
   Tensor<T> const& R = global->R();
-  Tensor<T> const RC = R * TC * transpose(R);
+  compute_Q(global);
+  Tensor<T> const RC = R * transpose(m_Q) * TC * m_Q * transpose(R);
   return RC;
 }
 

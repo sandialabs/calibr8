@@ -72,9 +72,19 @@ class HypoHill : public LocalResidual<T> {
     //! \param global The global residual equations
     Tensor<T> eval_d(RCP<GlobalResidual<T>> global);
 
+    void compute_Q(RCP<GlobalResidual<T>> global);
+    void compute_cartesian_lab_to_mat_rotation();
+
     int m_max_iters;
     double m_abs_tol;
     double m_rel_tol;
+
+    bool m_compute_cylindrical_transform = false;
+    // lab to material cartesian coordinate system transformation matrix
+    Eigen::Matrix3d m_cartesian_lab_to_mat_rotation = Eigen::Matrix3d::Identity(3, 3);
+    Eigen::Vector3d m_cyl_origin;
+    // lab to material cylindrical coordinate system transformation matrix
+    Tensor<T> m_Q = minitensor::eye<T>(3);
 
     Tensor<T> m_d;
     bool m_kinematics_cached = false;

@@ -308,7 +308,8 @@ minitensor::Tensor<T, 3> compute_barlat_normal(
   minitensor::Tensor<T, 6> const L_dp = unflatten_barlat_params(flat_dp_barlat_params);
 
   minitensor::Vector<T, 6> const flat_dphi =
-      L_sp * flatten_stress(sp_normal) + L_dp * flatten_stress(dp_normal);
+      minitensor::transpose(L_sp) * flatten_stress(sp_normal)
+      + minitensor::transpose(L_dp) * flatten_stress(dp_normal);
 
   return unflatten_stress(flat_dphi);
 }

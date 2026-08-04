@@ -38,7 +38,8 @@ Adjoint::Adjoint(RCP<ParameterList> params, RCP<State> state, RCP<Disc> disc) {
   ParameterList& resids = m_params->sublist("residuals", true);
   ParameterList& global = resids.sublist("global residual", true);
 
-  double const belos_tol = 0.1 * global.get<double>("nonlinear relative tol");
+  m_rel_tol = global.get<double>("adjoint relative tol", 1.0e-12);
+  double const belos_tol = 0.1 * m_rel_tol;
 
   m_params_adjoint_lin_alg = lin_alg;
   m_params_adjoint_lin_alg
@@ -84,8 +85,6 @@ void Adjoint::solve_at_step(int step) {
   ParameterList& global = resids.sublist("global residual", true);
   ParameterList& problem_params = m_params->sublist("problem", true);
   int const max_iters = global.get<int>("nonlinear max iters");
-  double const abs_tol = global.get<double>("nonlinear absolute tol");
-  double const rel_tol = global.get<double>("nonlinear relative tol");
   bool const do_print = global.get<bool>("print convergence");
   int const nsteps = m_state->disc->num_time_steps();
 
@@ -141,13 +140,33 @@ void Adjoint::solve_at_step(int step) {
       m_state->la->complete_fill_A(); // complete filling dR_dx
     }
 
+    double const abs_resid_norm = m_state->la->norm_b();
+    if (iter == 1) resid_norm_0 = abs_resid_norm;
+
+    if (resid_norm_0 == 0.) {
+      if (do_print) {
+        print(" > zero rhs --- the adjoint solution is zero");
+        converged = true;
+        break;
+      }
+    }
+
+    double const rel_resid_norm = abs_resid_norm / resid_norm_0;
+    if (do_print) {
+      print(" > absolute ||R|| = %e", abs_resid_norm);
+      print(" > relative ||R|| = %e", rel_resid_norm);
+    }
+    if (rel_resid_norm < m_rel_tol) {
+      converged = true;
+      break;
+    }
+
     // solve the linear system
     calibr8::solve(m_params_adjoint_lin_alg, m_disc, dR_dxT, dx, rhs);
 
     // add the increment to the current solution fields
     m_disc->add_to_soln(eta, dx);
 
-    // check if the residual has converged
     for (int i = 0; i < num_global_resids; ++i) {
       for (int j = 0; j < num_global_resids; ++j) {
         dR_dxT[i][j]->apply(*dx[j], *rhs[i], Teuchos::NO_TRANS, -1., 1.);
@@ -159,24 +178,11 @@ void Adjoint::solve_at_step(int step) {
       dx[i]->putScalar(0.);
     }
 
-    double const abs_resid_norm = m_state->la->norm_b();
-    if (iter == 1) resid_norm_0 = abs_resid_norm;
-    double const rel_resid_norm = abs_resid_norm / resid_norm_0;
-    if (do_print) {
-      print(" > absolute ||R|| = %e", abs_resid_norm);
-      print(" > relative ||R|| = %e", rel_resid_norm);
-    }
-    if ((abs_resid_norm < abs_tol) || (rel_resid_norm < rel_tol)) {
-      converged = true;
-      break;
-    }
-
     iter++;
+  }
 
-    if ((iter > max_iters) && (!converged)) {
-      fail("Newton's method failed in %d iterations", max_iters);
-    }
-
+  if ((iter > max_iters) && (!converged)) {
+    fail("Newton's method failed in %d iterations", max_iters);
   }
 
   solve_adjoint_local(

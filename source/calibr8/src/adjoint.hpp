@@ -41,6 +41,7 @@ class Adjoint {
 
     void initialize_history_vectors();
 
+    double m_rel_tol = 1e-12;
 };
 
 }
