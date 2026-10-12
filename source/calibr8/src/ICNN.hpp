@@ -5,6 +5,7 @@
 
 using RAD_SFADT = Sacado::Rad::ADvar<SFADT>;
 using RAD_DFADT = Sacado::Rad::ADvar<DFADT>;
+using RAD_double = Sacado::Rad::ADvar<double>;
 
 namespace Eigen {
 
@@ -40,6 +41,22 @@ template <> struct NumTraits<RAD_DFADT> : NumTraits<double>
   };
 };
 
+template <> struct NumTraits<RAD_double> : NumTraits<double>
+{
+  typedef RAD_double Real;
+  typedef RAD_double NonInteger;
+  typedef RAD_double Nested;
+  enum {
+    IsComplex = 0,
+    IsInteger = 0,
+    IsSigned = 1,
+    RequireInitialization = 1,
+    ReadCost = 1,
+    AddCost = 3,
+    MulCost = 3
+  };
+};
+
 }
 
 namespace Sacado {
@@ -55,6 +72,12 @@ inline const RAD_DFADT& real(const RAD_DFADT& x)  { return x; }
 inline RAD_DFADT imag(const RAD_DFADT&)    { return 0.; }
 inline RAD_DFADT abs(const RAD_DFADT&  x)  { return fabs(x); }
 inline RAD_DFADT abs2(const RAD_DFADT& x)  { return x*x; }
+
+inline const RAD_double& conj(const RAD_double& x)  { return x; }
+inline const RAD_double& real(const RAD_double& x)  { return x; }
+inline RAD_double imag(const RAD_double&)    { return 0.; }
+inline RAD_double abs(const RAD_double&  x)  { return fabs(x); }
+inline RAD_double abs2(const RAD_double& x)  { return x*x; }
 
 }
 

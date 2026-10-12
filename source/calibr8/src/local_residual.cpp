@@ -3,6 +3,7 @@
 #include "elastic.hpp"
 #include "fad.hpp"
 #include "hybrid_hyper_J2_plane_stress.hpp"
+#include "hybrid_hypo_hill.hpp"
 #include "hyper_J2.hpp"
 #include "hyper_J2_plane_strain.hpp"
 #include "hyper_J2_plane_stress.hpp"
@@ -898,6 +899,8 @@ RCP<LocalResidual<T>> create_local_residual(
     return rcp(new Elastic<T>(params, ndims));
   } else if (type == "hybrid_hyper_J2_plane_stress") {
     return rcp(new HybridHyperJ2PlaneStress<T>(params, ndims));
+  } else if (type == "hybrid_hypo_hill") {
+    return rcp(new HybridHypoHill<T>(params, ndims));
   } else if (type == "hyper_J2") {
     return rcp(new HyperJ2<T>(params, ndims));
   } else if (type == "hyper_J2_plane_strain") {

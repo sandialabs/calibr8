@@ -32,6 +32,37 @@ int ficnn_count(
   return num;
 }
 
+template <class MatrixT, class VectorT>
+void ficnn_seed(
+    int,
+    std::vector<MatrixT>&,
+    std::vector<MatrixT>&,
+    std::vector<VectorT>&) {}
+
+void ficnn_seed(
+    int num_params,
+    std::vector<dfadMatrix>& Wy,
+    std::vector<dfadMatrix>& Wz,
+    std::vector<dfadVector>& b)
+{
+  int idx = 0;
+  for (size_t i = 0; i < Wy.size(); ++i) {
+    for (int j = 0; j < Wy[i].rows(); ++j) {
+      for (int k = 0; k < Wy[i].cols(); ++k) {
+        Wy[i](j,k).diff(idx++, num_params);
+      }
+    }
+    for (int j = 0; j < Wz[i].rows(); ++j) {
+      for (int k = 0; k < Wz[i].cols(); ++k) {
+        Wz[i](j,k).diff(idx++, num_params);
+      }
+    }
+    for (int j = 0; j < b[i].size(); ++j) {
+      b[i](j).diff(idx++, num_params);
+    }
+  }
+}
+
 template <class T>
 FICNN<T>::FICNN(
     const char* act,
@@ -73,6 +104,7 @@ FICNN<T>::FICNN(
   x[end] = Vector(topology[end]);
   params = Vector(ficnn_count(Wz, Wy, b));
   num_params = params.size();
+  ficnn_seed(num_params, Wy, Wz, b);
 }
 
 template <class T>
@@ -88,13 +120,13 @@ typename FICNN<T>::Vector FICNN<T>::f(Vector const& v)
 template <class T>
 typename FICNN<T>::Vector FICNN<T>::evaluate(Vector const& y)
 {
-  x[0] = y; /* just to keep input/output and all internal nodes in same data */
-  x[1] = Wy[0]*y + b[0];
-  for (int i = 1; i < num_vectors-1; ++i) {
-    Vector const tmp = Wz[i]*x[i] + Wy[i]*y + b[i];
-    x[i+1] = f(tmp);
+  int const end = num_vectors - 1;
+  x[0] = y;
+  x[1] = f(Wy[0] * y + b[0]);
+  for (int i = 1; i < end - 1; ++i) {
+    x[i+1] = f(Wz[i] * x[i] + Wy[i] * y + b[i]);
   }
-  int const end = num_vectors-1;
+  x[end] = Wz[end-1] * x[end-1] + Wy[end-1] * y + b[end-1];
   return x[end];
 }
 
@@ -140,6 +172,7 @@ void FICNN<T>::set_params(Vector const& p)
       b[i](j) = params(idx++);
     }
   }
+  ficnn_seed(num_params, Wy, Wz, b);
 }
 
 template class FICNN<double>;
@@ -147,5 +180,6 @@ template class FICNN<SFADT>;
 template class FICNN<DFADT>;
 template class FICNN<RAD_SFADT>;
 template class FICNN<RAD_DFADT>;
+template class FICNN<RAD_double>;
 
 }

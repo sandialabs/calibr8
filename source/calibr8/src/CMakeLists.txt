@@ -22,6 +22,7 @@ set(CALIBR8_SOURCES
   global_residual.cpp
   isotropic_elastic.cpp
   hybrid_hyper_J2_plane_stress.cpp
+  hybrid_hypo_hill.cpp
   hyper_J2.cpp
   hyper_J2_plane_strain.cpp
   hyper_J2_plane_stress.cpp
