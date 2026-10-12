@@ -4,6 +4,7 @@
 #include "fad.hpp"
 #include "global_residual.hpp"
 #include "hypo_hosford.hpp"
+#include "hypo_kinematics.hpp"
 #include "material_params.hpp"
 #include "yield_functions.hpp"
 
@@ -135,18 +136,8 @@ void HypoHosford<T>::init_variables_impl() {
 
 template <typename T>
 Tensor<T> eval_d(RCP<GlobalResidual<T>> global) {
-  int const ndims = global->num_dims();
-  Tensor<T> const I = minitensor::eye<T>(ndims);
-  Tensor<T> const grad_u = global->grad_vector_x(0);
-  Tensor<T> const grad_u_prev = global->grad_vector_x_prev(0);
-  Tensor<T> const F = grad_u + I;
-  Tensor<T> const F_prev = grad_u_prev + I;
-  Tensor<T> const Finv = inverse(F);
-  Tensor<T> const R = minitensor::polar_rotation(F);
-  Tensor<T> const L = (F - F_prev) * Finv;
-  Tensor<T> const D = 0.5 * (L + transpose(L));
-  Tensor<T> const d = transpose(R) * D * R;
-  return d;
+  return compute_unrotated_rate_of_deformation_increment(
+      global->F(), global->F_prev());
 }
 
 

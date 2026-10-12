@@ -224,8 +224,9 @@ template <typename T>
 Tensor<T> HypoHill<T>::eval_d(RCP<GlobalResidual<T>> global) {
   if (m_kinematics_cached) return m_d;
   compute_Q(global);
-  Tensor<T> const d_unrotated = compute_unrotated_rate_of_deformation(
-      global->F(), global->F_prev(), global->R());
+  Tensor<T> const d_unrotated =
+      compute_unrotated_rate_of_deformation_increment(
+          global->F(), global->F_prev());
   return m_Q * d_unrotated * transpose(m_Q);
 }
 

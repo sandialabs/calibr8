@@ -10,6 +10,7 @@ set(CALIBR8_UNIT_TEST_SOURCES
   global_residual.cpp
   nn.cpp
   icnn.cpp
+  hypo_kinematics.cpp
   unit_tests.cpp
 )
 

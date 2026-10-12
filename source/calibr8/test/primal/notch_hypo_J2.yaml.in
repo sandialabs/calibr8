@@ -48,7 +48,7 @@ notch hypo J2:
     type: 'average displacement'
 
   regression:
-    QoI: 7.5441386985803955e-04
+    QoI: 7.54178242847979670e-04
     relative error tol: 1.0e-4
 
   linear algebra:
