@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <list>
 #include <fstream>
 #include <gmi_mesh.h>
@@ -680,6 +681,42 @@ void Disc::create_primal(
     }
   }
   m_primal.push_back(fields);
+}
+
+void Disc::extrapolate_primal_guess(int step, double max_ratio) {
+  if (step < 2) return;
+
+  double const dt = m_time[step] - m_time[step - 1];
+  double const dt_prev = m_time[step - 1] - m_time[step - 2];
+  if (dt_prev <= 0.) return;
+
+  double const ratio = dt / dt_prev;
+  if (!std::isfinite(ratio) || ratio < 0. || ratio > max_ratio) return;
+
+  apf::DynamicArray<apf::Node> nodes;
+  apf::getNodes(m_owned_nmbr, nodes);
+
+  for (int i = 0; i < m_num_residuals; ++i) {
+    apf::Field* f = m_primal[step].global[i];
+    apf::Field* f_prev = m_primal[step - 1].global[i];
+    apf::Field* f_prev_prev = m_primal[step - 2].global[i];
+    int const neqs = m_num_eqs[i];
+    Array1D<double> x(neqs);
+    Array1D<double> x_prev(neqs);
+    Array1D<double> x_prev_prev(neqs);
+    for (size_t n = 0; n < nodes.size(); ++n) {
+      apf::Node const node = nodes[n];
+      apf::MeshEntity* ent = node.entity;
+      int const ent_node = node.node;
+      apf::getComponents(f_prev, ent, ent_node, &(x_prev[0]));
+      apf::getComponents(f_prev_prev, ent, ent_node, &(x_prev_prev[0]));
+      for (int eq = 0; eq < neqs; ++eq) {
+        x[eq] = x_prev[eq] + ratio * (x_prev[eq] - x_prev_prev[eq]);
+      }
+      apf::setComponents(f, ent, ent_node, &(x[0]));
+    }
+    apf::synchronize(f);
+  }
 }
 
 // TODO: add in local residual prolong operation

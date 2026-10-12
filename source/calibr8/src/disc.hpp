@@ -251,6 +251,11 @@ class Disc {
         int step,
         bool use_measured = false);
 
+    //! \brief Extrapolate the current global primal fields from prior steps
+    //! \param step The current load/time step
+    //! \param max_ratio Maximum allowed time step ratio for extrapolation
+    void extrapolate_primal_guess(int step, double max_ratio);
+
     //! \brief Create the fine model primal fields
     //! \param R The global/local residuals defining the problem
     //! \param step The total number of time steps

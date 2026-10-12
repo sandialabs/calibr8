@@ -44,6 +44,10 @@ void Primal::solve_at_step(int step) {
   double const abs_tol = global.get<double>("nonlinear absolute tol");
   double const rel_tol = global.get<double>("nonlinear relative tol");
   bool const do_print = global.get<bool>("print convergence");
+  std::string const initial_guess =
+      global.get<std::string>("initial guess", "extrapolate");
+  double const extrapolation_max_ratio =
+      global.get<double>("extrapolation max ratio", 10.);
   double const t = m_state->disc->time(step);
 
   // print the step information
@@ -52,6 +56,11 @@ void Primal::solve_at_step(int step) {
   // create or grab the the primal fields at this step
   if (m_disc->type() == COARSE || m_disc->type() == TRUTH) {
     m_disc->create_primal(m_state->residuals, step);
+    if (initial_guess == "extrapolate") {
+      m_disc->extrapolate_primal_guess(step, extrapolation_max_ratio);
+    } else if (initial_guess != "previous") {
+      fail("unknown primal initial guess: %s", initial_guess.c_str());
+    }
   }
   Array1D<apf::Field*> x = m_disc->primal(step).global;
   if (m_disc->type() == VERIFICATION) {
